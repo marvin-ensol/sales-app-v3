@@ -1,114 +1,24 @@
 
 import { useState } from "react";
-import { Plus, Filter, Search } from "lucide-react";
+import { Plus, Filter, Search, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskStatus } from "@/types/task";
+import { useHubSpotTasks } from "@/hooks/useHubSpotTasks";
 
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Passez au solaire avec Ensol !",
-    contact: "Annick Texier",
-    status: "a-faire",
-    dueDate: "12/06 à 14:00", // Yesterday - should be overdue
-    priority: "high",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "2",
-    title: "Rappel Prise 1",
-    contact: "Mokhtar Zine El Kalm",
-    status: "a-faire",
-    dueDate: "13/06 à 09:00", // Today morning - should be overdue if it's past 9am
-    priority: "medium",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "3",
-    title: "Rappel Finir",
-    contact: "Gerard Chabot",
-    status: "a-faire",
-    dueDate: "11/06 à 15:30", // Day before yesterday - clearly overdue
-    priority: "medium",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "4",
-    title: "Passez au solaire avec Ensol !",
-    contact: "Alexandre Luminet",
-    status: "a-faire",
-    dueDate: "13/06 à 16:45", // Today evening - may or may not be overdue
-    priority: "high",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "5",
-    title: "Appel manqué",
-    contact: "Luc MIKAILOFF",
-    status: "communications",
-    dueDate: "",
-    priority: "medium",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "6",
-    title: "Tentative 2",
-    contact: "Eric Jakova-Merturi",
-    status: "attempted",
-    dueDate: "",
-    priority: "low",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "7",
-    title: "Tentative 2",
-    contact: "Catherine Solanas",
-    status: "attempted",
-    dueDate: "",
-    priority: "low",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "8",
-    title: "Tentative 2",
-    contact: "Gabriel Tuli",
-    status: "attempted",
-    dueDate: "",
-    priority: "low",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "9",
-    title: "Tentative 2",
-    contact: "Rio Daus",
-    status: "attempted",
-    dueDate: "",
-    priority: "low",
-    owner: "Gauthier Bonder"
-  },
-  {
-    id: "10",
-    title: "Qualified sans tâche future",
-    contact: "Robert Picon",
-    status: "custom",
-    dueDate: "12/06 | P?",
-    priority: "high",
-    owner: "Gauthier Bonder"
-  }
-];
-
+// Define columns based on HubSpot task statuses
 const columns = [
-  { id: "a-faire", title: "À faire", color: "border-green-400 bg-green-50", count: 4 },
-  { id: "communications", title: "Communications", color: "border-blue-400 bg-blue-50", count: 1 },
-  { id: "attempted", title: "Attempted", color: "border-orange-400 bg-orange-50", count: 29 },
-  { id: "custom", title: "Custom", color: "border-purple-400 bg-purple-50", count: 1 }
+  { id: "not_started", title: "Not Started", color: "border-gray-400 bg-gray-50" },
+  { id: "in_progress", title: "In Progress", color: "border-blue-400 bg-blue-50" },
+  { id: "waiting", title: "Waiting", color: "border-orange-400 bg-orange-50" },
+  { id: "completed", title: "Completed", color: "border-green-400 bg-green-50" },
+  { id: "deferred", title: "Deferred", color: "border-purple-400 bg-purple-50" }
 ];
 
 const KanbanBoard = () => {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const { tasks, loading, error, refetch } = useHubSpotTasks();
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredTasks = tasks.filter(task => 
@@ -121,12 +31,24 @@ const KanbanBoard = () => {
   };
 
   const handleTaskMove = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+    // Note: In a real implementation, you'd want to update the task in HubSpot
+    // For now, this is just visual until we implement the update functionality
+    console.log(`Moving task ${taskId} to ${newStatus}`);
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading tasks: {error}</p>
+          <Button onClick={refetch}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -146,11 +68,18 @@ const KanbanBoard = () => {
             <Filter className="h-4 w-4 mr-2" />
             Filter
           </Button>
+          <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
-        </Button>
+        <div className="flex items-center gap-2">
+          {loading && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </div>
       </div>
 
       {/* Kanban Board */}
@@ -170,6 +99,11 @@ const KanbanBoard = () => {
                   onMove={handleTaskMove}
                 />
               ))}
+              {getTasksByStatus(column.id as TaskStatus).length === 0 && !loading && (
+                <div className="text-center text-gray-500 py-8">
+                  No tasks
+                </div>
+              )}
             </div>
           </KanbanColumn>
         ))}

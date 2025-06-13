@@ -1,5 +1,5 @@
 
-export type TaskStatus = "a-faire" | "communications" | "attempted" | "custom";
+export type TaskStatus = "not_started" | "in_progress" | "waiting" | "completed" | "deferred";
 
 export interface Task {
   id: string;
@@ -9,4 +9,5 @@ export interface Task {
   dueDate: string;
   priority: "high" | "medium" | "low";
   owner: string;
+  hubspotId?: string;
 }
