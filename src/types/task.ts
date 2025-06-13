@@ -7,6 +7,7 @@ export interface Task {
   id: string;
   title: string;
   contact: string;
+  contactId: string | null;
   status: TaskStatus;
   dueDate: string;
   priority: "high" | "medium" | "low";

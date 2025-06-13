@@ -24,10 +24,21 @@ const TaskCard = ({ task }: TaskCardProps) => {
     }
   };
 
+  const handleCardClick = () => {
+    if (task.contactId) {
+      // Open HubSpot contact page in new tab
+      const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
+      window.open(hubspotUrl, '_blank');
+    }
+  };
+
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
 
   return (
-    <div className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(task.priority)} p-4 hover:shadow-md transition-shadow cursor-pointer`}>
+    <div 
+      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(task.priority)} p-4 hover:shadow-md transition-shadow cursor-pointer`}
+      onClick={handleCardClick}
+    >
       <div className="space-y-3">
         <h4 className="font-medium text-gray-900 text-sm leading-relaxed">
           {task.title}

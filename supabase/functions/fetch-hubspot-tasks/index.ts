@@ -93,9 +93,12 @@ serve(async (req) => {
       })
     })
 
+    console.log('Contact IDs found:', Array.from(contactIds))
+
     // Fetch contact details if we have contact IDs
     let contacts = {}
     if (contactIds.size > 0) {
+      console.log('Fetching contact details for', contactIds.size, 'contacts')
       const contactsResponse = await fetch(
         `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
         {
@@ -106,17 +109,20 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             inputs: Array.from(contactIds).map(id => ({ id })),
-            properties: ['firstname', 'lastname', 'email']
+            properties: ['firstname', 'lastname', 'email', 'company']
           })
         }
       )
 
       if (contactsResponse.ok) {
         const contactsData = await contactsResponse.json()
+        console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
         contacts = contactsData.results?.reduce((acc: any, contact: any) => {
           acc[contact.id] = contact
           return acc
         }, {}) || {}
+      } else {
+        console.error('Failed to fetch contacts:', await contactsResponse.text())
       }
     }
 
@@ -152,14 +158,28 @@ serve(async (req) => {
       // Get associated contact
       const contactId = task.associations?.contacts?.results?.[0]?.id
       const contact = contactId ? contacts[contactId] : null
-      const contactName = contact 
-        ? `${contact.properties?.firstname || ''} ${contact.properties?.lastname || ''}`.trim() || contact.properties?.email || 'Unknown Contact'
-        : 'No Contact'
+      
+      let contactName = 'No Contact'
+      if (contact) {
+        const firstName = contact.properties?.firstname || ''
+        const lastName = contact.properties?.lastname || ''
+        const email = contact.properties?.email || ''
+        const company = contact.properties?.company || ''
+        
+        if (firstName || lastName) {
+          contactName = `${firstName} ${lastName}`.trim()
+        } else if (email) {
+          contactName = email
+        } else if (company) {
+          contactName = company
+        }
+      }
 
-      // Format due date - fix the date parsing
+      // Format due date
       let dueDate = ''
       if (props.hs_timestamp) {
-        const date = new Date(parseInt(props.hs_timestamp))
+        const timestamp = parseInt(props.hs_timestamp)
+        const date = new Date(timestamp)
         const day = date.getDate().toString().padStart(2, '0')
         const month = (date.getMonth() + 1).toString().padStart(2, '0')
         const hours = date.getHours().toString().padStart(2, '0')
@@ -174,32 +194,25 @@ serve(async (req) => {
         'LOW': 'low'
       }
 
-      // Determine queue based on hs_queue_membership_ids
+      // Determine queue based on hs_queue_membership_ids using correct IDs
       let queue = 'other'
       const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : []
       
-      // Check for specific queue IDs
-      if (queueIds.includes('22859490')) {
-        // Both New and Attempted have the same ID, need to check task subject or other criteria
-        // For now, let's check the task subject to determine if it's "New" or "Attempted"
-        const taskSubject = props.hs_task_subject?.toLowerCase() || ''
-        if (taskSubject.includes('new')) {
-          queue = 'new'
-        } else if (taskSubject.includes('attempted')) {
-          queue = 'attempted'
-        } else {
-          // Default to 'new' for queue ID 22859490 if we can't determine from subject
-          queue = 'new'
-        }
+      // Use the correct queue IDs based on actual data
+      if (queueIds.includes('22859489')) {
+        queue = 'new'
+      } else if (queueIds.includes('22859490')) {
+        queue = 'attempted'
       }
 
-      console.log(`Task: ${props.hs_task_subject}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}`)
+      console.log(`Task: ${props.hs_task_subject}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}, Contact: ${contactName}`)
 
       return {
         id: task.id,
         title: props.hs_task_subject || 'Untitled Task',
         contact: contactName,
-        status: 'not_started',  // All tasks are not_started now
+        contactId: contactId || null,
+        status: 'not_started',
         dueDate,
         priority: priorityMap[props.hs_task_priority] || 'medium',
         owner: ownerName,
