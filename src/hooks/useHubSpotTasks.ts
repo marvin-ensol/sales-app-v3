@@ -18,19 +18,32 @@ export const useHubSpotTasks = () => {
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks');
       
       if (functionError) {
-        throw new Error(functionError.message);
+        console.error('Supabase function error:', functionError);
+        throw new Error(`Function call failed: ${functionError.message}`);
       }
       
       if (data?.error) {
-        throw new Error(data.error);
+        console.error('HubSpot API error:', data.error);
+        throw new Error(`HubSpot API error: ${data.error}`);
       }
       
-      console.log('Tasks received:', data?.tasks?.length || 0);
+      if (!data?.success) {
+        console.error('Function returned unsuccessful response:', data);
+        throw new Error('Failed to fetch tasks from HubSpot');
+      }
+      
+      console.log('Tasks received successfully:', data?.tasks?.length || 0);
       setTasks(data?.tasks || []);
       
     } catch (err) {
       console.error('Error fetching HubSpot tasks:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
+      let errorMessage = 'Failed to fetch tasks';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setTasks([]);
     } finally {
       setLoading(false);
@@ -40,8 +53,8 @@ export const useHubSpotTasks = () => {
   useEffect(() => {
     fetchTasks();
     
-    // Set up polling every 10 seconds
-    const interval = setInterval(fetchTasks, 10000);
+    // Set up polling every 30 seconds (reduced from 10 seconds to be more reasonable)
+    const interval = setInterval(fetchTasks, 30000);
     
     return () => clearInterval(interval);
   }, []);

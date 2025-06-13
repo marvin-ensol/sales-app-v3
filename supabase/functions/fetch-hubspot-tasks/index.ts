@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -12,11 +11,16 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting HubSpot tasks fetch...')
+    
     const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
     
     if (!hubspotToken) {
-      throw new Error('HubSpot access token not found')
+      console.error('HubSpot access token not found in environment variables')
+      throw new Error('HubSpot access token not configured. Please check your environment variables.')
     }
+
+    console.log('HubSpot token found, proceeding with API calls...')
 
     // Get today's date in ISO format for filtering
     const today = new Date()
@@ -62,11 +66,13 @@ serve(async (req) => {
     )
 
     if (!tasksResponse.ok) {
-      throw new Error(`HubSpot API error: ${tasksResponse.status}`)
+      const errorText = await tasksResponse.text()
+      console.error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
+      throw new Error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
     }
 
     const tasksData = await tasksResponse.json()
-    console.log('Tasks fetched:', tasksData.results?.length || 0)
+    console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
 
     // Get unique contact IDs from task associations
     const contactIds = new Set()
@@ -183,10 +189,13 @@ serve(async (req) => {
       }
     }) || []
 
+    console.log('Transformed tasks successfully:', transformedTasks.length)
+
     return new Response(
       JSON.stringify({ 
         tasks: transformedTasks,
-        total: tasksData.total || 0
+        total: tasksData.total || 0,
+        success: true
       }),
       { 
         headers: { 
@@ -197,12 +206,13 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error fetching HubSpot tasks:', error)
+    console.error('Error in fetch-hubspot-tasks function:', error)
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error.message || 'Unknown error occurred',
         tasks: [],
-        total: 0
+        total: 0,
+        success: false
       }),
       { 
         status: 500, 
