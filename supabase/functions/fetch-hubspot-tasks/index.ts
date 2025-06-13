@@ -185,7 +185,11 @@ serve(async (req) => {
       ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
       : 'Unassigned'
 
-    // Transform tasks to our format
+    // Get current date for filtering
+    const currentDate = new Date()
+    currentDate.setHours(23, 59, 59, 999) // End of current day
+
+    // Transform tasks to our format and filter by due date
     const transformedTasks = tasksData.results?.map((task: any) => {
       const props = task.properties
       
@@ -213,10 +217,14 @@ serve(async (req) => {
 
       // Format due date - hs_timestamp is in ISO format, convert to GMT+2 (Paris time)
       let dueDate = ''
+      let taskDueDate = null
       if (props.hs_timestamp) {
         console.log('Raw timestamp:', props.hs_timestamp)
         const date = new Date(props.hs_timestamp)
         console.log('Parsed date UTC:', date)
+        
+        // Store the actual due date for filtering
+        taskDueDate = date
         
         // Convert to GMT+2 (Paris time)
         const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000)) // Add 2 hours for GMT+2
@@ -258,20 +266,25 @@ serve(async (req) => {
         contactId: contactId || null,
         status: 'not_started',
         dueDate,
+        taskDueDate, // Store the actual date for filtering
         priority: priorityMap[props.hs_task_priority] || 'medium',
         owner: ownerName,
         hubspotId: task.id,
         queue: queue,
         queueIds: queueIds
       }
+    }).filter((task: any) => {
+      // Only include tasks that are due today or overdue
+      if (!task.taskDueDate) return false
+      return task.taskDueDate <= currentDate
     }) || []
 
-    console.log('Transformed tasks successfully:', transformedTasks.length)
+    console.log('Transformed and filtered tasks successfully:', transformedTasks.length)
 
     return new Response(
       JSON.stringify({ 
-        tasks: transformedTasks,
-        total: tasksData.total || 0,
+        tasks: transformedTasks.map(({ taskDueDate, ...task }) => task), // Remove taskDueDate from response
+        total: transformedTasks.length,
         success: true
       }),
       { 

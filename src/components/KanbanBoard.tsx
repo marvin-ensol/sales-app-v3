@@ -18,6 +18,7 @@ const columns = [
 const KanbanBoard = () => {
   const { tasks, loading, error, refetch } = useHubSpotTasks();
   const [searchTerm, setSearchTerm] = useState("");
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -32,6 +33,16 @@ const KanbanBoard = () => {
     // Note: In a real implementation, you'd want to update the task queue in HubSpot
     // For now, this is just visual until we implement the update functionality
     console.log(`Moving task ${taskId} to ${newQueue} queue`);
+  };
+
+  const toggleColumnCollapse = (columnId: string) => {
+    const newCollapsed = new Set(collapsedColumns);
+    if (newCollapsed.has(columnId)) {
+      newCollapsed.delete(columnId);
+    } else {
+      newCollapsed.add(columnId);
+    }
+    setCollapsedColumns(newCollapsed);
   };
 
   if (error) {
@@ -74,7 +85,7 @@ const KanbanBoard = () => {
         <div className="flex items-center gap-2">
           {loading && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
           <span className="text-sm text-gray-600">
-            Owner: 1288346562 | Status: Not Started
+            Owner: 1288346562 | Status: Not Started | Due: Today or Earlier
           </span>
           <Button>
             <Plus className="h-4 w-4 mr-2" />
@@ -91,6 +102,8 @@ const KanbanBoard = () => {
             title={column.title}
             color={column.color}
             count={getTasksByQueue(column.id as TaskQueue).length}
+            isCollapsed={collapsedColumns.has(column.id)}
+            onToggleCollapse={() => toggleColumnCollapse(column.id)}
           >
             <div className="space-y-3">
               {getTasksByQueue(column.id as TaskQueue).map((task) => (
