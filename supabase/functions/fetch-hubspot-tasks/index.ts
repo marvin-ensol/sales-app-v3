@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -29,7 +30,7 @@ serve(async (req) => {
 
     console.log('Fetching tasks modified today:', todayISO)
 
-    // Fetch tasks modified today
+    // Fetch tasks modified today, filtered by owner and status
     const tasksResponse = await fetch(
       `https://api.hubapi.com/crm/v3/objects/tasks/search`,
       {
@@ -46,6 +47,16 @@ serve(async (req) => {
                   propertyName: 'hs_lastmodifieddate',
                   operator: 'GTE',
                   value: todayISO
+                },
+                {
+                  propertyName: 'hubspot_owner_id',
+                  operator: 'EQ',
+                  value: '1288346562'
+                },
+                {
+                  propertyName: 'hs_task_status',
+                  operator: 'EQ',
+                  value: 'NOT_STARTED'
                 }
               ]
             }
@@ -57,7 +68,7 @@ serve(async (req) => {
             'hs_task_type',
             'hs_timestamp',
             'hubspot_owner_id',
-            'associations'
+            'hs_queue_membership_ids'
           ],
           associations: ['contacts'],
           limit: 100
@@ -109,38 +120,30 @@ serve(async (req) => {
       }
     }
 
-    // Get owner details
-    const ownerIds = new Set()
-    tasksData.results?.forEach((task: any) => {
-      if (task.properties.hubspot_owner_id) {
-        ownerIds.add(task.properties.hubspot_owner_id)
+    // Get owner details (though we know it's owner 1288346562)
+    let owner = null
+    const ownersResponse = await fetch(
+      `https://api.hubapi.com/crm/v3/owners/batch/read`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hubspotToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: [{ id: '1288346562' }]
+        })
       }
-    })
+    )
 
-    let owners = {}
-    if (ownerIds.size > 0) {
-      const ownersResponse = await fetch(
-        `https://api.hubapi.com/crm/v3/owners/batch/read`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${hubspotToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: Array.from(ownerIds).map(id => ({ id }))
-          })
-        }
-      )
-
-      if (ownersResponse.ok) {
-        const ownersData = await ownersResponse.json()
-        owners = ownersData.results?.reduce((acc: any, owner: any) => {
-          acc[owner.id] = owner
-          return acc
-        }, {}) || {}
-      }
+    if (ownersResponse.ok) {
+      const ownersData = await ownersResponse.json()
+      owner = ownersData.results?.[0]
     }
+
+    const ownerName = owner 
+      ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
+      : 'Unassigned'
 
     // Transform tasks to our format
     const transformedTasks = tasksData.results?.map((task: any) => {
@@ -152,12 +155,6 @@ serve(async (req) => {
       const contactName = contact 
         ? `${contact.properties?.firstname || ''} ${contact.properties?.lastname || ''}`.trim() || contact.properties?.email || 'Unknown Contact'
         : 'No Contact'
-
-      // Get owner
-      const owner = owners[props.hubspot_owner_id]
-      const ownerName = owner 
-        ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
-        : 'Unassigned'
 
       // Format due date
       let dueDate = ''
@@ -177,15 +174,27 @@ serve(async (req) => {
         'LOW': 'low'
       }
 
+      // Determine queue based on hs_queue_membership_ids
+      let queue = 'other'
+      const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : []
+      
+      if (queueIds.includes('22859490')) {
+        queue = 'new'  // This is both New and Attempted - we'll need to determine which one
+      } else if (queueIds.includes('22859491')) {  // Assuming this is the Attempted queue ID
+        queue = 'attempted'
+      }
+
       return {
         id: task.id,
         title: props.hs_task_subject || 'Untitled Task',
         contact: contactName,
-        status: props.hs_task_status?.toLowerCase() || 'not_started',
+        status: 'not_started',  // All tasks are not_started now
         dueDate,
         priority: priorityMap[props.hs_task_priority] || 'medium',
         owner: ownerName,
-        hubspotId: task.id
+        hubspotId: task.id,
+        queue: queue,
+        queueIds: queueIds
       }
     }) || []
 

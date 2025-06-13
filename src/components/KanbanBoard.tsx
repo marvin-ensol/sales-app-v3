@@ -5,16 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
-import { Task, TaskStatus } from "@/types/task";
+import { Task, TaskQueue } from "@/types/task";
 import { useHubSpotTasks } from "@/hooks/useHubSpotTasks";
 
-// Define columns based on HubSpot task statuses
+// Define columns based on task queues
 const columns = [
-  { id: "not_started", title: "Not Started", color: "border-gray-400 bg-gray-50" },
-  { id: "in_progress", title: "In Progress", color: "border-blue-400 bg-blue-50" },
-  { id: "waiting", title: "Waiting", color: "border-orange-400 bg-orange-50" },
-  { id: "completed", title: "Completed", color: "border-green-400 bg-green-50" },
-  { id: "deferred", title: "Deferred", color: "border-purple-400 bg-purple-50" }
+  { id: "new", title: "New", color: "border-blue-400 bg-blue-50" },
+  { id: "attempted", title: "Attempted", color: "border-orange-400 bg-orange-50" },
+  { id: "other", title: "Other", color: "border-gray-400 bg-gray-50" }
 ];
 
 const KanbanBoard = () => {
@@ -26,14 +24,14 @@ const KanbanBoard = () => {
     task.contact.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getTasksByStatus = (status: TaskStatus) => {
-    return filteredTasks.filter(task => task.status === status);
+  const getTasksByQueue = (queue: TaskQueue) => {
+    return filteredTasks.filter(task => task.queue === queue);
   };
 
-  const handleTaskMove = (taskId: string, newStatus: TaskStatus) => {
-    // Note: In a real implementation, you'd want to update the task in HubSpot
+  const handleTaskMove = (taskId: string, newQueue: TaskQueue) => {
+    // Note: In a real implementation, you'd want to update the task queue in HubSpot
     // For now, this is just visual until we implement the update functionality
-    console.log(`Moving task ${taskId} to ${newStatus}`);
+    console.log(`Moving task ${taskId} to ${newQueue} queue`);
   };
 
   if (error) {
@@ -75,6 +73,9 @@ const KanbanBoard = () => {
         </div>
         <div className="flex items-center gap-2">
           {loading && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
+          <span className="text-sm text-gray-600">
+            Owner: 1288346562 | Status: Not Started
+          </span>
           <Button>
             <Plus className="h-4 w-4 mr-2" />
             Add Task
@@ -89,17 +90,17 @@ const KanbanBoard = () => {
             key={column.id}
             title={column.title}
             color={column.color}
-            count={getTasksByStatus(column.id as TaskStatus).length}
+            count={getTasksByQueue(column.id as TaskQueue).length}
           >
             <div className="space-y-3">
-              {getTasksByStatus(column.id as TaskStatus).map((task) => (
+              {getTasksByQueue(column.id as TaskQueue).map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
-                  onMove={handleTaskMove}
+                  onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
                 />
               ))}
-              {getTasksByStatus(column.id as TaskStatus).length === 0 && !loading && (
+              {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (
                 <div className="text-center text-gray-500 py-8">
                   No tasks
                 </div>
