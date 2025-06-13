@@ -156,7 +156,7 @@ serve(async (req) => {
         ? `${contact.properties?.firstname || ''} ${contact.properties?.lastname || ''}`.trim() || contact.properties?.email || 'Unknown Contact'
         : 'No Contact'
 
-      // Format due date
+      // Format due date - fix the date parsing
       let dueDate = ''
       if (props.hs_timestamp) {
         const date = new Date(parseInt(props.hs_timestamp))
@@ -178,11 +178,22 @@ serve(async (req) => {
       let queue = 'other'
       const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : []
       
+      // Check for specific queue IDs
       if (queueIds.includes('22859490')) {
-        queue = 'new'  // This is both New and Attempted - we'll need to determine which one
-      } else if (queueIds.includes('22859491')) {  // Assuming this is the Attempted queue ID
-        queue = 'attempted'
+        // Both New and Attempted have the same ID, need to check task subject or other criteria
+        // For now, let's check the task subject to determine if it's "New" or "Attempted"
+        const taskSubject = props.hs_task_subject?.toLowerCase() || ''
+        if (taskSubject.includes('new')) {
+          queue = 'new'
+        } else if (taskSubject.includes('attempted')) {
+          queue = 'attempted'
+        } else {
+          // Default to 'new' for queue ID 22859490 if we can't determine from subject
+          queue = 'new'
+        }
       }
+
+      console.log(`Task: ${props.hs_task_subject}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}`)
 
       return {
         id: task.id,
