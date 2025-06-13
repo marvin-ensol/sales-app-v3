@@ -21,7 +21,10 @@ const KanbanColumn = ({
   return (
     <div className={`flex-shrink-0 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'}`}>
       <div className={`rounded-lg border-2 ${color} min-h-[600px] h-full`}>
-        <div className="p-4 border-b border-gray-200">
+        <div 
+          className="p-4 border-b border-gray-200 cursor-pointer" 
+          onClick={onToggleCollapse}
+        >
           <div className="flex items-center justify-between">
             {isCollapsed ? (
               <div className="flex flex-col items-center">
@@ -42,10 +45,7 @@ const KanbanColumn = ({
             )}
           </div>
         </div>
-        <div 
-          className="p-4 cursor-pointer" 
-          onClick={onToggleCollapse}
-        >
+        <div className="p-4">
           {!isCollapsed && children}
         </div>
       </div>

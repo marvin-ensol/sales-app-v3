@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -63,6 +62,7 @@ serve(async (req) => {
           ],
           properties: [
             'hs_task_subject',
+            'hs_task_body',
             'hs_task_status',
             'hs_task_priority',
             'hs_task_type',
@@ -262,6 +262,7 @@ serve(async (req) => {
       return {
         id: task.id,
         title: props.hs_task_subject || 'Untitled Task',
+        description: props.hs_task_body || undefined,
         contact: contactName,
         contactId: contactId || null,
         status: 'not_started',
