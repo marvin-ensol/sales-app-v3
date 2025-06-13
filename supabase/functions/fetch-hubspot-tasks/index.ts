@@ -70,7 +70,6 @@ serve(async (req) => {
             'hubspot_owner_id',
             'hs_queue_membership_ids'
           ],
-          associations: ['contacts'],
           limit: 100
         })
       }
@@ -84,28 +83,49 @@ serve(async (req) => {
 
     const tasksData = await tasksResponse.json()
     console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
-    console.log('Full task data:', JSON.stringify(tasksData, null, 2))
 
-    // Get unique contact IDs from task associations
-    const contactIds = new Set()
-    tasksData.results?.forEach((task: any) => {
-      console.log(`Task ${task.id} associations:`, JSON.stringify(task.associations, null, 2))
-      // Try different possible association structures
-      if (task.associations?.contacts?.results) {
-        task.associations.contacts.results.forEach((contact: any) => {
-          console.log('Found contact ID from results:', contact.id)
-          contactIds.add(contact.id)
-        })
-      }
-      // Also check if associations are directly in the contacts property
-      if (task.associations?.contacts && Array.isArray(task.associations.contacts)) {
-        task.associations.contacts.forEach((contact: any) => {
-          console.log('Found contact ID from array:', contact.id)
-          contactIds.add(contact.id)
-        })
-      }
-    })
+    // Get task associations using the Associations API
+    const taskIds = tasksData.results?.map((task: any) => task.id) || []
+    console.log('Task IDs for association lookup:', taskIds)
 
+    let taskContactMap: { [key: string]: string } = {}
+    
+    if (taskIds.length > 0) {
+      // Fetch associations for all tasks
+      const associationsResponse = await fetch(
+        `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: taskIds.map(id => ({ id }))
+          })
+        }
+      )
+
+      if (associationsResponse.ok) {
+        const associationsData = await associationsResponse.json()
+        console.log('Associations fetched successfully:', JSON.stringify(associationsData, null, 2))
+        
+        // Build task-to-contact mapping
+        associationsData.results?.forEach((result: any) => {
+          if (result.to && result.to.length > 0) {
+            taskContactMap[result.from.id] = result.to[0].id
+            console.log(`Task ${result.from.id} associated with contact ${result.to[0].id}`)
+          }
+        })
+      } else {
+        console.error('Failed to fetch associations:', await associationsResponse.text())
+      }
+    }
+
+    console.log('Task-Contact mapping:', taskContactMap)
+
+    // Get unique contact IDs from associations
+    const contactIds = new Set(Object.values(taskContactMap))
     console.log('Contact IDs found:', Array.from(contactIds))
 
     // Fetch contact details if we have contact IDs
@@ -130,7 +150,6 @@ serve(async (req) => {
       if (contactsResponse.ok) {
         const contactsData = await contactsResponse.json()
         console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
-        console.log('Contact data:', JSON.stringify(contactsData, null, 2))
         contacts = contactsData.results?.reduce((acc: any, contact: any) => {
           acc[contact.id] = contact
           return acc
@@ -169,14 +188,8 @@ serve(async (req) => {
     const transformedTasks = tasksData.results?.map((task: any) => {
       const props = task.properties
       
-      // Get associated contact - try multiple structures
-      let contactId = null
-      if (task.associations?.contacts?.results?.[0]?.id) {
-        contactId = task.associations.contacts.results[0].id
-      } else if (task.associations?.contacts?.[0]?.id) {
-        contactId = task.associations.contacts[0].id
-      }
-      
+      // Get associated contact from our mapping
+      const contactId = taskContactMap[task.id] || null
       const contact = contactId ? contacts[contactId] : null
       
       let contactName = 'No Contact'
@@ -195,12 +208,11 @@ serve(async (req) => {
         }
       }
 
-      // Format due date - hs_timestamp is in milliseconds
+      // Format due date - hs_timestamp is in ISO format
       let dueDate = ''
       if (props.hs_timestamp) {
         console.log('Raw timestamp:', props.hs_timestamp)
-        const timestamp = parseInt(props.hs_timestamp)
-        const date = new Date(timestamp)
+        const date = new Date(props.hs_timestamp)
         console.log('Parsed date:', date)
         
         // Format as DD/MM à HH:MM
