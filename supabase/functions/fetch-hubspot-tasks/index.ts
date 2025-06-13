@@ -110,11 +110,11 @@ serve(async (req) => {
         const associationsData = await associationsResponse.json()
         console.log('Associations fetched successfully:', JSON.stringify(associationsData, null, 2))
         
-        // Build task-to-contact mapping
+        // Build task-to-contact mapping - use toObjectId instead of id
         associationsData.results?.forEach((result: any) => {
           if (result.to && result.to.length > 0) {
-            taskContactMap[result.from.id] = result.to[0].id
-            console.log(`Task ${result.from.id} associated with contact ${result.to[0].id}`)
+            taskContactMap[result.from.id] = result.to[0].toObjectId
+            console.log(`Task ${result.from.id} associated with contact ${result.to[0].toObjectId}`)
           }
         })
       } else {
@@ -150,6 +150,7 @@ serve(async (req) => {
       if (contactsResponse.ok) {
         const contactsData = await contactsResponse.json()
         console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
+        console.log('Contact details:', JSON.stringify(contactsData.results, null, 2))
         contacts = contactsData.results?.reduce((acc: any, contact: any) => {
           acc[contact.id] = contact
           return acc
@@ -199,6 +200,8 @@ serve(async (req) => {
         const email = contact.properties?.email || ''
         const company = contact.properties?.company || ''
         
+        console.log(`Contact ${contactId} details:`, { firstName, lastName, email, company })
+        
         if (firstName || lastName) {
           contactName = `${firstName} ${lastName}`.trim()
         } else if (email) {
@@ -208,20 +211,24 @@ serve(async (req) => {
         }
       }
 
-      // Format due date - hs_timestamp is in ISO format
+      // Format due date - hs_timestamp is in ISO format, convert to GMT+2 (Paris time)
       let dueDate = ''
       if (props.hs_timestamp) {
         console.log('Raw timestamp:', props.hs_timestamp)
         const date = new Date(props.hs_timestamp)
-        console.log('Parsed date:', date)
+        console.log('Parsed date UTC:', date)
         
-        // Format as DD/MM à HH:MM
-        const day = date.getDate().toString().padStart(2, '0')
-        const month = (date.getMonth() + 1).toString().padStart(2, '0')
-        const hours = date.getHours().toString().padStart(2, '0')
-        const minutes = date.getMinutes().toString().padStart(2, '0')
+        // Convert to GMT+2 (Paris time)
+        const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000)) // Add 2 hours for GMT+2
+        console.log('Paris date:', parisDate)
+        
+        // Format as DD/MM à HH:MM in Paris time
+        const day = parisDate.getUTCDate().toString().padStart(2, '0')
+        const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0')
+        const hours = parisDate.getUTCHours().toString().padStart(2, '0')
+        const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0')
         dueDate = `${day}/${month} à ${hours}:${minutes}`
-        console.log('Formatted due date:', dueDate)
+        console.log('Formatted due date (GMT+2):', dueDate)
       }
 
       // Map priority
