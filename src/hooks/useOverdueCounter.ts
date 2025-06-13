@@ -31,6 +31,12 @@ export const useOverdueCounter = (dueDate: string) => {
       const now = new Date();
       const diff = now.getTime() - dueDateObj.getTime();
       
+      // Debug logging
+      console.log(`Task due: ${dueDate}`);
+      console.log(`Parsed date: ${dueDateObj}`);
+      console.log(`Current time: ${now}`);
+      console.log(`Diff (ms): ${diff}`);
+      
       if (diff > 0) {
         // Task is overdue
         setIsOverdue(true);
@@ -40,7 +46,9 @@ export const useOverdueCounter = (dueDate: string) => {
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
         
-        setCounter(`+${hours}h ${minutes}m ${seconds}s`);
+        const counterText = `+${hours}h ${minutes}m ${seconds}s`;
+        console.log(`Counter: ${counterText}`);
+        setCounter(counterText);
       } else {
         setIsOverdue(false);
         setCounter('');

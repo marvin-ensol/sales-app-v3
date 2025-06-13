@@ -13,7 +13,7 @@ const initialTasks: Task[] = [
     title: "Passez au solaire avec Ensol !",
     contact: "Annick Texier",
     status: "a-faire",
-    dueDate: "13/06 à 15:00",
+    dueDate: "12/06 à 14:00", // Yesterday - should be overdue
     priority: "high",
     owner: "Gauthier Bonder"
   },
@@ -22,7 +22,7 @@ const initialTasks: Task[] = [
     title: "Rappel Prise 1",
     contact: "Mokhtar Zine El Kalm",
     status: "a-faire",
-    dueDate: "13/06 à 15:30",
+    dueDate: "13/06 à 09:00", // Today morning - should be overdue if it's past 9am
     priority: "medium",
     owner: "Gauthier Bonder"
   },
@@ -31,7 +31,7 @@ const initialTasks: Task[] = [
     title: "Rappel Finir",
     contact: "Gerard Chabot",
     status: "a-faire",
-    dueDate: "13/06 à 15:30",
+    dueDate: "11/06 à 15:30", // Day before yesterday - clearly overdue
     priority: "medium",
     owner: "Gauthier Bonder"
   },
@@ -40,7 +40,7 @@ const initialTasks: Task[] = [
     title: "Passez au solaire avec Ensol !",
     contact: "Alexandre Luminet",
     status: "a-faire",
-    dueDate: "13/06 à 16:45",
+    dueDate: "13/06 à 16:45", // Today evening - may or may not be overdue
     priority: "high",
     owner: "Gauthier Bonder"
   },
