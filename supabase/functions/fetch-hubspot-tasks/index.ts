@@ -84,13 +84,26 @@ serve(async (req) => {
 
     const tasksData = await tasksResponse.json()
     console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
+    console.log('Full task data:', JSON.stringify(tasksData, null, 2))
 
     // Get unique contact IDs from task associations
     const contactIds = new Set()
     tasksData.results?.forEach((task: any) => {
-      task.associations?.contacts?.results?.forEach((contact: any) => {
-        contactIds.add(contact.id)
-      })
+      console.log(`Task ${task.id} associations:`, JSON.stringify(task.associations, null, 2))
+      // Try different possible association structures
+      if (task.associations?.contacts?.results) {
+        task.associations.contacts.results.forEach((contact: any) => {
+          console.log('Found contact ID from results:', contact.id)
+          contactIds.add(contact.id)
+        })
+      }
+      // Also check if associations are directly in the contacts property
+      if (task.associations?.contacts && Array.isArray(task.associations.contacts)) {
+        task.associations.contacts.forEach((contact: any) => {
+          console.log('Found contact ID from array:', contact.id)
+          contactIds.add(contact.id)
+        })
+      }
     })
 
     console.log('Contact IDs found:', Array.from(contactIds))
@@ -117,6 +130,7 @@ serve(async (req) => {
       if (contactsResponse.ok) {
         const contactsData = await contactsResponse.json()
         console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
+        console.log('Contact data:', JSON.stringify(contactsData, null, 2))
         contacts = contactsData.results?.reduce((acc: any, contact: any) => {
           acc[contact.id] = contact
           return acc
@@ -155,8 +169,14 @@ serve(async (req) => {
     const transformedTasks = tasksData.results?.map((task: any) => {
       const props = task.properties
       
-      // Get associated contact
-      const contactId = task.associations?.contacts?.results?.[0]?.id
+      // Get associated contact - try multiple structures
+      let contactId = null
+      if (task.associations?.contacts?.results?.[0]?.id) {
+        contactId = task.associations.contacts.results[0].id
+      } else if (task.associations?.contacts?.[0]?.id) {
+        contactId = task.associations.contacts[0].id
+      }
+      
       const contact = contactId ? contacts[contactId] : null
       
       let contactName = 'No Contact'
@@ -175,16 +195,21 @@ serve(async (req) => {
         }
       }
 
-      // Format due date
+      // Format due date - hs_timestamp is in milliseconds
       let dueDate = ''
       if (props.hs_timestamp) {
+        console.log('Raw timestamp:', props.hs_timestamp)
         const timestamp = parseInt(props.hs_timestamp)
         const date = new Date(timestamp)
+        console.log('Parsed date:', date)
+        
+        // Format as DD/MM à HH:MM
         const day = date.getDate().toString().padStart(2, '0')
         const month = (date.getMonth() + 1).toString().padStart(2, '0')
         const hours = date.getHours().toString().padStart(2, '0')
         const minutes = date.getMinutes().toString().padStart(2, '0')
         dueDate = `${day}/${month} à ${hours}:${minutes}`
+        console.log('Formatted due date:', dueDate)
       }
 
       // Map priority
@@ -198,14 +223,14 @@ serve(async (req) => {
       let queue = 'other'
       const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : []
       
-      // Use the correct queue IDs based on actual data
+      // Use the correct queue IDs: 22859489 for new, 22859490 for attempted
       if (queueIds.includes('22859489')) {
         queue = 'new'
       } else if (queueIds.includes('22859490')) {
         queue = 'attempted'
       }
 
-      console.log(`Task: ${props.hs_task_subject}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}, Contact: ${contactName}`)
+      console.log(`Task: ${props.hs_task_subject}, Contact ID: ${contactId}, Contact: ${contactName}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}`)
 
       return {
         id: task.id,
