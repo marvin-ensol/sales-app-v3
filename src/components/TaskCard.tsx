@@ -1,5 +1,6 @@
 
-import { Clock, User } from "lucide-react";
+import { useState } from "react";
+import { Clock, User, ChevronDown, ChevronUp } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 
@@ -10,6 +11,7 @@ interface TaskCardProps {
 
 const TaskCard = ({ task }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
+  const [showDescription, setShowDescription] = useState(false);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -24,12 +26,22 @@ const TaskCard = ({ task }: TaskCardProps) => {
     }
   };
 
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent navigation when clicking on description toggle
+    if ((e.target as HTMLElement).closest('[data-description-toggle]')) {
+      return;
+    }
+    
     if (task.contactId) {
       // Open HubSpot contact page in new tab
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
       window.open(hubspotUrl, '_blank');
     }
+  };
+
+  const handleDescriptionToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDescription(!showDescription);
   };
 
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
@@ -70,6 +82,28 @@ const TaskCard = ({ task }: TaskCardProps) => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {task.description && (
+          <div className="space-y-1">
+            <div 
+              className="flex items-center text-sm text-gray-600 cursor-pointer hover:text-gray-800"
+              onClick={handleDescriptionToggle}
+              data-description-toggle
+            >
+              <span className="font-medium">Description</span>
+              {showDescription ? (
+                <ChevronUp className="h-3 w-3 ml-2 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="h-3 w-3 ml-2 flex-shrink-0" />
+              )}
+            </div>
+            {showDescription && (
+              <div className="text-sm text-gray-700 ml-0 mt-2 p-2 bg-gray-50 rounded">
+                {task.description}
+              </div>
+            )}
           </div>
         )}
       </div>

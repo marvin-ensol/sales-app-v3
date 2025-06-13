@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Plus, Filter, Search, RefreshCw } from "lucide-react";
+import { Filter, Search, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import KanbanColumn from "./KanbanColumn";
@@ -87,10 +87,6 @@ const KanbanBoard = () => {
           <span className="text-sm text-gray-600">
             Owner: 1288346562 | Status: Not Started | Due: Today or Earlier
           </span>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Task
-          </Button>
         </div>
       </div>
 
