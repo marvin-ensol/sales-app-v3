@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
@@ -47,7 +46,10 @@ const TaskCard = ({ task, onMove, showOwner }: TaskCardProps) => {
     }
     if (task.contactId) {
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
-      window.open(hubspotUrl, '_blank');
+      // Dispatch custom event to update the frame
+      window.dispatchEvent(new CustomEvent('frameUrlChange', {
+        detail: { url: hubspotUrl }
+      }));
     }
   };
 
@@ -55,7 +57,10 @@ const TaskCard = ({ task, onMove, showOwner }: TaskCardProps) => {
     e.stopPropagation();
     if (task.contactId && task.hubspotId) {
       const taskDetailsUrl = `https://app-eu1.hubspot.com/contacts/142467012/contact/${task.contactId}/?engagement=${task.hubspotId}`;
-      window.open(taskDetailsUrl, '_blank');
+      // Dispatch custom event to update the frame
+      window.dispatchEvent(new CustomEvent('frameUrlChange', {
+        detail: { url: taskDetailsUrl }
+      }));
     }
   };
 
