@@ -22,7 +22,7 @@ const KanbanBoard = () => {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
   
-  const { owners, loading: ownersLoading } = useHubSpotOwners();
+  const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
   const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId === "all" ? undefined : selectedOwnerId);
 
   const filteredTasks = tasks.filter(task => 
@@ -50,12 +50,17 @@ const KanbanBoard = () => {
     setCollapsedColumns(newCollapsed);
   };
 
+  const handleRefresh = () => {
+    refetch();
+    refetchOwners();
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <p className="text-red-600 mb-4">Error loading tasks: {error}</p>
-          <Button onClick={refetch}>
+          <Button onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Retry
           </Button>
@@ -95,8 +100,8 @@ const KanbanBoard = () => {
             <Filter className="h-4 w-4 mr-2" />
             Filter
           </Button>
-          <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading || ownersLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>

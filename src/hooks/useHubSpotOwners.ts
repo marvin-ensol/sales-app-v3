@@ -59,6 +59,11 @@ export const useHubSpotOwners = () => {
 
   useEffect(() => {
     fetchOwners();
+    
+    // Set up polling every 6 hours (6 * 60 * 60 * 1000 ms = 21,600,000 ms)
+    const interval = setInterval(fetchOwners, 6 * 60 * 60 * 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   return {
