@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 interface TaskFilterParams {
-  ownerId?: string;
+  ownerId: string;
   hubspotToken: string;
 }
 
@@ -35,26 +35,20 @@ interface HubSpotOwner {
 }
 
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
-  console.log('Owner filter:', ownerId || 'none (ALL OWNERS)');
+  console.log('Fetching tasks for owner:', ownerId);
 
   const filters = [
     {
       propertyName: 'hs_task_status',
       operator: 'EQ',
       value: 'NOT_STARTED'
-    }
-  ]
-
-  if (ownerId) {
-    filters.push({
+    },
+    {
       propertyName: 'hubspot_owner_id',
       operator: 'EQ',
       value: ownerId
-    })
-    console.log("Applying ownerId filter:", ownerId)
-  } else {
-    console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
-  }
+    }
+  ];
 
   const tasksResponse = await fetch(
     `https://api.hubapi.com/crm/v3/objects/tasks/search`,
@@ -185,10 +179,11 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
   return contacts
 }
 
-async function fetchValidOwners(hubspotToken: string) {
-  console.log('Fetching filtered owners from HubSpot...')
-  const allOwnersResponse = await fetch(
-    `https://api.hubapi.com/crm/v3/owners`,
+async function fetchOwnerDetails(ownerId: string, hubspotToken: string) {
+  console.log('Fetching owner details for:', ownerId)
+  
+  const ownerResponse = await fetch(
+    `https://api.hubapi.com/crm/v3/owners/${ownerId}`,
     {
       method: 'GET',
       headers: {
@@ -198,65 +193,17 @@ async function fetchValidOwners(hubspotToken: string) {
     }
   )
 
-  let validOwnerIds = new Set<string>()
-  let ownersMap = {}
-  if (allOwnersResponse.ok) {
-    const allOwnersData = await allOwnersResponse.json()
-    console.log('Owners fetched successfully:', allOwnersData.results?.length || 0)
-    
-    const allowedTeamIds = ['162028741', '135903065']
-    const validOwners = allOwnersData.results?.filter((owner: HubSpotOwner) => {
-      const ownerTeams = owner.teams || []
-      const hasAllowedTeam = ownerTeams.some((team: any) => {
-        const teamIdString = team.id?.toString()
-        return allowedTeamIds.includes(teamIdString)
-      })
-      if (hasAllowedTeam) {
-        validOwnerIds.add(owner.id.toString())
-      }
-      
-      if (hasAllowedTeam) {
-        console.log(`✔️ INCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
-      } else {
-        console.log(`❌ EXCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
-      }
-      return hasAllowedTeam
-    }) || []
-
-    console.log(`Valid owners (in allowed teams): ${validOwners.length}`)
-    
-    ownersMap = validOwners.reduce((acc: any, owner: HubSpotOwner) => {
-      acc[owner.id] = owner
-      return acc
-    }, {}) || {}
+  if (ownerResponse.ok) {
+    const ownerData = await ownerResponse.json()
+    console.log('Owner details fetched successfully')
+    return ownerData
   } else {
-    console.error('Failed to fetch owners:', await allOwnersResponse.text())
+    console.error('Failed to fetch owner details:', await ownerResponse.text())
+    return null
   }
-
-  return { validOwnerIds, ownersMap }
 }
 
-function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
-  const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
-    const taskOwnerId = task.properties?.hubspot_owner_id;
-    if (!taskOwnerId) {
-      console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
-      return false;
-    }
-    
-    if (validOwnerIds.has(taskOwnerId.toString())) {
-      return true;
-    } else {
-      console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
-      return false;
-    }
-  });
-
-  console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasks.length}`);
-  return tasksWithAllowedOwners;
-}
-
-function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
+function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, owner: any) {
   const currentDate = new Date()
 
   return tasks.map((task: HubSpotTask) => {
@@ -308,8 +255,6 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       'LOW': 'low'
     };
 
-    const taskOwnerId = props.hubspot_owner_id;
-    const owner = taskOwnerId ? ownersMap[taskOwnerId] : null;
     const ownerName = owner
       ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
       : 'Unassigned';
@@ -365,10 +310,14 @@ serve(async (req) => {
       const body = await req.json()
       ownerId = body?.ownerId
     } catch (e) {
-      // No body or invalid JSON, continue without owner filter
+      // No body or invalid JSON
     }
 
-    // Fetch tasks from HubSpot
+    if (!ownerId) {
+      throw new Error('Owner ID is required')
+    }
+
+    // Fetch tasks from HubSpot for the specific owner
     const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
@@ -386,14 +335,11 @@ serve(async (req) => {
     const contactIds = new Set(Object.values(taskContactMap))
     const contacts = await fetchContactDetails(contactIds, hubspotToken)
 
-    // Fetch valid owners and build allowed owners set
-    const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
-
-    // Filter tasks by allowed team owners
-    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
+    // Fetch owner details
+    const owner = await fetchOwnerDetails(ownerId, hubspotToken)
 
     // Transform and filter tasks
-    const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
+    const transformedTasks = transformTasks(tasksWithContacts, taskContactMap, contacts, owner)
 
     console.log('Final transformed tasks:', transformedTasks.length);
 

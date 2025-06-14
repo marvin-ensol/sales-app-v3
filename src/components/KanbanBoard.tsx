@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Filter, Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,12 @@ const columns = [
 
 const KanbanBoard = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all");
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
-  const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId === "all" ? undefined : selectedOwnerId);
+  const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
 
   // Sort owners alphabetically by full name
   const sortedOwners = [...owners].sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -61,12 +62,10 @@ const KanbanBoard = () => {
   };
 
   const getSelectedOwnerName = () => {
-    if (selectedOwnerId === "all") return "All owners";
+    if (!selectedOwnerId) return "Select owner";
     const owner = owners.find(o => o.id === selectedOwnerId);
     return owner?.fullName || selectedOwnerId;
   };
-
-  const showOwnerOnCards = selectedOwnerId === "all";
 
   if (error) {
     return (
@@ -77,6 +76,104 @@ const KanbanBoard = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Retry
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedOwnerId) {
+    return (
+      <div className="space-y-6">
+        {/* Header Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={ownerComboboxOpen}
+                  className="w-48 justify-between"
+                >
+                  {getSelectedOwnerName()}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search owners..." />
+                  <CommandList>
+                    <CommandEmpty>No owner found.</CommandEmpty>
+                    <CommandGroup>
+                      {sortedOwners.map((owner) => (
+                        <CommandItem
+                          key={owner.id}
+                          value={owner.fullName}
+                          onSelect={() => {
+                            setSelectedOwnerId(owner.id);
+                            setOwnerComboboxOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {owner.fullName}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={ownersLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${ownersLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            {ownersLoading && <span className="text-sm text-gray-500">Loading owners...</span>}
+          </div>
+        </div>
+
+        {/* Owner Selection Prompt */}
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">Please select an owner to view their tasks</p>
+            <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="lg">
+                  Select Owner
+                  <ChevronsUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-0" align="center">
+                <Command>
+                  <CommandInput placeholder="Search owners..." />
+                  <CommandList>
+                    <CommandEmpty>No owner found.</CommandEmpty>
+                    <CommandGroup>
+                      {sortedOwners.map((owner) => (
+                        <CommandItem
+                          key={owner.id}
+                          value={owner.fullName}
+                          onSelect={() => {
+                            setSelectedOwnerId(owner.id);
+                            setOwnerComboboxOpen(false);
+                          }}
+                        >
+                          {owner.fullName}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
     );
@@ -115,21 +212,6 @@ const KanbanBoard = () => {
                 <CommandList>
                   <CommandEmpty>No owner found.</CommandEmpty>
                   <CommandGroup>
-                    <CommandItem
-                      value="all"
-                      onSelect={() => {
-                        setSelectedOwnerId("all");
-                        setOwnerComboboxOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedOwnerId === "all" ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      All owners
-                    </CommandItem>
                     {sortedOwners.map((owner) => (
                       <CommandItem
                         key={owner.id}
@@ -146,63 +228,63 @@ const KanbanBoard = () => {
                           )}
                         />
                         {owner.fullName}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                      </Check>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading || ownersLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
-          <span className="text-sm text-gray-600">
-            Status: Not Started | Due: Overdue Only
-            {selectedOwnerId !== "all" && ` | Owner: ${owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}`}
-          </span>
-        </div>
+        <Button variant="outline" size="sm">
+          <Filter className="h-4 w-4 mr-2" />
+          Filter
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading || ownersLoading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
-
-      {/* Kanban Board */}
-      <div className="flex gap-6 overflow-x-auto pb-6">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.id}
-            title={column.title}
-            color={column.color}
-            count={getTasksByQueue(column.id as TaskQueue).length}
-            isCollapsed={collapsedColumns.has(column.id)}
-            onToggleCollapse={() => toggleColumnCollapse(column.id)}
-          >
-            <div className="space-y-3">
-              {getTasksByQueue(column.id as TaskQueue).map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
-                  showOwner={showOwnerOnCards}
-                />
-              ))}
-              {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (
-                <div className="text-center text-gray-500 py-8">
-                  No tasks
-                </div>
-              )}
-            </div>
-          </KanbanColumn>
-        ))}
+      <div className="flex items-center gap-2">
+        {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
+        <span className="text-sm text-gray-600">
+          Status: Not Started | Due: Overdue Only | Owner: {owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}
+        </span>
       </div>
     </div>
-  );
+
+    {/* Kanban Board */}
+    <div className="flex gap-6 overflow-x-auto pb-6">
+      {columns.map((column) => (
+        <KanbanColumn
+          key={column.id}
+          title={column.title}
+          color={column.color}
+          count={getTasksByQueue(column.id as TaskQueue).length}
+          isCollapsed={collapsedColumns.has(column.id)}
+          onToggleCollapse={() => toggleColumnCollapse(column.id)}
+        >
+          <div className="space-y-3">
+            {getTasksByQueue(column.id as TaskQueue).map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
+                showOwner={false}
+              />
+            ))}
+            {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (
+              <div className="text-center text-gray-500 py-8">
+                No tasks
+              </div>
+            )}
+          </div>
+        </KanbanColumn>
+      ))}
+    </div>
+  </div>
+);
 };
 
 export default KanbanBoard;
