@@ -1,8 +1,348 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface TaskFilterParams {
+  ownerId?: string;
+  hubspotToken: string;
+}
+
+interface HubSpotTask {
+  id: string;
+  properties: {
+    hs_task_subject?: string;
+    hs_task_body?: string;
+    hs_task_status?: string;
+    hs_task_priority?: string;
+    hs_task_type?: string;
+    hs_timestamp?: string;
+    hubspot_owner_id?: string;
+    hs_queue_membership_ids?: string;
+    hs_lastmodifieddate?: string;
+  };
+}
+
+interface HubSpotOwner {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  teams?: Array<{ id: string }>;
+}
+
+async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
+  console.log('Owner filter:', ownerId || 'none (ALL OWNERS)');
+
+  const filters = [
+    {
+      propertyName: 'hs_task_status',
+      operator: 'EQ',
+      value: 'NOT_STARTED'
+    }
+  ]
+
+  if (ownerId) {
+    filters.push({
+      propertyName: 'hubspot_owner_id',
+      operator: 'EQ',
+      value: ownerId
+    })
+    console.log("Applying ownerId filter:", ownerId)
+  } else {
+    console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
+  }
+
+  const tasksResponse = await fetch(
+    `https://api.hubapi.com/crm/v3/objects/tasks/search`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${hubspotToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filterGroups: [
+          {
+            filters: filters
+          }
+        ],
+        properties: [
+          'hs_task_subject',
+          'hs_task_body',
+          'hs_task_status',
+          'hs_task_priority',
+          'hs_task_type',
+          'hs_timestamp',
+          'hubspot_owner_id',
+          'hs_queue_membership_ids',
+          'hs_lastmodifieddate'
+        ],
+        limit: 200,
+        sorts: [
+          {
+            propertyName: 'hs_timestamp',
+            direction: 'ASCENDING'
+          }
+        ]
+      })
+    }
+  )
+
+  if (!tasksResponse.ok) {
+    const errorText = await tasksResponse.text()
+    console.error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
+    throw new Error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
+  }
+
+  const tasksData = await tasksResponse.json()
+  console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
+  
+  return tasksData.results || []
+}
+
+async function fetchTaskAssociations(taskIds: string[], hubspotToken: string) {
+  let taskContactMap: { [key: string]: string } = {}
+  
+  if (taskIds.length > 0) {
+    const associationsResponse = await fetch(
+      `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hubspotToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: taskIds.map(id => ({ id }))
+        })
+      }
+    )
+
+    if (associationsResponse.ok) {
+      const associationsData = await associationsResponse.json()
+      console.log('Task associations fetched successfully')
+      
+      associationsData.results?.forEach((result: any) => {
+        if (result.to && result.to.length > 0) {
+          taskContactMap[result.from.id] = result.to[0].toObjectId
+        }
+      })
+    } else {
+      console.error('Failed to fetch associations:', await associationsResponse.text())
+    }
+  }
+
+  return taskContactMap
+}
+
+async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string) {
+  let contacts = {}
+  if (contactIds.size > 0) {
+    console.log('Fetching contact details for', contactIds.size, 'contacts')
+    
+    const contactIdsArray = Array.from(contactIds)
+    const batchSize = 100
+    
+    for (let i = 0; i < contactIdsArray.length; i += batchSize) {
+      const batch = contactIdsArray.slice(i, i + batchSize)
+      
+      const contactsResponse = await fetch(
+        `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batch.map(id => ({ id })),
+            properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id']
+          })
+        }
+      )
+
+      if (contactsResponse.ok) {
+        const contactsData = await contactsResponse.json()
+        
+        const batchContacts = contactsData.results?.reduce((acc: any, contact: any) => {
+          acc[contact.id] = contact
+          return acc
+        }, {}) || {}
+        
+        contacts = { ...contacts, ...batchContacts }
+      } else {
+        console.error(`Failed to fetch contact batch ${Math.floor(i/batchSize) + 1}:`, await contactsResponse.text())
+      }
+    }
+    
+    console.log('Total contacts fetched:', Object.keys(contacts).length)
+  }
+
+  return contacts
+}
+
+async function fetchValidOwners(hubspotToken: string) {
+  console.log('Fetching filtered owners from HubSpot...')
+  const allOwnersResponse = await fetch(
+    `https://api.hubapi.com/crm/v3/owners`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${hubspotToken}`,
+        'Content-Type': 'application/json',
+      }
+    }
+  )
+
+  let validOwnerIds = new Set<string>()
+  let ownersMap = {}
+  if (allOwnersResponse.ok) {
+    const allOwnersData = await allOwnersResponse.json()
+    console.log('Owners fetched successfully:', allOwnersData.results?.length || 0)
+    
+    const allowedTeamIds = ['162028741', '135903065']
+    const validOwners = allOwnersData.results?.filter((owner: HubSpotOwner) => {
+      const ownerTeams = owner.teams || []
+      const hasAllowedTeam = ownerTeams.some((team: any) => {
+        const teamIdString = team.id?.toString()
+        return allowedTeamIds.includes(teamIdString)
+      })
+      if (hasAllowedTeam) {
+        validOwnerIds.add(owner.id.toString())
+      }
+      
+      if (hasAllowedTeam) {
+        console.log(`✔️ INCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
+      } else {
+        console.log(`❌ EXCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
+      }
+      return hasAllowedTeam
+    }) || []
+
+    console.log(`Valid owners (in allowed teams): ${validOwners.length}`)
+    
+    ownersMap = validOwners.reduce((acc: any, owner: HubSpotOwner) => {
+      acc[owner.id] = owner
+      return acc
+    }, {}) || {}
+  } else {
+    console.error('Failed to fetch owners:', await allOwnersResponse.text())
+  }
+
+  return { validOwnerIds, ownersMap }
+}
+
+function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
+  const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
+    const taskOwnerId = task.properties?.hubspot_owner_id;
+    if (!taskOwnerId) {
+      console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
+      return false;
+    }
+    
+    if (validOwnerIds.has(taskOwnerId.toString())) {
+      return true;
+    } else {
+      console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
+      return false;
+    }
+  });
+
+  console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasks.length}`);
+  return tasksWithAllowedOwners;
+}
+
+function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
+  const currentDate = new Date()
+
+  return tasks.map((task: HubSpotTask) => {
+    const props = task.properties;
+
+    const contactId = taskContactMap[task.id] || null;
+    const contact = contactId ? contacts[contactId] : null;
+
+    let contactName = 'No Contact';
+    if (contact && contact.properties) {
+      const contactProps = contact.properties;
+      const firstName = contactProps.firstname || '';
+      const lastName = contactProps.lastname || '';
+      const email = contactProps.email || '';
+      const company = contactProps.company || '';
+
+      if (firstName && lastName) {
+        contactName = `${firstName} ${lastName}`.trim();
+      } else if (firstName) {
+        contactName = firstName;
+      } else if (lastName) {
+        contactName = lastName;
+      } else if (email) {
+        contactName = email;
+      } else if (company) {
+        contactName = company;
+      } else {
+        contactName = `Contact ${contactId}`;
+      }
+    }
+
+    let dueDate = '';
+    let taskDueDate = null;
+    if (props.hs_timestamp) {
+      const date = new Date(props.hs_timestamp);
+      taskDueDate = date;
+
+      const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000));
+      const day = parisDate.getUTCDate().toString().padStart(2, '0');
+      const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0');
+      const hours = parisDate.getUTCHours().toString().padStart(2, '0');
+      const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0');
+      dueDate = `${day}/${month} à ${hours}:${minutes}`;
+    }
+
+    const priorityMap: { [key: string]: string } = {
+      'HIGH': 'high',
+      'MEDIUM': 'medium',
+      'LOW': 'low'
+    };
+
+    const taskOwnerId = props.hubspot_owner_id;
+    const owner = taskOwnerId ? ownersMap[taskOwnerId] : null;
+    const ownerName = owner
+      ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
+      : 'Unassigned';
+
+    let queue = 'other';
+    const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : [];
+
+    if (queueIds.includes('22859489')) {
+      queue = 'new';
+    } else if (queueIds.includes('22859490')) {
+      queue = 'attempted';
+    }
+
+    return {
+      id: task.id,
+      title: props.hs_task_subject || 'Untitled Task',
+      description: props.hs_task_body || undefined,
+      contact: contactName,
+      contactId: contactId || null,
+      status: 'not_started',
+      dueDate,
+      taskDueDate,
+      priority: priorityMap[props.hs_task_priority] || 'medium',
+      owner: ownerName,
+      hubspotId: task.id,
+      queue: queue,
+      queueIds: queueIds
+    };
+  }).filter((task: any) => {
+    if (!task.taskDueDate) return false;
+    const isOverdue = task.taskDueDate < currentDate;
+    return isOverdue;
+  });
 }
 
 serve(async (req) => {
@@ -20,7 +360,6 @@ serve(async (req) => {
       throw new Error('HubSpot access token not configured. Please check your environment variables.')
     }
 
-    // Parse request body to get owner filter
     let ownerId = null
     try {
       const body = await req.json()
@@ -29,342 +368,35 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    console.log('Owner filter:', ownerId || 'none (ALL OWNERS)');
+    // Fetch tasks from HubSpot
+    const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
+    const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
-    // Use NOT_STARTED filter for all requests
-    const filters = [
-      {
-        propertyName: 'hs_task_status',
-        operator: 'EQ',
-        value: 'NOT_STARTED'
-      }
-    ]
-
-    // ADD owner filter ONLY if ownerId is specified, never for "all"
-    if (ownerId) {
-      filters.push({
-        propertyName: 'hubspot_owner_id',
-        operator: 'EQ',
-        value: ownerId
-      })
-      console.log("Applying ownerId filter:", ownerId)
-    } else {
-      console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
-    }
-
-    // Fetch tasks with NOT_STARTED status only
-    const tasksResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/objects/tasks/search`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${hubspotToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filterGroups: [
-            {
-              filters: filters
-            }
-          ],
-          properties: [
-            'hs_task_subject',
-            'hs_task_body',
-            'hs_task_status',
-            'hs_task_priority',
-            'hs_task_type',
-            'hs_timestamp',
-            'hubspot_owner_id',
-            'hs_queue_membership_ids',
-            'hs_lastmodifieddate'
-          ],
-          limit: 200,
-          sorts: [
-            {
-              propertyName: 'hs_timestamp',
-              direction: 'ASCENDING'
-            }
-          ]
-        })
-      }
-    )
-
-    if (!tasksResponse.ok) {
-      const errorText = await tasksResponse.text()
-      console.error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
-      throw new Error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
-    }
-
-    const tasksData = await tasksResponse.json()
-    console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
-    
-    const taskIds = tasksData.results?.map((task: any) => task.id) || []
-
-    // Get task associations using the Associations API
-    let taskContactMap: { [key: string]: string } = {}
-    
-    if (taskIds.length > 0) {
-      // Fetch associations for all tasks
-      const associationsResponse = await fetch(
-        `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${hubspotToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: taskIds.map(id => ({ id }))
-          })
-        }
-      )
-
-      if (associationsResponse.ok) {
-        const associationsData = await associationsResponse.json()
-        console.log('Task associations fetched successfully')
-        
-        // Build task-to-contact mapping - use toObjectId instead of id
-        associationsData.results?.forEach((result: any) => {
-          if (result.to && result.to.length > 0) {
-            taskContactMap[result.from.id] = result.to[0].toObjectId
-          }
-        })
-      } else {
-        console.error('Failed to fetch associations:', await associationsResponse.text())
-      }
-    }
+    // Get task associations
+    const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
     // Filter out tasks that don't have contact associations
-    const tasksWithContacts = tasksData.results?.filter((task: any) => {
+    const tasksWithContacts = tasks.filter((task: HubSpotTask) => {
       return taskContactMap[task.id]
-    }) || []
+    })
 
-    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasksData.results?.length || 0} total tasks`)
+    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasks.length} total tasks`)
 
-    // Get unique contact IDs from associations
+    // Get unique contact IDs and fetch contact details
     const contactIds = new Set(Object.values(taskContactMap))
+    const contacts = await fetchContactDetails(contactIds, hubspotToken)
 
-    // Fetch contact details in batches of 100 (HubSpot's limit)
-    let contacts = {}
-    if (contactIds.size > 0) {
-      console.log('Fetching contact details for', contactIds.size, 'contacts')
-      
-      const contactIdsArray = Array.from(contactIds)
-      const batchSize = 100
-      
-      for (let i = 0; i < contactIdsArray.length; i += batchSize) {
-        const batch = contactIdsArray.slice(i, i + batchSize)
-        
-        const contactsResponse = await fetch(
-          `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${hubspotToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              inputs: batch.map(id => ({ id })),
-              properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id']
-            })
-          }
-        )
+    // Fetch valid owners and build allowed owners set
+    const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
-        if (contactsResponse.ok) {
-          const contactsData = await contactsResponse.json()
-          
-          // Merge this batch into the contacts object
-          const batchContacts = contactsData.results?.reduce((acc: any, contact: any) => {
-            acc[contact.id] = contact
-            return acc
-          }, {}) || {}
-          
-          contacts = { ...contacts, ...batchContacts }
-        } else {
-          console.error(`Failed to fetch contact batch ${Math.floor(i/batchSize) + 1}:`, await contactsResponse.text())
-        }
-      }
-      
-      console.log('Total contacts fetched:', Object.keys(contacts).length)
-    }
+    // Filter tasks by allowed team owners
+    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
 
-    // --- Fetch all possible owners and build allowed owners set
-    console.log('Fetching filtered owners from HubSpot...')
-    const allOwnersResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/owners`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${hubspotToken}`,
-          'Content-Type': 'application/json',
-        }
-      }
-    )
-
-    let validOwnerIds = new Set<string>()
-    let ownersMap = {}
-    if (allOwnersResponse.ok) {
-      const allOwnersData = await allOwnersResponse.json()
-      console.log('Owners fetched successfully:', allOwnersData.results?.length || 0)
-      
-      // Filter owners by team membership
-      const allowedTeamIds = ['162028741', '135903065']
-      const validOwners = allOwnersData.results?.filter((owner: any) => {
-        const ownerTeams = owner.teams || []
-        const hasAllowedTeam = ownerTeams.some((team: any) => {
-          const teamIdString = team.id?.toString()
-          return allowedTeamIds.includes(teamIdString)
-        })
-        if (hasAllowedTeam) {
-          validOwnerIds.add(owner.id.toString())
-        }
-        // Debug each owner and their included/excluded status
-        if (hasAllowedTeam) {
-          console.log(`✔️ INCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
-        } else {
-          console.log(`❌ EXCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
-        }
-        return hasAllowedTeam
-      }) || []
-
-      console.log(`Valid owners (in allowed teams): ${validOwners.length}`)
-      
-      // Create a map of all valid owners by ID
-      ownersMap = validOwners.reduce((acc: any, owner: any) => {
-        acc[owner.id] = owner
-        return acc
-      }, {}) || {}
-    } else {
-      console.error('Failed to fetch owners:', await allOwnersResponse.text())
-    }
-
-    // --- Final filtering step: tasksWithContacts => (must have allowed owner)
-    // For ALL OWNERS, filter by allowed team owners only.
-    // For single owner filter, the query should have already filtered by ownerId, but do a defensive check anyway.
-
-    const tasksWithAllowedOwners = (tasksWithContacts || []).filter((task: any) => {
-      const taskOwnerId = task.properties?.hubspot_owner_id;
-      if (!taskOwnerId) {
-        console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
-        return false; // not assigned, skip!
-      }
-      // Defensive: must be a valid owner
-      if (validOwnerIds.has(taskOwnerId.toString())) {
-        return true;
-      } else {
-        console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
-        return false;
-      }
-    });
-
-    console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasksWithContacts.length || 0}`);
-
-    // Get current date for filtering - now only show overdue tasks
-    const currentDate = new Date()
-
-    const transformedTasks = tasksWithAllowedOwners.map((task: any) => {
-      const props = task.properties;
-
-      // Get associated contact from our mapping
-      const contactId = taskContactMap[task.id] || null;
-      const contact = contactId ? contacts[contactId] : null;
-
-      let contactName = 'No Contact';
-      if (contact && contact.properties) {
-        const contactProps = contact.properties;
-        const firstName = contactProps.firstname || '';
-        const lastName = contactProps.lastname || '';
-        const email = contactProps.email || '';
-        const company = contactProps.company || '';
-
-        // Enhanced contact name resolution with multiple fallbacks
-        if (firstName && lastName) {
-          contactName = `${firstName} ${lastName}`.trim();
-        } else if (firstName) {
-          contactName = firstName;
-        } else if (lastName) {
-          contactName = lastName;
-        } else if (email) {
-          contactName = email;
-        } else if (company) {
-          contactName = company;
-        } else {
-          // Use contact ID as absolute fallback
-          contactName = `Contact ${contactId}`;
-        }
-      }
-
-      // Format due date - hs_timestamp is in ISO format, convert to GMT+2 (Paris time)
-      let dueDate = '';
-      let taskDueDate = null;
-      if (props.hs_timestamp) {
-        const date = new Date(props.hs_timestamp);
-
-        // Store the actual due date for filtering
-        taskDueDate = date;
-
-        // Convert to GMT+2 (Paris time)
-        const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000)); // Add 2 hours for GMT+2
-
-        // Format as DD/MM à HH:MM in Paris time
-        const day = parisDate.getUTCDate().toString().padStart(2, '0');
-        const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0');
-        const hours = parisDate.getUTCHours().toString().padStart(2, '0');
-        const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0');
-        dueDate = `${day}/${month} à ${hours}:${minutes}`;
-      }
-
-      // Map priority
-      const priorityMap: { [key: string]: string } = {
-        'HIGH': 'high',
-        'MEDIUM': 'medium',
-        'LOW': 'low'
-      };
-
-      // Get owner name - Use the valid ownersMap to get proper owner details
-      const taskOwnerId = props.hubspot_owner_id;
-      // Since we've filtered above, owner must exist and be valid here
-      const owner = taskOwnerId ? ownersMap[taskOwnerId] : null;
-      const ownerName = owner
-        ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
-        : 'Unassigned';
-
-      // Determine queue based on hs_queue_membership_ids using correct IDs
-      let queue = 'other';
-      const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : [];
-
-      // Use the correct queue IDs: 22859489 for new, 22859490 for attempted
-      if (queueIds.includes('22859489')) {
-        queue = 'new';
-      } else if (queueIds.includes('22859490')) {
-        queue = 'attempted';
-      }
-
-      return {
-        id: task.id,
-        title: props.hs_task_subject || 'Untitled Task',
-        description: props.hs_task_body || undefined,
-        contact: contactName,
-        contactId: contactId || null,
-        status: 'not_started', // All tasks are NOT_STARTED due to our filter
-        dueDate,
-        taskDueDate, // Store the actual date for filtering
-        priority: priorityMap[props.hs_task_priority] || 'medium',
-        owner: ownerName,
-        hubspotId: task.id,
-        queue: queue,
-        queueIds: queueIds
-      };
-    }).filter((task: any) => {
-      // Only include tasks that are OVERDUE (not just due today)
-      if (!task.taskDueDate) return false;
-      const isOverdue = task.taskDueDate < currentDate;
-      return isOverdue;
-    }) || [];
+    // Transform and filter tasks
+    const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
 
     console.log('Final transformed tasks:', transformedTasks.length);
 
-    // Remove taskDueDate from response
     return new Response(
       JSON.stringify({ 
         tasks: transformedTasks.map(({ taskDueDate, ...task }) => task),
