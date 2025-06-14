@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -357,17 +358,36 @@ serve(async (req) => {
         // Enhanced contact name resolution with multiple fallbacks
         if (firstName && lastName) {
           contactName = `${firstName} ${lastName}`.trim()
+          // CRITICAL: Log the exact result for task 20359028697
+          if (task.id === '20359028697') {
+            console.log('🎯 CONTACT NAME SET TO:', contactName, 'from firstName:', firstName, 'lastName:', lastName)
+          }
         } else if (firstName) {
           contactName = firstName
+          if (task.id === '20359028697') {
+            console.log('🎯 CONTACT NAME SET TO (firstName only):', contactName)
+          }
         } else if (lastName) {
           contactName = lastName
+          if (task.id === '20359028697') {
+            console.log('🎯 CONTACT NAME SET TO (lastName only):', contactName)
+          }
         } else if (email) {
           contactName = email
+          if (task.id === '20359028697') {
+            console.log('🎯 CONTACT NAME SET TO (email):', contactName)
+          }
         } else if (company) {
           contactName = company
+          if (task.id === '20359028697') {
+            console.log('🎯 CONTACT NAME SET TO (company):', contactName)
+          }
         } else {
           // Use contact ID as absolute fallback
           contactName = `Contact ${contactId}`
+          if (task.id === '20359028697') {
+            console.log('🎯 CONTACT NAME SET TO (fallback):', contactName)
+          }
         }
         
         console.log(`Final contact name for task ${task.id}: "${contactName}"`)
@@ -443,6 +463,18 @@ serve(async (req) => {
       }
 
       console.log(`Task: ${props.hs_task_subject}, Contact ID: ${contactId}, Contact: ${contactName}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}, Owner: ${ownerName}`)
+
+      // FINAL LOGGING FOR TASK 20359028697
+      if (task.id === '20359028697') {
+        console.log('🏁 FINAL TASK 20359028697 PROCESSING RESULT:')
+        console.log('- Task ID:', task.id)
+        console.log('- Title:', props.hs_task_subject)
+        console.log('- Contact ID:', contactId)
+        console.log('- Contact Name:', contactName)
+        console.log('- Due Date:', dueDate)
+        console.log('- Owner:', ownerName)
+        console.log('- Queue:', queue)
+      }
 
       return {
         id: task.id,
