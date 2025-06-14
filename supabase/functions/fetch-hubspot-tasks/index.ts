@@ -150,6 +150,17 @@ serve(async (req) => {
 
     console.log('Task-Contact mapping:', taskContactMap)
 
+    // Filter out tasks that don't have contact associations
+    const tasksWithContacts = tasksData.results?.filter((task: any) => {
+      const hasContact = taskContactMap[task.id]
+      if (!hasContact) {
+        console.log(`Filtering out task ${task.id} (${task.properties?.hs_task_subject}) - no contact association`)
+      }
+      return hasContact
+    }) || []
+
+    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasksData.results?.length || 0} total tasks`)
+
     // Get unique contact IDs from associations
     const contactIds = new Set(Object.values(taskContactMap))
     console.log('Contact IDs found:', Array.from(contactIds))
@@ -219,7 +230,7 @@ serve(async (req) => {
     console.log('Current date for overdue filtering:', currentDate)
 
     // Transform tasks to our format and filter by overdue status only
-    const transformedTasks = tasksData.results?.map((task: any) => {
+    const transformedTasks = tasksWithContacts.map((task: any) => {
       const props = task.properties
       
       console.log(`Processing task ${task.id}:`, {
@@ -328,7 +339,7 @@ serve(async (req) => {
       return isOverdue
     }) || []
 
-    console.log('Transformed and filtered tasks (overdue only):', transformedTasks.length)
+    console.log('Transformed and filtered tasks (overdue only, with contacts):', transformedTasks.length)
 
     return new Response(
       JSON.stringify({ 
