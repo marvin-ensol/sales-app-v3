@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
 
-export const useHubSpotTasks = (selectedOwnerId?: string) => {
+export const useHubSpotTasks = (selectedOwnerId: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +13,7 @@ export const useHubSpotTasks = (selectedOwnerId?: string) => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching tasks from HubSpot for owner:', selectedOwnerId || 'all');
+      console.log('Fetching tasks from HubSpot for owner:', selectedOwnerId);
       
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
         body: { ownerId: selectedOwnerId }
@@ -53,12 +53,14 @@ export const useHubSpotTasks = (selectedOwnerId?: string) => {
   };
 
   useEffect(() => {
-    fetchTasks();
-    
-    // Set up polling every 30 seconds
-    const interval = setInterval(fetchTasks, 30000);
-    
-    return () => clearInterval(interval);
+    if (selectedOwnerId) {
+      fetchTasks();
+      
+      // Set up polling every 30 seconds
+      const interval = setInterval(fetchTasks, 30000);
+      
+      return () => clearInterval(interval);
+    }
   }, [selectedOwnerId]);
 
   return {
