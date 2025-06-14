@@ -228,63 +228,62 @@ const KanbanBoard = () => {
                           )}
                         />
                         {owner.fullName}
-                      </Check>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
-        <Button variant="outline" size="sm">
-          <Filter className="h-4 w-4 mr-2" />
-          Filter
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading || ownersLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+          <Button variant="outline" size="sm">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading || ownersLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
+          <span className="text-sm text-gray-600">
+            Status: Not Started | Due: Overdue Only | Owner: {owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}
+          </span>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
-        <span className="text-sm text-gray-600">
-          Status: Not Started | Due: Overdue Only | Owner: {owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}
-        </span>
+
+      {/* Kanban Board */}
+      <div className="flex gap-6 overflow-x-auto pb-6">
+        {columns.map((column) => (
+          <KanbanColumn
+            key={column.id}
+            title={column.title}
+            color={column.color}
+            count={getTasksByQueue(column.id as TaskQueue).length}
+            isCollapsed={collapsedColumns.has(column.id)}
+            onToggleCollapse={() => toggleColumnCollapse(column.id)}
+          >
+            <div className="space-y-3">
+              {getTasksByQueue(column.id as TaskQueue).map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
+                  showOwner={false}
+                />
+              ))}
+              {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (
+                <div className="text-center text-gray-500 py-8">
+                  No tasks
+                </div>
+              )}
+            </div>
+          </KanbanColumn>
+        ))}
       </div>
     </div>
-
-    {/* Kanban Board */}
-    <div className="flex gap-6 overflow-x-auto pb-6">
-      {columns.map((column) => (
-        <KanbanColumn
-          key={column.id}
-          title={column.title}
-          color={column.color}
-          count={getTasksByQueue(column.id as TaskQueue).length}
-          isCollapsed={collapsedColumns.has(column.id)}
-          onToggleCollapse={() => toggleColumnCollapse(column.id)}
-        >
-          <div className="space-y-3">
-            {getTasksByQueue(column.id as TaskQueue).map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
-                showOwner={false}
-              />
-            ))}
-            {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (
-              <div className="text-center text-gray-500 py-8">
-                No tasks
-              </div>
-            )}
-          </div>
-        </KanbanColumn>
-      ))}
-    </div>
-  </div>
-);
+  );
 };
 
 export default KanbanBoard;
