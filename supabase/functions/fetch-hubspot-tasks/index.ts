@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -238,64 +237,65 @@ serve(async (req) => {
 
     // Transform tasks to our format and filter by overdue status and valid owners
     const transformedTasks = tasksWithContacts.filter((task: any) => {
-      const taskOwnerId = task.properties?.hubspot_owner_id
-      
-      // Filter out tasks with deactivated owners (not in our valid owner list)
-      if (taskOwnerId && !validOwnerIds.has(taskOwnerId.toString())) {
-        return false
+      const taskOwnerId = task.properties?.hubspot_owner_id;
+
+      // Only include tasks with a valid owner (in allowed teams and non-empty)
+      if (!taskOwnerId || !validOwnerIds.has(taskOwnerId.toString())) {
+        // ❗️ This specifically removes tasks with no owner or owners NOT in allowed teams
+        return false;
       }
-      
-      return true
+
+      return true;
     }).map((task: any) => {
-      const props = task.properties
-      
+      const props = task.properties;
+
       // Get associated contact from our mapping
-      const contactId = taskContactMap[task.id] || null
-      const contact = contactId ? contacts[contactId] : null
-      
-      let contactName = 'No Contact'
+      const contactId = taskContactMap[task.id] || null;
+      const contact = contactId ? contacts[contactId] : null;
+
+      let contactName = 'No Contact';
       if (contact && contact.properties) {
-        const contactProps = contact.properties
-        const firstName = contactProps.firstname || ''
-        const lastName = contactProps.lastname || ''
-        const email = contactProps.email || ''
-        const company = contactProps.company || ''
-        
+        const contactProps = contact.properties;
+        const firstName = contactProps.firstname || '';
+        const lastName = contactProps.lastname || '';
+        const email = contactProps.email || '';
+        const company = contactProps.company || '';
+
         // Enhanced contact name resolution with multiple fallbacks
         if (firstName && lastName) {
-          contactName = `${firstName} ${lastName}`.trim()
+          contactName = `${firstName} ${lastName}`.trim();
         } else if (firstName) {
-          contactName = firstName
+          contactName = firstName;
         } else if (lastName) {
-          contactName = lastName
+          contactName = lastName;
         } else if (email) {
-          contactName = email
+          contactName = email;
         } else if (company) {
-          contactName = company
+          contactName = company;
         } else {
           // Use contact ID as absolute fallback
-          contactName = `Contact ${contactId}`
+          contactName = `Contact ${contactId}`;
         }
       }
 
       // Format due date - hs_timestamp is in ISO format, convert to GMT+2 (Paris time)
-      let dueDate = ''
-      let taskDueDate = null
+      let dueDate = '';
+      let taskDueDate = null;
       if (props.hs_timestamp) {
-        const date = new Date(props.hs_timestamp)
-        
+        const date = new Date(props.hs_timestamp);
+
         // Store the actual due date for filtering
-        taskDueDate = date
-        
+        taskDueDate = date;
+
         // Convert to GMT+2 (Paris time)
-        const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000)) // Add 2 hours for GMT+2
-        
+        const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000)); // Add 2 hours for GMT+2
+
         // Format as DD/MM à HH:MM in Paris time
-        const day = parisDate.getUTCDate().toString().padStart(2, '0')
-        const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0')
-        const hours = parisDate.getUTCHours().toString().padStart(2, '0')
-        const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0')
-        dueDate = `${day}/${month} à ${hours}:${minutes}`
+        const day = parisDate.getUTCDate().toString().padStart(2, '0');
+        const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0');
+        const hours = parisDate.getUTCHours().toString().padStart(2, '0');
+        const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0');
+        dueDate = `${day}/${month} à ${hours}:${minutes}`;
       }
 
       // Map priority
@@ -303,24 +303,25 @@ serve(async (req) => {
         'HIGH': 'high',
         'MEDIUM': 'medium',
         'LOW': 'low'
-      }
+      };
 
       // Get owner name - Use the valid ownersMap to get proper owner details
-      const taskOwnerId = props.hubspot_owner_id
-      const owner = taskOwnerId ? ownersMap[taskOwnerId] : null
-      const ownerName = owner 
+      const taskOwnerId = props.hubspot_owner_id;
+      // Since we've filtered above, owner must exist and be valid here
+      const owner = taskOwnerId ? ownersMap[taskOwnerId] : null;
+      const ownerName = owner
         ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
-        : 'Unassigned'
+        : 'Unassigned';
 
       // Determine queue based on hs_queue_membership_ids using correct IDs
-      let queue = 'other'
-      const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : []
-      
+      let queue = 'other';
+      const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : [];
+
       // Use the correct queue IDs: 22859489 for new, 22859490 for attempted
       if (queueIds.includes('22859489')) {
-        queue = 'new'
+        queue = 'new';
       } else if (queueIds.includes('22859490')) {
-        queue = 'attempted'
+        queue = 'attempted';
       }
 
       return {
@@ -337,13 +338,13 @@ serve(async (req) => {
         hubspotId: task.id,
         queue: queue,
         queueIds: queueIds
-      }
+      };
     }).filter((task: any) => {
       // Only include tasks that are OVERDUE (not just due today)
-      if (!task.taskDueDate) return false
-      const isOverdue = task.taskDueDate < currentDate
-      return isOverdue
-    }) || []
+      if (!task.taskDueDate) return false;
+      const isOverdue = task.taskDueDate < currentDate;
+      return isOverdue;
+    }) || [];
 
     console.log('Final transformed tasks:', transformedTasks.length)
 
