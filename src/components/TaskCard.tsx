@@ -39,21 +39,31 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
+    console.log('TaskCard clicked, task:', task.title);
+    console.log('Task contactId:', task.contactId);
+    console.log('onFrameUrlChange function:', typeof onFrameUrlChange);
+    
     if (
       (e.target as HTMLElement).closest('[data-description-toggle]') ||
       (e.target as HTMLElement).closest('[data-edit-button]')
     ) {
+      console.log('Click was on description toggle or edit button, ignoring');
       return;
     }
     if (task.contactId) {
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
       console.log('Calling frame URL change with:', hubspotUrl);
+      console.log('About to call onFrameUrlChange...');
       onFrameUrlChange(hubspotUrl);
+      console.log('onFrameUrlChange called successfully');
+    } else {
+      console.log('No contactId found for task');
     }
   };
 
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('Edit button clicked');
     if (task.contactId && task.hubspotId) {
       const taskDetailsUrl = `https://app-eu1.hubspot.com/contacts/142467012/contact/${task.contactId}/?engagement=${task.hubspotId}`;
       console.log('Calling edit URL change with:', taskDetailsUrl);
