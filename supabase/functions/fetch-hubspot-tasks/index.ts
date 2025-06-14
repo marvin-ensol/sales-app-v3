@@ -21,8 +21,6 @@ serve(async (req) => {
       throw new Error('HubSpot access token not configured. Please check your environment variables.')
     }
 
-    console.log('HubSpot token found, proceeding with API calls...')
-
     // Parse request body to get owner filter
     let ownerId = null
     try {
@@ -51,8 +49,6 @@ serve(async (req) => {
         value: ownerId
       })
     }
-
-    console.log('Search filters:', JSON.stringify(filters, null, 2))
 
     // Fetch tasks with NOT_STARTED status only
     const tasksResponse = await fetch(
@@ -123,7 +119,7 @@ serve(async (req) => {
 
       if (associationsResponse.ok) {
         const associationsData = await associationsResponse.json()
-        console.log('Associations fetched successfully. Total results:', associationsData.results?.length || 0)
+        console.log('Task associations fetched successfully')
         
         // Build task-to-contact mapping - use toObjectId instead of id
         associationsData.results?.forEach((result: any) => {
@@ -156,7 +152,6 @@ serve(async (req) => {
       
       for (let i = 0; i < contactIdsArray.length; i += batchSize) {
         const batch = contactIdsArray.slice(i, i + batchSize)
-        console.log(`Fetching contact batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(contactIdsArray.length/batchSize)}: ${batch.length} contacts`)
         
         const contactsResponse = await fetch(
           `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
@@ -175,7 +170,6 @@ serve(async (req) => {
 
         if (contactsResponse.ok) {
           const contactsData = await contactsResponse.json()
-          console.log(`Batch ${Math.floor(i/batchSize) + 1} contacts fetched successfully:`, contactsData.results?.length || 0)
           
           // Merge this batch into the contacts object
           const batchContacts = contactsData.results?.reduce((acc: any, contact: any) => {
@@ -209,7 +203,7 @@ serve(async (req) => {
     let ownersMap = {}
     if (allOwnersResponse.ok) {
       const allOwnersData = await allOwnersResponse.json()
-      console.log('All owners fetched successfully:', allOwnersData.results?.length || 0)
+      console.log('Owners fetched successfully:', allOwnersData.results?.length || 0)
       
       // Filter owners by team membership
       const allowedTeamIds = ['162028741', '135903065']
@@ -351,7 +345,7 @@ serve(async (req) => {
       return isOverdue
     }) || []
 
-    console.log('Transformed and filtered tasks (overdue only, with contacts, valid owners):', transformedTasks.length)
+    console.log('Final transformed tasks:', transformedTasks.length)
 
     return new Response(
       JSON.stringify({ 
