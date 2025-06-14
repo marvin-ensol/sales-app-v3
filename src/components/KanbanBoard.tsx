@@ -19,11 +19,11 @@ const columns = [
 
 const KanbanBoard = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
   
   const { owners, loading: ownersLoading } = useHubSpotOwners();
-  const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
+  const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId === "all" ? undefined : selectedOwnerId);
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,7 +83,7 @@ const KanbanBoard = () => {
               <SelectValue placeholder="Select owner" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All owners</SelectItem>
+              <SelectItem value="all">All owners</SelectItem>
               {owners.map((owner) => (
                 <SelectItem key={owner.id} value={owner.id}>
                   {owner.fullName}
@@ -104,7 +104,7 @@ const KanbanBoard = () => {
           {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
           <span className="text-sm text-gray-600">
             Status: Not Started | Due: Today or Earlier
-            {selectedOwnerId && ` | Owner: ${owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}`}
+            {selectedOwnerId !== "all" && ` | Owner: ${owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}`}
           </span>
         </div>
       </div>
