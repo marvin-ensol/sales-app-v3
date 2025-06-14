@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -191,9 +190,23 @@ serve(async (req) => {
         const contactsData = await contactsResponse.json()
         console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
         
-        // Log each contact's details
+        // Log the raw HubSpot response for debugging
+        console.log('RAW HUBSPOT CONTACTS RESPONSE:', JSON.stringify(contactsData, null, 2))
+        
+        // Log each contact's details, especially contact ID 3851
         contactsData.results?.forEach((contact: any) => {
-          console.log(`Contact ${contact.id} raw data:`, JSON.stringify(contact.properties, null, 2))
+          console.log(`Contact ${contact.id} raw data:`, JSON.stringify(contact, null, 2))
+          
+          // Special logging for the problematic contact
+          if (contact.id === '3851') {
+            console.log('🔍 DETAILED ANALYSIS OF CONTACT 3851:')
+            console.log('- Full contact object:', JSON.stringify(contact, null, 2))
+            console.log('- Properties object:', JSON.stringify(contact.properties, null, 2))
+            console.log('- firstname property:', contact.properties?.firstname)
+            console.log('- lastname property:', contact.properties?.lastname)
+            console.log('- email property:', contact.properties?.email)
+            console.log('- company property:', contact.properties?.company)
+          }
         })
         
         contacts = contactsData.results?.reduce((acc: any, contact: any) => {
@@ -293,6 +306,19 @@ serve(async (req) => {
       let contactName = 'No Contact'
       if (contact && contact.properties) {
         const contactProps = contact.properties
+        
+        // Special handling for task 20359028697
+        if (task.id === '20359028697') {
+          console.log('🔍 PROCESSING TASK 20359028697 CONTACT NAME:')
+          console.log('- Contact ID:', contactId)
+          console.log('- Contact object exists:', !!contact)
+          console.log('- Contact properties:', JSON.stringify(contactProps, null, 2))
+          console.log('- firstname value:', contactProps.firstname, 'type:', typeof contactProps.firstname)
+          console.log('- lastname value:', contactProps.lastname, 'type:', typeof contactProps.lastname)
+          console.log('- email value:', contactProps.email, 'type:', typeof contactProps.email)
+          console.log('- company value:', contactProps.company, 'type:', typeof contactProps.company)
+        }
+        
         const firstName = contactProps.firstname || ''
         const lastName = contactProps.lastname || ''
         const email = contactProps.email || ''
@@ -306,7 +332,7 @@ serve(async (req) => {
           fullContactData: contact.properties
         })
         
-        // Enhanced contact name resolution with multiple fallbacks - FIXED: Better property access
+        // Enhanced contact name resolution with multiple fallbacks
         if (firstName && lastName) {
           contactName = `${firstName} ${lastName}`.trim()
         } else if (firstName) {
@@ -323,6 +349,11 @@ serve(async (req) => {
         }
         
         console.log(`Final contact name for task ${task.id}: "${contactName}"`)
+        
+        // Special logging for the problematic task
+        if (task.id === '20359028697') {
+          console.log('🔍 FINAL CONTACT NAME FOR TASK 20359028697:', contactName)
+        }
       } else {
         console.log(`No contact data found for task ${task.id}, contact ID: ${contactId}`)
       }
