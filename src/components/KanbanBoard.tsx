@@ -30,13 +30,18 @@ const KanbanBoard = () => {
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
   const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
 
-  // Load saved owner selection on component mount
+  // Load saved owner selection on component mount, or default to first owner
   useEffect(() => {
     const savedOwnerId = localStorage.getItem(STORAGE_KEY);
     if (savedOwnerId) {
       setSelectedOwnerId(savedOwnerId);
+    } else if (owners.length > 0 && !selectedOwnerId) {
+      // Auto-select first owner if none saved and owners are available
+      const firstOwner = owners[0];
+      setSelectedOwnerId(firstOwner.id);
+      localStorage.setItem(STORAGE_KEY, firstOwner.id);
     }
-  }, []);
+  }, [owners, selectedOwnerId]);
 
   // Save owner selection to localStorage when it changes
   useEffect(() => {
@@ -93,104 +98,6 @@ const KanbanBoard = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Retry
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!selectedOwnerId) {
-    return (
-      <div className="space-y-6">
-        {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={ownerComboboxOpen}
-                  className="w-48 justify-between"
-                >
-                  {getSelectedOwnerName()}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search owners..." />
-                  <CommandList>
-                    <CommandEmpty>No owner found.</CommandEmpty>
-                    <CommandGroup>
-                      {sortedOwners.map((owner) => (
-                        <CommandItem
-                          key={owner.id}
-                          value={owner.fullName}
-                          onSelect={() => {
-                            setSelectedOwnerId(owner.id);
-                            setOwnerComboboxOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {owner.fullName}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={ownersLoading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${ownersLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            {ownersLoading && <span className="text-sm text-gray-500">Loading owners...</span>}
-          </div>
-        </div>
-
-        {/* Owner Selection Prompt */}
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <p className="text-gray-600 mb-4">Please select an owner to view their tasks</p>
-            <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="lg">
-                  Select Owner
-                  <ChevronsUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-0" align="center">
-                <Command>
-                  <CommandInput placeholder="Search owners..." />
-                  <CommandList>
-                    <CommandEmpty>No owner found.</CommandEmpty>
-                    <CommandGroup>
-                      {sortedOwners.map((owner) => (
-                        <CommandItem
-                          key={owner.id}
-                          value={owner.fullName}
-                          onSelect={() => {
-                            setSelectedOwnerId(owner.id);
-                            setOwnerComboboxOpen(false);
-                          }}
-                        >
-                          {owner.fullName}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
       </div>
     );
