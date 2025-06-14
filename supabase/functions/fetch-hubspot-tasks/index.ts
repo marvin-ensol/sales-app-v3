@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -34,19 +33,20 @@ serve(async (req) => {
 
     console.log('Owner filter:', ownerId || 'none')
 
-    // Get today's date in ISO format for filtering
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayISO = today.toISOString()
+    // Get yesterday's date to include overdue tasks
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 7) // Go back 7 days to catch more overdue tasks
+    yesterday.setHours(0, 0, 0, 0)
+    const yesterdayISO = yesterday.toISOString()
 
-    console.log('Fetching tasks modified today:', todayISO)
+    console.log('Fetching tasks from:', yesterdayISO)
 
-    // Build filter array - start with date and status filters
+    // Build filter array - expand date range to include overdue tasks
     const filters = [
       {
         propertyName: 'hs_lastmodifieddate',
         operator: 'GTE',
-        value: todayISO
+        value: yesterdayISO
       },
       {
         propertyName: 'hs_task_status',
@@ -64,7 +64,9 @@ serve(async (req) => {
       })
     }
 
-    // Fetch tasks modified today, filtered by status and optionally by owner
+    console.log('Search filters:', JSON.stringify(filters, null, 2))
+
+    // Fetch tasks with expanded date range
     const tasksResponse = await fetch(
       `https://api.hubapi.com/crm/v3/objects/tasks/search`,
       {
@@ -102,11 +104,13 @@ serve(async (req) => {
 
     const tasksData = await tasksResponse.json()
     console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
+    
+    // Log all task IDs to help debug
+    const taskIds = tasksData.results?.map((task: any) => task.id) || []
+    console.log('Task IDs found:', taskIds)
+    console.log('Looking for task 221631177963 in results:', taskIds.includes('221631177963'))
 
     // Get task associations using the Associations API
-    const taskIds = tasksData.results?.map((task: any) => task.id) || []
-    console.log('Task IDs for association lookup:', taskIds)
-
     let taskContactMap: { [key: string]: string } = {}
     
     if (taskIds.length > 0) {
@@ -215,6 +219,13 @@ serve(async (req) => {
     const transformedTasks = tasksData.results?.map((task: any) => {
       const props = task.properties
       
+      console.log(`Processing task ${task.id}:`, {
+        title: props.hs_task_subject,
+        owner_id: props.hubspot_owner_id,
+        status: props.hs_task_status,
+        timestamp: props.hs_timestamp
+      })
+      
       // Get associated contact from our mapping
       const contactId = taskContactMap[task.id] || null
       const contact = contactId ? contacts[contactId] : null
@@ -308,7 +319,9 @@ serve(async (req) => {
     }).filter((task: any) => {
       // Only include tasks that are due today or overdue
       if (!task.taskDueDate) return false
-      return task.taskDueDate <= currentDate
+      const isDueOrOverdue = task.taskDueDate <= currentDate
+      console.log(`Task ${task.id} due check: ${task.taskDueDate} <= ${currentDate} = ${isDueOrOverdue}`)
+      return isDueOrOverdue
     }) || []
 
     console.log('Transformed and filtered tasks successfully:', transformedTasks.length)
