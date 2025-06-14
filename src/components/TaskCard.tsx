@@ -9,7 +9,7 @@ interface TaskCardProps {
   onMove: (taskId: string, newStatus: TaskStatus) => void;
 }
 
-const TaskCard = ({ task }: TaskCardProps) => {
+const TaskCard = ({ task, onMove }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
 
@@ -28,28 +28,23 @@ const TaskCard = ({ task }: TaskCardProps) => {
 
   const getFrenchWeekday = (dateString: string) => {
     if (!dateString) return "";
-    
-    // Parse the date (format: "13/06 à 15:00")
     const [datePart] = dateString.split(' à ');
     if (!datePart) return "";
-
     const [day, month] = datePart.split('/');
     const currentYear = new Date().getFullYear();
     const date = new Date(currentYear, parseInt(month) - 1, parseInt(day));
-    
     const weekdays = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
     return weekdays[date.getDay()];
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevent navigation when clicking on description toggle or edit icon
-    if ((e.target as HTMLElement).closest('[data-description-toggle]') || 
-        (e.target as HTMLElement).closest('[data-edit-button]')) {
+    if (
+      (e.target as HTMLElement).closest('[data-description-toggle]') ||
+      (e.target as HTMLElement).closest('[data-edit-button]')
+    ) {
       return;
     }
-    
     if (task.contactId) {
-      // Open HubSpot contact page in new tab
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
       window.open(hubspotUrl, '_blank');
     }
@@ -58,7 +53,6 @@ const TaskCard = ({ task }: TaskCardProps) => {
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (task.contactId && task.hubspotId) {
-      // Open HubSpot task details page in new tab
       const taskDetailsUrl = `https://app-eu1.hubspot.com/contacts/142467012/contact/${task.contactId}/?engagement=${task.hubspotId}`;
       window.open(taskDetailsUrl, '_blank');
     }
@@ -73,8 +67,12 @@ const TaskCard = ({ task }: TaskCardProps) => {
   const weekday = getFrenchWeekday(task.dueDate);
 
   return (
-    <div 
-      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(task.priority)} p-4 hover:shadow-md transition-shadow cursor-pointer relative`}
+    <div
+      className={
+        `${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
+          task.priority
+        )} p-4 hover:shadow-md transition-shadow cursor-pointer relative`
+      }
       onClick={handleCardClick}
     >
       {/* Edit icon in top right corner */}
@@ -87,7 +85,7 @@ const TaskCard = ({ task }: TaskCardProps) => {
         <Edit className="h-4 w-4 text-gray-600 hover:text-gray-800" />
       </button>
 
-      <div className="space-y-3 pr-8">
+      <div className="space-y-3">
         {/* Contact name in bold */}
         <div className="font-bold text-gray-900 text-base">
           {task.contact}
@@ -103,7 +101,7 @@ const TaskCard = ({ task }: TaskCardProps) => {
           <div className="flex items-center text-sm">
             <Clock className="h-3 w-3 mr-2 flex-shrink-0 text-gray-600" />
             <div>
-              <div className={`font-medium ${isOverdue ? 'text-red-700' : 'text-gray-900'}`}>
+              <div className={`font-medium ${isOverdue ? "text-red-700" : "text-gray-900"}`}>
                 {weekday && `${weekday} `}{task.dueDate}
               </div>
               {isOverdue && counter && (
@@ -118,7 +116,7 @@ const TaskCard = ({ task }: TaskCardProps) => {
         {/* Description toggle */}
         {task.description && (
           <div className="space-y-1">
-            <div 
+            <div
               className="flex items-center text-sm text-gray-600 cursor-pointer hover:text-gray-800"
               onClick={handleDescriptionToggle}
               data-description-toggle
@@ -130,8 +128,9 @@ const TaskCard = ({ task }: TaskCardProps) => {
                 <ChevronDown className="h-3 w-3 ml-2 flex-shrink-0" />
               )}
             </div>
+            {/* Description content box, now full width and nicely balanced margin */}
             {showDescription && (
-              <div className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded">
+              <div className="text-sm text-gray-700 mt-2 bg-gray-50 rounded px-4 py-3">
                 {task.description}
               </div>
             )}
@@ -143,3 +142,4 @@ const TaskCard = ({ task }: TaskCardProps) => {
 };
 
 export default TaskCard;
+
