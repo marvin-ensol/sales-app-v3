@@ -33,13 +33,12 @@ serve(async (req) => {
 
     console.log('Owner filter:', ownerId || 'none')
 
-    // Let's be much more inclusive to catch task 221631177963
-    // Remove the restrictive lastmodifieddate filter and expand status search
+    // Use NOT_STARTED filter but fix the format for HubSpot API
     const filters = [
       {
         propertyName: 'hs_task_status',
-        operator: 'IN',
-        value: 'NOT_STARTED;COMPLETED;IN_PROGRESS;WAITING;DEFERRED'
+        operator: 'EQ',
+        value: 'NOT_STARTED'
       }
     ]
 
@@ -52,9 +51,9 @@ serve(async (req) => {
       })
     }
 
-    console.log('Search filters (expanded):', JSON.stringify(filters, null, 2))
+    console.log('Search filters (fixed format):', JSON.stringify(filters, null, 2))
 
-    // Fetch tasks with much broader criteria, then filter by due date later
+    // Fetch tasks with NOT_STARTED status only
     const tasksResponse = await fetch(
       `https://api.hubapi.com/crm/v3/objects/tasks/search`,
       {
@@ -311,7 +310,7 @@ serve(async (req) => {
         description: props.hs_task_body || undefined,
         contact: contactName,
         contactId: contactId || null,
-        status: props.hs_task_status?.toLowerCase() === 'not_started' ? 'not_started' : 'other',
+        status: 'not_started', // All tasks are NOT_STARTED due to our filter
         dueDate,
         taskDueDate, // Store the actual date for filtering
         priority: priorityMap[props.hs_task_priority] || 'medium',
@@ -321,13 +320,11 @@ serve(async (req) => {
         queueIds: queueIds
       }
     }).filter((task: any) => {
-      // Only include tasks that are due today or overdue AND have status NOT_STARTED
+      // Only include tasks that are due today or overdue
       if (!task.taskDueDate) return false
       const isDueOrOverdue = task.taskDueDate <= currentDate
-      const isNotStarted = task.status === 'not_started'
-      const shouldInclude = isDueOrOverdue && isNotStarted
-      console.log(`Task ${task.id} filter check: due=${isDueOrOverdue}, not_started=${isNotStarted}, include=${shouldInclude}`)
-      return shouldInclude
+      console.log(`Task ${task.id} filter check: due=${isDueOrOverdue}`)
+      return isDueOrOverdue
     }) || []
 
     console.log('Transformed and filtered tasks successfully:', transformedTasks.length)
