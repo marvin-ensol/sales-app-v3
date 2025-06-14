@@ -197,8 +197,8 @@ serve(async (req) => {
       }
     }
 
-    // Get owner details for all unique owner IDs - FIXED: Get ALL owners first, then filter
-    console.log('Fetching all owners from HubSpot...')
+    // Get all active owners from the allowed teams - FIXED: Fetch and filter owners correctly
+    console.log('Fetching filtered owners from HubSpot...')
     const allOwnersResponse = await fetch(
       `https://api.hubapi.com/crm/v3/owners`,
       {
@@ -210,15 +210,36 @@ serve(async (req) => {
       }
     )
 
+    let validOwnerIds = new Set<string>()
     let ownersMap = {}
     if (allOwnersResponse.ok) {
       const allOwnersData = await allOwnersResponse.json()
       console.log('All owners fetched successfully:', allOwnersData.results?.length || 0)
       
-      // Create a map of all owners by ID
-      ownersMap = allOwnersData.results?.reduce((acc: any, owner: any) => {
+      // Filter owners by team membership (same logic as fetch-hubspot-owners)
+      const allowedTeamIds = ['162028741', '135903065']
+      
+      const validOwners = allOwnersData.results?.filter((owner: any) => {
+        const ownerTeams = owner.teams || []
+        const hasAllowedTeam = ownerTeams.some((team: any) => {
+          const teamIdString = team.id?.toString()
+          return allowedTeamIds.includes(teamIdString)
+        })
+        
+        if (hasAllowedTeam) {
+          validOwnerIds.add(owner.id.toString())
+        }
+        
+        return hasAllowedTeam
+      }) || []
+
+      console.log(`Valid owners (in allowed teams): ${validOwners.length} out of ${allOwnersData.results?.length || 0}`)
+      console.log('Valid owner IDs:', Array.from(validOwnerIds))
+      
+      // Create a map of all valid owners by ID
+      ownersMap = validOwners.reduce((acc: any, owner: any) => {
         acc[owner.id] = owner
-        console.log(`Owner ${owner.id}: ${owner.firstName} ${owner.lastName} (${owner.email})`)
+        console.log(`Valid owner ${owner.id}: ${owner.firstName} ${owner.lastName} (${owner.email})`)
         return acc
       }, {}) || {}
     } else {
@@ -229,8 +250,18 @@ serve(async (req) => {
     const currentDate = new Date()
     console.log('Current date for overdue filtering:', currentDate)
 
-    // Transform tasks to our format and filter by overdue status only
-    const transformedTasks = tasksWithContacts.map((task: any) => {
+    // Transform tasks to our format and filter by overdue status and valid owners
+    const transformedTasks = tasksWithContacts.filter((task: any) => {
+      const taskOwnerId = task.properties?.hubspot_owner_id
+      
+      // Filter out tasks with deactivated owners (not in our valid owner list)
+      if (taskOwnerId && !validOwnerIds.has(taskOwnerId.toString())) {
+        console.log(`Filtering out task ${task.id} (${task.properties?.hs_task_subject}) - associated with deactivated owner ${taskOwnerId}`)
+        return false
+      }
+      
+      return true
+    }).map((task: any) => {
       const props = task.properties
       
       console.log(`Processing task ${task.id}:`, {
@@ -294,7 +325,7 @@ serve(async (req) => {
         'LOW': 'low'
       }
 
-      // Get owner name - FIXED: Use the ownersMap to get proper owner details
+      // Get owner name - Use the valid ownersMap to get proper owner details
       const taskOwnerId = props.hubspot_owner_id
       const owner = taskOwnerId ? ownersMap[taskOwnerId] : null
       const ownerName = owner 
@@ -339,7 +370,7 @@ serve(async (req) => {
       return isOverdue
     }) || []
 
-    console.log('Transformed and filtered tasks (overdue only, with contacts):', transformedTasks.length)
+    console.log('Transformed and filtered tasks (overdue only, with contacts, valid owners):', transformedTasks.length)
 
     return new Response(
       JSON.stringify({ 

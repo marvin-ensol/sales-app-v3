@@ -56,7 +56,12 @@ serve(async (req) => {
     const transformedOwners = ownersData.results?.filter((owner: any) => {
       // Check if owner has teams property and if any team ID matches our allowed list
       const ownerTeams = owner.teams || []
-      const hasAllowedTeam = ownerTeams.some((team: any) => allowedTeamIds.includes(team.id?.toString()))
+      const hasAllowedTeam = ownerTeams.some((team: any) => {
+        const teamIdString = team.id?.toString()
+        const isAllowed = allowedTeamIds.includes(teamIdString)
+        console.log(`  Checking team ${teamIdString} against allowed teams - Match: ${isAllowed}`)
+        return isAllowed
+      })
       
       console.log(`Owner ${owner.id} (${owner.firstName} ${owner.lastName}) - Teams: [${ownerTeams.map((t: any) => t.id).join(', ')}] - Included: ${hasAllowedTeam}`)
       
