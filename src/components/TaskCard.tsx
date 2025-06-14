@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
@@ -38,18 +39,11 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     return weekdays[date.getDay()];
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = () => {
     console.log('TaskCard clicked, task:', task.title);
     console.log('Task contactId:', task.contactId);
     console.log('onFrameUrlChange function:', typeof onFrameUrlChange);
     
-    if (
-      (e.target as HTMLElement).closest('[data-description-toggle]') ||
-      (e.target as HTMLElement).closest('[data-edit-button]')
-    ) {
-      console.log('Click was on description toggle or edit button, ignoring');
-      return;
-    }
     if (task.contactId) {
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
       console.log('Calling frame URL change with:', hubspotUrl);
@@ -81,24 +75,23 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
 
   return (
     <div
-      className={
-        `${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
-          task.priority
-        )} p-4 hover:shadow-md transition-shadow cursor-pointer relative`
-      }
+      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
+        task.priority
+      )} p-4 hover:shadow-md transition-shadow cursor-pointer relative`}
       onClick={handleCardClick}
     >
       {/* Edit icon in top right corner */}
-      <button
-        onClick={handleEditClick}
-        data-edit-button
-        className="absolute top-3 right-3 p-1 hover:bg-gray-100 rounded transition-colors"
-        title="Edit task"
-      >
-        <Edit className="h-4 w-4 text-gray-600 hover:text-gray-800" />
-      </button>
+      <div className="absolute top-3 right-3 z-10">
+        <button
+          onClick={handleEditClick}
+          className="p-1 hover:bg-gray-100 rounded transition-colors"
+          title="Edit task"
+        >
+          <Edit className="h-4 w-4 text-gray-600 hover:text-gray-800" />
+        </button>
+      </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 pr-8">
         {/* OWNER ROW (with icon), only if showOwner is true */}
         {showOwner && (
           <div className="flex items-center text-sm font-medium text-gray-700 mb-1">
@@ -139,7 +132,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
             <div
               className="flex items-center text-sm text-gray-600 cursor-pointer hover:text-gray-800"
               onClick={handleDescriptionToggle}
-              data-description-toggle
             >
               <span className="font-medium">Description</span>
               {showDescription ? (
