@@ -66,6 +66,8 @@ const KanbanBoard = () => {
     return owner?.fullName || selectedOwnerId;
   };
 
+  const showOwnerOnCards = selectedOwnerId === "all";
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -187,6 +189,7 @@ const KanbanBoard = () => {
                   key={task.id}
                   task={task}
                   onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
+                  showOwner={showOwnerOnCards}
                 />
               ))}
               {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (

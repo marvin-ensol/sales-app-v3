@@ -1,15 +1,16 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 
 interface TaskCardProps {
   task: Task;
   onMove: (taskId: string, newStatus: TaskStatus) => void;
+  showOwner?: boolean;
 }
 
-const TaskCard = ({ task, onMove }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, showOwner }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
 
@@ -86,6 +87,13 @@ const TaskCard = ({ task, onMove }: TaskCardProps) => {
       </button>
 
       <div className="space-y-3">
+        {/* OWNER ROW (with icon), only if showOwner is true */}
+        {showOwner && (
+          <div className="flex items-center text-sm font-medium text-gray-700 mb-1">
+            <User className="h-4 w-4 mr-2 text-gray-400" />
+            <span>{task.owner}</span>
+          </div>
+        )}
         {/* Contact name in bold */}
         <div className="font-bold text-gray-900 text-base">
           {task.contact}
@@ -128,9 +136,9 @@ const TaskCard = ({ task, onMove }: TaskCardProps) => {
                 <ChevronDown className="h-3 w-3 ml-2 flex-shrink-0" />
               )}
             </div>
-            {/* Description content box, now full width and nicely balanced margin */}
+            {/* Balanced full-width description box */}
             {showDescription && (
-              <div className="text-sm text-gray-700 mt-2 bg-gray-50 rounded px-4 py-3">
+              <div className="text-sm text-gray-700 mt-2 bg-gray-50 rounded px-5 py-3">
                 {task.description}
               </div>
             )}
@@ -142,4 +150,3 @@ const TaskCard = ({ task, onMove }: TaskCardProps) => {
 };
 
 export default TaskCard;
-
