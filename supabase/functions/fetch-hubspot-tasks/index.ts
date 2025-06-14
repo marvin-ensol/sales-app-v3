@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -291,11 +292,11 @@ serve(async (req) => {
       
       let contactName = 'No Contact'
       if (contact && contact.properties) {
-        const props = contact.properties
-        const firstName = props.firstname || ''
-        const lastName = props.lastname || ''
-        const email = props.email || ''
-        const company = props.company || ''
+        const contactProps = contact.properties
+        const firstName = contactProps.firstname || ''
+        const lastName = contactProps.lastname || ''
+        const email = contactProps.email || ''
+        const company = contactProps.company || ''
         
         console.log(`Processing contact ${contactId} for task ${task.id}:`, {
           firstName,
@@ -305,7 +306,7 @@ serve(async (req) => {
           fullContactData: contact.properties
         })
         
-        // Enhanced contact name resolution with multiple fallbacks
+        // Enhanced contact name resolution with multiple fallbacks - FIXED: Better property access
         if (firstName && lastName) {
           contactName = `${firstName} ${lastName}`.trim()
         } else if (firstName) {
