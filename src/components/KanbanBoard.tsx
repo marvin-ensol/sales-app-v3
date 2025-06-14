@@ -1,9 +1,11 @@
 
 import { useState } from "react";
-import { Filter, Search, RefreshCw } from "lucide-react";
+import { Filter, Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
@@ -21,9 +23,13 @@ const KanbanBoard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+  const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
   const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId === "all" ? undefined : selectedOwnerId);
+
+  // Sort owners alphabetically by full name
+  const sortedOwners = [...owners].sort((a, b) => a.fullName.localeCompare(b.fullName));
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,6 +61,12 @@ const KanbanBoard = () => {
     refetchOwners();
   };
 
+  const getSelectedOwnerName = () => {
+    if (selectedOwnerId === "all") return "All owners";
+    const owner = owners.find(o => o.id === selectedOwnerId);
+    return owner?.fullName || selectedOwnerId;
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -83,19 +95,64 @@ const KanbanBoard = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select owner" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All owners</SelectItem>
-              {owners.map((owner) => (
-                <SelectItem key={owner.id} value={owner.id}>
-                  {owner.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          
+          <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={ownerComboboxOpen}
+                className="w-48 justify-between"
+              >
+                {getSelectedOwnerName()}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search owners..." />
+                <CommandList>
+                  <CommandEmpty>No owner found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all"
+                      onSelect={() => {
+                        setSelectedOwnerId("all");
+                        setOwnerComboboxOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedOwnerId === "all" ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      All owners
+                    </CommandItem>
+                    {sortedOwners.map((owner) => (
+                      <CommandItem
+                        key={owner.id}
+                        value={owner.fullName}
+                        onSelect={() => {
+                          setSelectedOwnerId(owner.id);
+                          setOwnerComboboxOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {owner.fullName}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
           <Button variant="outline" size="sm">
             <Filter className="h-4 w-4 mr-2" />
             Filter
