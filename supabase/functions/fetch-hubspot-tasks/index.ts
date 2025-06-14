@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -103,14 +102,11 @@ serve(async (req) => {
     // Log all task IDs to help debug
     const taskIds = tasksData.results?.map((task: any) => task.id) || []
     console.log('Task IDs found:', taskIds)
-    console.log('Looking for task 221631177963 in results:', taskIds.includes('221631177963'))
     
     // If we find the specific task, log its details
-    const specificTask = tasksData.results?.find((task: any) => task.id === '221631177963')
+    const specificTask = tasksData.results?.find((task: any) => task.id === '20359028697')
     if (specificTask) {
-      console.log('Found task 221631177963 details:', JSON.stringify(specificTask, null, 2))
-    } else {
-      console.log('Task 221631177963 NOT found in results')
+      console.log('Found task 20359028697 details:', JSON.stringify(specificTask, null, 2))
     }
 
     // Get task associations using the Associations API
@@ -134,7 +130,7 @@ serve(async (req) => {
 
       if (associationsResponse.ok) {
         const associationsData = await associationsResponse.json()
-        console.log('Associations fetched successfully:', JSON.stringify(associationsData, null, 2))
+        console.log('Associations fetched successfully. Total results:', associationsData.results?.length || 0)
         
         // Build task-to-contact mapping - use toObjectId instead of id
         associationsData.results?.forEach((result: any) => {
@@ -143,6 +139,12 @@ serve(async (req) => {
             console.log(`Task ${result.from.id} associated with contact ${result.to[0].toObjectId}`)
           }
         })
+        
+        // Log the specific task association if found
+        const specificTaskContactId = taskContactMap['20359028697']
+        if (specificTaskContactId) {
+          console.log(`Task 20359028697 is associated with contact ID: ${specificTaskContactId}`)
+        }
       } else {
         console.error('Failed to fetch associations:', await associationsResponse.text())
       }
@@ -179,7 +181,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             inputs: Array.from(contactIds).map(id => ({ id })),
-            properties: ['firstname', 'lastname', 'email', 'company']
+            properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id']
           })
         }
       )
@@ -187,11 +189,22 @@ serve(async (req) => {
       if (contactsResponse.ok) {
         const contactsData = await contactsResponse.json()
         console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
-        console.log('Contact details:', JSON.stringify(contactsData.results, null, 2))
+        
+        // Log each contact's details
+        contactsData.results?.forEach((contact: any) => {
+          console.log(`Contact ${contact.id} raw data:`, JSON.stringify(contact.properties, null, 2))
+        })
+        
         contacts = contactsData.results?.reduce((acc: any, contact: any) => {
           acc[contact.id] = contact
           return acc
         }, {}) || {}
+        
+        // Log the specific contact if found
+        const specificContactId = taskContactMap['20359028697']
+        if (specificContactId && contacts[specificContactId]) {
+          console.log(`Contact details for task 20359028697:`, JSON.stringify(contacts[specificContactId], null, 2))
+        }
       } else {
         console.error('Failed to fetch contacts:', await contactsResponse.text())
       }
@@ -277,21 +290,40 @@ serve(async (req) => {
       const contact = contactId ? contacts[contactId] : null
       
       let contactName = 'No Contact'
-      if (contact) {
-        const firstName = contact.properties?.firstname || ''
-        const lastName = contact.properties?.lastname || ''
-        const email = contact.properties?.email || ''
-        const company = contact.properties?.company || ''
+      if (contact && contact.properties) {
+        const props = contact.properties
+        const firstName = props.firstname || ''
+        const lastName = props.lastname || ''
+        const email = props.email || ''
+        const company = props.company || ''
         
-        console.log(`Contact ${contactId} details:`, { firstName, lastName, email, company })
+        console.log(`Processing contact ${contactId} for task ${task.id}:`, {
+          firstName,
+          lastName,
+          email,
+          company,
+          fullContactData: contact.properties
+        })
         
-        if (firstName || lastName) {
+        // Enhanced contact name resolution with multiple fallbacks
+        if (firstName && lastName) {
           contactName = `${firstName} ${lastName}`.trim()
+        } else if (firstName) {
+          contactName = firstName
+        } else if (lastName) {
+          contactName = lastName
         } else if (email) {
           contactName = email
         } else if (company) {
           contactName = company
+        } else {
+          // Use contact ID as absolute fallback
+          contactName = `Contact ${contactId}`
         }
+        
+        console.log(`Final contact name for task ${task.id}: "${contactName}"`)
+      } else {
+        console.log(`No contact data found for task ${task.id}, contact ID: ${contactId}`)
       }
 
       // Format due date - hs_timestamp is in ISO format, convert to GMT+2 (Paris time)
