@@ -40,14 +40,15 @@ serve(async (req) => {
       }
     ]
 
-    // Add owner filter if provided
+    // Only add the owner filter to query if specified
     if (ownerId) {
       filters.push({
         propertyName: 'hubspot_owner_id',
         operator: 'EQ',
         value: ownerId
       })
-    }
+    } 
+    // If not, do NOT add the filter; we want all owners.
 
     // Fetch tasks with NOT_STARTED status only
     const tasksResponse = await fetch(
@@ -240,12 +241,8 @@ serve(async (req) => {
       const taskOwnerId = task.properties?.hubspot_owner_id;
 
       // Only include tasks with a valid owner (in allowed teams and non-empty)
-      if (!taskOwnerId || !validOwnerIds.has(taskOwnerId.toString())) {
-        // ❗️ This specifically removes tasks with no owner or owners NOT in allowed teams
-        return false;
-      }
-
-      return true;
+      // (This guarantees no "Unassigned" tasks and only those whose owner is in allowed teams)
+      return !!taskOwnerId && validOwnerIds.has(taskOwnerId.toString());
     }).map((task: any) => {
       const props = task.properties;
 
