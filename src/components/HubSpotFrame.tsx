@@ -6,19 +6,23 @@ const HubSpotFrame = () => {
 
   useEffect(() => {
     // Listen for frame URL changes from task cards
-    const handleFrameUrlChange = (event: CustomEvent) => {
-      setCurrentUrl(event.detail.url);
+    const handleFrameUrlChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ url: string }>;
+      console.log('HubSpotFrame received event:', customEvent.detail);
+      setCurrentUrl(customEvent.detail.url);
     };
 
-    window.addEventListener('frameUrlChange', handleFrameUrlChange as EventListener);
+    window.addEventListener('frameUrlChange', handleFrameUrlChange);
     
     return () => {
-      window.removeEventListener('frameUrlChange', handleFrameUrlChange as EventListener);
+      window.removeEventListener('frameUrlChange', handleFrameUrlChange);
     };
   }, []);
 
+  console.log('HubSpotFrame current URL:', currentUrl);
+
   return (
-    <div className="h-full bg-green-200 flex items-center justify-center">
+    <div className="h-full bg-gray-50 flex items-center justify-center">
       {currentUrl ? (
         <iframe
           src={currentUrl}
