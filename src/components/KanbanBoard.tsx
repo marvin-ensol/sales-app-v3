@@ -3,10 +3,12 @@ import { useState } from "react";
 import { Filter, Search, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
 import { useHubSpotTasks } from "@/hooks/useHubSpotTasks";
+import { useHubSpotOwners } from "@/hooks/useHubSpotOwners";
 
 // Define columns based on task queues
 const columns = [
@@ -16,9 +18,12 @@ const columns = [
 ];
 
 const KanbanBoard = () => {
-  const { tasks, loading, error, refetch } = useHubSpotTasks();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
+  
+  const { owners, loading: ownersLoading } = useHubSpotOwners();
+  const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,6 +78,19 @@ const KanbanBoard = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <Select value={selectedOwnerId} onValueChange={setSelectedOwnerId}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Select owner" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All owners</SelectItem>
+              {owners.map((owner) => (
+                <SelectItem key={owner.id} value={owner.id}>
+                  {owner.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm">
             <Filter className="h-4 w-4 mr-2" />
             Filter
@@ -83,9 +101,10 @@ const KanbanBoard = () => {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          {loading && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
+          {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
           <span className="text-sm text-gray-600">
-            Owner: 1288346562 | Status: Not Started | Due: Today or Earlier
+            Status: Not Started | Due: Today or Earlier
+            {selectedOwnerId && ` | Owner: ${owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}`}
           </span>
         </div>
       </div>

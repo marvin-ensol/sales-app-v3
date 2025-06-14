@@ -22,6 +22,17 @@ serve(async (req) => {
 
     console.log('HubSpot token found, proceeding with API calls...')
 
+    // Parse request body to get owner filter
+    let ownerId = null
+    try {
+      const body = await req.json()
+      ownerId = body?.ownerId
+    } catch (e) {
+      // No body or invalid JSON, continue without owner filter
+    }
+
+    console.log('Owner filter:', ownerId || 'none')
+
     // Get today's date in ISO format for filtering
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -29,7 +40,30 @@ serve(async (req) => {
 
     console.log('Fetching tasks modified today:', todayISO)
 
-    // Fetch tasks modified today, filtered by owner and status
+    // Build filter array - start with date and status filters
+    const filters = [
+      {
+        propertyName: 'hs_lastmodifieddate',
+        operator: 'GTE',
+        value: todayISO
+      },
+      {
+        propertyName: 'hs_task_status',
+        operator: 'EQ',
+        value: 'NOT_STARTED'
+      }
+    ]
+
+    // Add owner filter if provided
+    if (ownerId) {
+      filters.push({
+        propertyName: 'hubspot_owner_id',
+        operator: 'EQ',
+        value: ownerId
+      })
+    }
+
+    // Fetch tasks modified today, filtered by status and optionally by owner
     const tasksResponse = await fetch(
       `https://api.hubapi.com/crm/v3/objects/tasks/search`,
       {
@@ -41,23 +75,7 @@ serve(async (req) => {
         body: JSON.stringify({
           filterGroups: [
             {
-              filters: [
-                {
-                  propertyName: 'hs_lastmodifieddate',
-                  operator: 'GTE',
-                  value: todayISO
-                },
-                {
-                  propertyName: 'hubspot_owner_id',
-                  operator: 'EQ',
-                  value: '1288346562'
-                },
-                {
-                  propertyName: 'hs_task_status',
-                  operator: 'EQ',
-                  value: 'NOT_STARTED'
-                }
-              ]
+              filters: filters
             }
           ],
           properties: [
@@ -160,30 +178,33 @@ serve(async (req) => {
       }
     }
 
-    // Get owner details (though we know it's owner 1288346562)
-    let owner = null
-    const ownersResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/owners/batch/read`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${hubspotToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: [{ id: '1288346562' }]
-        })
+    // Get owner details for all unique owner IDs
+    const ownerIds = new Set(tasksData.results?.map((task: any) => task.properties.hubspot_owner_id).filter(Boolean) || [])
+    let ownersMap = {}
+
+    if (ownerIds.size > 0) {
+      const ownersResponse = await fetch(
+        `https://api.hubapi.com/crm/v3/owners/batch/read`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: Array.from(ownerIds).map(id => ({ id }))
+          })
+        }
+      )
+
+      if (ownersResponse.ok) {
+        const ownersData = await ownersResponse.json()
+        ownersMap = ownersData.results?.reduce((acc: any, owner: any) => {
+          acc[owner.id] = owner
+          return acc
+        }, {}) || {}
       }
-    )
-
-    if (ownersResponse.ok) {
-      const ownersData = await ownersResponse.json()
-      owner = ownersData.results?.[0]
     }
-
-    const ownerName = owner 
-      ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
-      : 'Unassigned'
 
     // Get current date for filtering
     const currentDate = new Date()
@@ -245,6 +266,12 @@ serve(async (req) => {
         'MEDIUM': 'medium',
         'LOW': 'low'
       }
+
+      // Get owner name
+      const owner = ownersMap[props.hubspot_owner_id]
+      const ownerName = owner 
+        ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
+        : 'Unassigned'
 
       // Determine queue based on hs_queue_membership_ids using correct IDs
       let queue = 'other'

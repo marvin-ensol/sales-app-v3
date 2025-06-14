@@ -1,23 +1,28 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Task } from '@/types/task';
 
-export const useHubSpotTasks = (selectedOwnerId?: string) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+export interface HubSpotOwner {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  fullName: string;
+}
+
+export const useHubSpotOwners = () => {
+  const [owners, setOwners] = useState<HubSpotOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTasks = async () => {
+  const fetchOwners = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching tasks from HubSpot for owner:', selectedOwnerId || 'all');
+      console.log('Fetching owners from HubSpot...');
       
-      const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
-        body: { ownerId: selectedOwnerId }
-      });
+      const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-owners');
       
       if (functionError) {
         console.error('Supabase function error:', functionError);
@@ -31,40 +36,35 @@ export const useHubSpotTasks = (selectedOwnerId?: string) => {
       
       if (!data?.success) {
         console.error('Function returned unsuccessful response:', data);
-        throw new Error('Failed to fetch tasks from HubSpot');
+        throw new Error('Failed to fetch owners from HubSpot');
       }
       
-      console.log('Tasks received successfully:', data?.tasks?.length || 0);
-      setTasks(data?.tasks || []);
+      console.log('Owners received successfully:', data?.owners?.length || 0);
+      setOwners(data?.owners || []);
       
     } catch (err) {
-      console.error('Error fetching HubSpot tasks:', err);
-      let errorMessage = 'Failed to fetch tasks';
+      console.error('Error fetching HubSpot owners:', err);
+      let errorMessage = 'Failed to fetch owners';
       
       if (err instanceof Error) {
         errorMessage = err.message;
       }
       
       setError(errorMessage);
-      setTasks([]);
+      setOwners([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
-    
-    // Set up polling every 30 seconds
-    const interval = setInterval(fetchTasks, 30000);
-    
-    return () => clearInterval(interval);
-  }, [selectedOwnerId]);
+    fetchOwners();
+  }, []);
 
   return {
-    tasks,
+    owners,
     loading,
     error,
-    refetch: fetchTasks
+    refetch: fetchOwners
   };
 };
