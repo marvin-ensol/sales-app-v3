@@ -44,8 +44,18 @@ serve(async (req) => {
     const ownersData = await ownersResponse.json()
     console.log('Owners fetched successfully:', ownersData.results?.length || 0)
 
-    // Transform owners to our format
-    const transformedOwners = ownersData.results?.map((owner: any) => {
+    // Transform owners to our format and filter by team IDs
+    const allowedTeamIds = ['162028741', '135903065']
+    
+    const transformedOwners = ownersData.results?.filter((owner: any) => {
+      // Check if owner has teams property and if any team ID matches our allowed list
+      const ownerTeams = owner.teams || []
+      const hasAllowedTeam = ownerTeams.some((team: any) => allowedTeamIds.includes(team.id.toString()))
+      
+      console.log(`Owner ${owner.id} (${owner.firstName} ${owner.lastName}) teams:`, ownerTeams.map((t: any) => t.id), 'Included:', hasAllowedTeam)
+      
+      return hasAllowedTeam
+    }).map((owner: any) => {
       const firstName = owner.firstName || ''
       const lastName = owner.lastName || ''
       const email = owner.email || ''
@@ -67,7 +77,7 @@ serve(async (req) => {
       }
     }) || []
 
-    console.log('Transformed owners successfully:', transformedOwners.length)
+    console.log('Transformed and filtered owners successfully:', transformedOwners.length)
 
     return new Response(
       JSON.stringify({ 

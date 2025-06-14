@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -213,11 +214,11 @@ serve(async (req) => {
       console.error('Failed to fetch owners:', await allOwnersResponse.text())
     }
 
-    // Get current date for filtering
+    // Get current date for filtering - now only show overdue tasks
     const currentDate = new Date()
-    currentDate.setHours(23, 59, 59, 999) // End of current day
+    console.log('Current date for overdue filtering:', currentDate)
 
-    // Transform tasks to our format and filter by due date
+    // Transform tasks to our format and filter by overdue status only
     const transformedTasks = tasksData.results?.map((task: any) => {
       const props = task.properties
       
@@ -320,14 +321,14 @@ serve(async (req) => {
         queueIds: queueIds
       }
     }).filter((task: any) => {
-      // Only include tasks that are due today or overdue
+      // Only include tasks that are OVERDUE (not just due today)
       if (!task.taskDueDate) return false
-      const isDueOrOverdue = task.taskDueDate <= currentDate
-      console.log(`Task ${task.id} filter check: due=${isDueOrOverdue}`)
-      return isDueOrOverdue
+      const isOverdue = task.taskDueDate < currentDate
+      console.log(`Task ${task.id} overdue check: due=${task.taskDueDate}, current=${currentDate}, overdue=${isOverdue}`)
+      return isOverdue
     }) || []
 
-    console.log('Transformed and filtered tasks successfully:', transformedTasks.length)
+    console.log('Transformed and filtered tasks (overdue only):', transformedTasks.length)
 
     return new Response(
       JSON.stringify({ 

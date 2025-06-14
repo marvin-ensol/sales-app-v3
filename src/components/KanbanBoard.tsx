@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Filter, Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -165,7 +164,7 @@ const KanbanBoard = () => {
         <div className="flex items-center gap-2">
           {(loading || ownersLoading) && <span className="text-sm text-gray-500">Syncing with HubSpot...</span>}
           <span className="text-sm text-gray-600">
-            Status: Not Started | Due: Today or Earlier
+            Status: Not Started | Due: Overdue Only
             {selectedOwnerId !== "all" && ` | Owner: ${owners.find(o => o.id === selectedOwnerId)?.fullName || selectedOwnerId}`}
           </span>
         </div>
