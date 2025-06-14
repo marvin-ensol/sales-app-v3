@@ -9,6 +9,12 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchTasks = async () => {
+    if (!selectedOwnerId) {
+      console.log('No owner selected, skipping task fetch');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -18,6 +24,8 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
         body: { ownerId: selectedOwnerId }
       });
+      
+      console.log('Raw response:', { data, functionError });
       
       if (functionError) {
         console.error('Supabase function error:', functionError);
