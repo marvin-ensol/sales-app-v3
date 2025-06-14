@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,11 @@ const columns = [
 
 const STORAGE_KEY = "kanban_selected_owner";
 
-const KanbanBoard = () => {
+interface KanbanBoardProps {
+  onFrameUrlChange: (url: string) => void;
+}
+
+const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [expandedColumn, setExpandedColumn] = useState<string>("new");
@@ -187,6 +190,7 @@ const KanbanBoard = () => {
                 key={task.id}
                 task={task}
                 onMove={(taskId, newStatus) => handleTaskMove(taskId, newStatus as TaskQueue)}
+                onFrameUrlChange={onFrameUrlChange}
                 showOwner={false}
               />
             ))}

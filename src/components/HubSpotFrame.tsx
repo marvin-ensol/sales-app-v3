@@ -1,24 +1,9 @@
 
-import { useState, useEffect } from "react";
+interface HubSpotFrameProps {
+  currentUrl: string;
+}
 
-const HubSpotFrame = () => {
-  const [currentUrl, setCurrentUrl] = useState<string>("");
-
-  useEffect(() => {
-    // Listen for frame URL changes from task cards
-    const handleFrameUrlChange = (event: CustomEvent<{ url: string }>) => {
-      console.log('HubSpotFrame received event:', event.detail);
-      setCurrentUrl(event.detail.url);
-    };
-
-    // Cast to any to avoid TypeScript issues with CustomEvent
-    window.addEventListener('frameUrlChange', handleFrameUrlChange as any);
-    
-    return () => {
-      window.removeEventListener('frameUrlChange', handleFrameUrlChange as any);
-    };
-  }, []);
-
+const HubSpotFrame = ({ currentUrl }: HubSpotFrameProps) => {
   console.log('HubSpotFrame current URL:', currentUrl);
 
   return (

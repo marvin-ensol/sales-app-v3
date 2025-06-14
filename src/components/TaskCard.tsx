@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
@@ -7,10 +6,11 @@ import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 interface TaskCardProps {
   task: Task;
   onMove: (taskId: string, newStatus: TaskStatus) => void;
+  onFrameUrlChange: (url: string) => void;
   showOwner?: boolean;
 }
 
-const TaskCard = ({ task, onMove, showOwner }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
 
@@ -47,12 +47,8 @@ const TaskCard = ({ task, onMove, showOwner }: TaskCardProps) => {
     }
     if (task.contactId) {
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
-      console.log('Dispatching frame URL change:', hubspotUrl);
-      // Dispatch custom event to update the frame
-      const event = new CustomEvent('frameUrlChange', {
-        detail: { url: hubspotUrl }
-      });
-      window.dispatchEvent(event);
+      console.log('Calling frame URL change with:', hubspotUrl);
+      onFrameUrlChange(hubspotUrl);
     }
   };
 
@@ -60,12 +56,8 @@ const TaskCard = ({ task, onMove, showOwner }: TaskCardProps) => {
     e.stopPropagation();
     if (task.contactId && task.hubspotId) {
       const taskDetailsUrl = `https://app-eu1.hubspot.com/contacts/142467012/contact/${task.contactId}/?engagement=${task.hubspotId}`;
-      console.log('Dispatching edit URL change:', taskDetailsUrl);
-      // Dispatch custom event to update the frame
-      const event = new CustomEvent('frameUrlChange', {
-        detail: { url: taskDetailsUrl }
-      });
-      window.dispatchEvent(event);
+      console.log('Calling edit URL change with:', taskDetailsUrl);
+      onFrameUrlChange(taskDetailsUrl);
     }
   };
 
