@@ -214,6 +214,13 @@ serve(async (req) => {
           return acc
         }, {}) || {}
         
+        // DETAILED LOGGING: Check if contact 3851 made it into our contacts object
+        console.log('🔍 CONTACTS OBJECT AFTER PROCESSING:')
+        console.log('- Contact 3851 exists in contacts object:', !!contacts['3851'])
+        if (contacts['3851']) {
+          console.log('- Contact 3851 data in contacts object:', JSON.stringify(contacts['3851'], null, 2))
+        }
+        
         // Log the specific contact if found
         const specificContactId = taskContactMap['20359028697']
         if (specificContactId && contacts[specificContactId]) {
@@ -303,6 +310,21 @@ serve(async (req) => {
       const contactId = taskContactMap[task.id] || null
       const contact = contactId ? contacts[contactId] : null
       
+      // DETAILED LOGGING FOR TASK 20359028697
+      if (task.id === '20359028697') {
+        console.log('🔍🔍🔍 DETAILED PROCESSING FOR TASK 20359028697:')
+        console.log('- Task ID:', task.id)
+        console.log('- Contact ID from mapping:', contactId)
+        console.log('- Contact object exists:', !!contact)
+        console.log('- Task contact mapping entry:', taskContactMap[task.id])
+        console.log('- contacts object keys:', Object.keys(contacts))
+        console.log('- Contact 3851 in contacts:', !!contacts['3851'])
+        if (contact) {
+          console.log('- Contact object:', JSON.stringify(contact, null, 2))
+          console.log('- Contact properties:', JSON.stringify(contact.properties, null, 2))
+        }
+      }
+      
       let contactName = 'No Contact'
       if (contact && contact.properties) {
         const contactProps = contact.properties
@@ -356,6 +378,17 @@ serve(async (req) => {
         }
       } else {
         console.log(`No contact data found for task ${task.id}, contact ID: ${contactId}`)
+        
+        // MORE DETAILED LOGGING FOR TROUBLESHOOTING
+        if (task.id === '20359028697') {
+          console.log('🔍 TASK 20359028697 CONTACT ISSUE:')
+          console.log('- contactId:', contactId)
+          console.log('- contact object:', contact)
+          console.log('- contact exists check:', !!contact)
+          console.log('- contact.properties exists:', !!(contact && contact.properties))
+          console.log('- Full contacts object keys:', Object.keys(contacts))
+          console.log('- Task contact mapping:', taskContactMap)
+        }
       }
 
       // Format due date - hs_timestamp is in ISO format, convert to GMT+2 (Paris time)
