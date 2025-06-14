@@ -20,9 +20,14 @@ export const useHubSpotOwners = () => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching owners from HubSpot...');
+      console.log('=== FETCHING OWNERS FROM HUBSPOT ===');
+      console.log('Calling fetch-hubspot-owners edge function...');
       
-      const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-owners');
+      const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-owners', {
+        body: { forceRefresh: true } // Add a parameter to ensure fresh fetch
+      });
+      
+      console.log('Edge function response:', { data, functionError });
       
       if (functionError) {
         console.error('Supabase function error:', functionError);
@@ -39,7 +44,10 @@ export const useHubSpotOwners = () => {
         throw new Error('Failed to fetch owners from HubSpot');
       }
       
-      console.log('Owners received successfully:', data?.owners?.length || 0);
+      console.log('=== OWNERS FETCH COMPLETE ===');
+      console.log('Final filtered owners received:', data?.owners?.length || 0);
+      console.log('Owner names:', data?.owners?.map((o: HubSpotOwner) => o.fullName) || []);
+      
       setOwners(data?.owners || []);
       
     } catch (err) {
@@ -58,6 +66,7 @@ export const useHubSpotOwners = () => {
   };
 
   useEffect(() => {
+    console.log('=== useHubSpotOwners HOOK INITIALIZED ===');
     fetchOwners();
     
     // Set up polling every 6 hours (6 * 60 * 60 * 1000 ms = 21,600,000 ms)
