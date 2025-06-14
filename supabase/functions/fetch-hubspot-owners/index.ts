@@ -12,24 +12,18 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== FETCH-HUBSPOT-OWNERS EDGE FUNCTION START ===')
-    console.log('Timestamp:', new Date().toISOString())
-    console.log('Request method:', req.method)
-    
-    const requestBody = await req.json().catch(() => ({}))
-    console.log('Request body:', JSON.stringify(requestBody, null, 2))
+    console.error('=== FETCH-HUBSPOT-OWNERS START ===')
     
     const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
     
     if (!hubspotToken) {
-      console.error('❌ HubSpot access token not found in environment variables')
-      throw new Error('HubSpot access token not configured. Please check your environment variables.')
+      console.error('❌ HubSpot access token not found')
+      throw new Error('HubSpot access token not configured')
     }
 
-    console.log('✅ HubSpot token found, proceeding with API call...')
+    console.error('✅ HubSpot token found, making API call...')
 
     // Fetch owners from HubSpot
-    console.log('Making request to HubSpot owners API...')
     const ownersResponse = await fetch(
       `https://api.hubapi.com/crm/v3/owners`,
       {
@@ -41,88 +35,64 @@ serve(async (req) => {
       }
     )
 
-    console.log('HubSpot API response status:', ownersResponse.status)
-
     if (!ownersResponse.ok) {
       const errorText = await ownersResponse.text()
       console.error(`❌ HubSpot API error: ${ownersResponse.status} - ${errorText}`)
-      throw new Error(`HubSpot API error: ${ownersResponse.status} - ${errorText}`)
+      throw new Error(`HubSpot API error: ${ownersResponse.status}`)
     }
 
     const ownersData = await ownersResponse.json()
-    console.log('=== RAW OWNERS DATA FROM HUBSPOT ===')
-    console.log('Total owners fetched from HubSpot API:', ownersData.results?.length || 0)
+    console.error(`📊 Total owners from HubSpot: ${ownersData.results?.length || 0}`)
 
     // Transform owners to our format and filter by team IDs
     const allowedTeamIds = ['162028741', '135903065']
-    console.log('🎯 Allowed team IDs:', allowedTeamIds)
+    console.error(`🎯 Allowed team IDs: ${JSON.stringify(allowedTeamIds)}`)
     
-    console.log('=== STARTING DETAILED TEAM FILTERING ===')
+    // Check specifically for Adrien first
+    const adrienOwner = ownersData.results?.find((owner: any) => 
+      (owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') ||
+      owner.email?.toLowerCase().includes('adrien')
+    )
     
-    // Log all owners first
-    console.log('=== ALL OWNERS FROM HUBSPOT (BEFORE FILTERING) ===')
-    ownersData.results?.forEach((owner: any, index: number) => {
-      const ownerTeams = owner.teams || []
-      console.log(`${index + 1}. OWNER ${owner.id}: ${owner.firstName} ${owner.lastName} (${owner.email})`)
-      console.log(`   Teams: [${ownerTeams.map((t: any) => `${t.id}:${t.name || 'no name'}`).join(', ')}]`)
+    if (adrienOwner) {
+      console.error(`🔍 FOUND ADRIEN HOLVOET:`)
+      console.error(`   ID: ${adrienOwner.id}`)
+      console.error(`   Name: ${adrienOwner.firstName} ${adrienOwner.lastName}`)
+      console.error(`   Email: ${adrienOwner.email}`)
+      console.error(`   Teams: ${JSON.stringify(adrienOwner.teams || [])}`)
       
-      // Special detailed check for Adrien Holvoet
-      if ((owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') || 
-          owner.email?.toLowerCase().includes('adrien')) {
-        console.log(`🔍 SPECIAL DETAILED CHECK FOR ADRIEN HOLVOET`)
-        console.log(`   Owner ID: ${owner.id}`)
-        console.log(`   First Name: "${owner.firstName}"`)
-        console.log(`   Last Name: "${owner.lastName}"`)
-        console.log(`   Email: "${owner.email}"`)
-        console.log(`   Teams: ${JSON.stringify(ownerTeams, null, 4)}`)
-        console.log(`   Teams count: ${ownerTeams.length}`)
-        
-        if (ownerTeams.length > 0) {
-          ownerTeams.forEach((team: any, teamIndex: number) => {
-            console.log(`   Team ${teamIndex + 1}: ID="${team.id}", Name="${team.name}", Type: ${typeof team.id}`)
-            console.log(`   Team ${teamIndex + 1} ID as string: "${team.id?.toString()}"`)
-            console.log(`   Is "${team.id?.toString()}" in allowed list? ${allowedTeamIds.includes(team.id?.toString())}`)
-          })
-        } else {
-          console.log(`   ⚠️ Adrien has NO TEAMS assigned`)
-        }
+      if (adrienOwner.teams && adrienOwner.teams.length > 0) {
+        adrienOwner.teams.forEach((team: any, index: number) => {
+          const teamIdStr = team.id?.toString()
+          const isAllowed = allowedTeamIds.includes(teamIdStr)
+          console.error(`   Team ${index + 1}: ID="${teamIdStr}", Name="${team.name}", Allowed: ${isAllowed}`)
+        })
+      } else {
+        console.error(`   ⚠️ Adrien has NO TEAMS`)
       }
-    })
+    } else {
+      console.error(`🔍 ADRIEN HOLVOET NOT FOUND in raw data`)
+    }
     
-    console.log('=== NOW FILTERING OWNERS ===')
-    
+    // Filter owners
     const transformedOwners = ownersData.results?.filter((owner: any) => {
       const ownerTeams = owner.teams || []
       
-      console.log(`\n🔄 FILTERING: ${owner.firstName} ${owner.lastName} (${owner.email})`)
-      console.log(`   Owner ID: ${owner.id}`)
-      console.log(`   Teams: [${ownerTeams.map((t: any) => `${t.id}:${t.name}`).join(', ')}]`)
-      
       if (ownerTeams.length === 0) {
-        console.log(`   ❌ EXCLUDED: No teams assigned`)
         return false
       }
       
       const hasAllowedTeam = ownerTeams.some((team: any) => {
         const teamIdString = team.id?.toString()
-        const isAllowed = allowedTeamIds.includes(teamIdString)
-        console.log(`     Checking team ${teamIdString} (${team.name || 'no name'}) - Allowed: ${isAllowed}`)
-        return isAllowed
+        return allowedTeamIds.includes(teamIdString)
       })
       
-      if (hasAllowedTeam) {
-        console.log(`   ✅ INCLUDED: Has allowed team`)
-      } else {
-        console.log(`   ❌ EXCLUDED: No allowed teams`)
-      }
-      
-      // Extra check for Adrien
+      // Special logging for Adrien
       if ((owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') || 
           owner.email?.toLowerCase().includes('adrien')) {
-        console.log(`🚨 ADRIEN HOLVOET FILTER RESULT: ${hasAllowedTeam ? 'INCLUDED' : 'EXCLUDED'}`)
+        console.error(`🚨 ADRIEN FILTER RESULT: ${hasAllowedTeam ? 'INCLUDED' : 'EXCLUDED'}`)
         if (hasAllowedTeam) {
-          console.error(`❌❌❌ CRITICAL ISSUE: Adrien Holvoet is being INCLUDED when he should be EXCLUDED!`)
-          console.error(`❌❌❌ This means he has a team in the allowed list: ${JSON.stringify(allowedTeamIds)}`)
+          console.error(`❌❌❌ BUG: Adrien should be EXCLUDED but is INCLUDED!`)
         }
       }
       
@@ -149,35 +119,26 @@ serve(async (req) => {
       }
     }) || []
 
-    console.log('=== FILTERING COMPLETE ===')
-    console.log('📊 Final filtered owners count:', transformedOwners.length)
-    console.log('📋 Final filtered owner names:', transformedOwners.map(o => `${o.id}: ${o.fullName} (${o.email})`))
+    console.error(`📋 Final filtered count: ${transformedOwners.length}`)
     
-    // Final check if Adrien is in the result
-    const adrienInFinalList = transformedOwners.some(o => 
+    // Final check for Adrien in results
+    const adrienInFinal = transformedOwners.find(o => 
       o.fullName.toLowerCase().includes('adrien') || 
       o.email.toLowerCase().includes('adrien')
     )
-    console.log(`🎯 Adrien Holvoet in final filtered list: ${adrienInFinalList}`)
     
-    if (adrienInFinalList) {
-      console.error(`❌❌❌ CRITICAL BUG: Adrien Holvoet made it through the filter!`)
-      const adrienDetails = transformedOwners.find(o => 
-        o.fullName.toLowerCase().includes('adrien') || 
-        o.email.toLowerCase().includes('adrien')
-      )
-      console.error(`❌❌❌ Adrien final details:`, JSON.stringify(adrienDetails, null, 2))
+    if (adrienInFinal) {
+      console.error(`❌❌❌ CRITICAL: Adrien is in final results: ${JSON.stringify(adrienInFinal)}`)
+    } else {
+      console.error(`✅ GOOD: Adrien not in final results`)
     }
 
-    console.log('=== EDGE FUNCTION RESPONSE READY ===')
     const response = { 
       owners: transformedOwners,
       total: transformedOwners.length,
       success: true,
       timestamp: new Date().toISOString()
     }
-    
-    console.log('Returning response with', response.total, 'owners')
 
     return new Response(
       JSON.stringify(response),
@@ -190,10 +151,8 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('=== CRITICAL ERROR IN FETCH-HUBSPOT-OWNERS ===')
-    console.error('Error details:', error)
-    console.error('Error message:', error.message)
-    console.error('Error stack:', error.stack)
+    console.error('=== CRITICAL ERROR ===')
+    console.error('Error:', error.message)
     
     return new Response(
       JSON.stringify({ 
