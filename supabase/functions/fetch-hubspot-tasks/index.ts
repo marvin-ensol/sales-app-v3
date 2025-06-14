@@ -146,36 +146,50 @@ serve(async (req) => {
     // Get unique contact IDs from associations
     const contactIds = new Set(Object.values(taskContactMap))
 
-    // Fetch contact details if we have contact IDs
+    // Fetch contact details in batches of 100 (HubSpot's limit)
     let contacts = {}
     if (contactIds.size > 0) {
       console.log('Fetching contact details for', contactIds.size, 'contacts')
-      const contactsResponse = await fetch(
-        `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${hubspotToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: Array.from(contactIds).map(id => ({ id })),
-            properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id']
-          })
-        }
-      )
-
-      if (contactsResponse.ok) {
-        const contactsData = await contactsResponse.json()
-        console.log('Contacts fetched successfully:', contactsData.results?.length || 0)
+      
+      const contactIdsArray = Array.from(contactIds)
+      const batchSize = 100
+      
+      for (let i = 0; i < contactIdsArray.length; i += batchSize) {
+        const batch = contactIdsArray.slice(i, i + batchSize)
+        console.log(`Fetching contact batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(contactIdsArray.length/batchSize)}: ${batch.length} contacts`)
         
-        contacts = contactsData.results?.reduce((acc: any, contact: any) => {
-          acc[contact.id] = contact
-          return acc
-        }, {}) || {}
-      } else {
-        console.error('Failed to fetch contacts:', await contactsResponse.text())
+        const contactsResponse = await fetch(
+          `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${hubspotToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: batch.map(id => ({ id })),
+              properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id']
+            })
+          }
+        )
+
+        if (contactsResponse.ok) {
+          const contactsData = await contactsResponse.json()
+          console.log(`Batch ${Math.floor(i/batchSize) + 1} contacts fetched successfully:`, contactsData.results?.length || 0)
+          
+          // Merge this batch into the contacts object
+          const batchContacts = contactsData.results?.reduce((acc: any, contact: any) => {
+            acc[contact.id] = contact
+            return acc
+          }, {}) || {}
+          
+          contacts = { ...contacts, ...batchContacts }
+        } else {
+          console.error(`Failed to fetch contact batch ${Math.floor(i/batchSize) + 1}:`, await contactsResponse.text())
+        }
       }
+      
+      console.log('Total contacts fetched:', Object.keys(contacts).length)
     }
 
     // Get all active owners from the allowed teams
