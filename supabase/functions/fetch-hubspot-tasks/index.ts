@@ -29,9 +29,9 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    console.log('Owner filter:', ownerId || 'none')
+    console.log('Owner filter:', ownerId || 'none (ALL OWNERS)');
 
-    // Use NOT_STARTED filter but fix the format for HubSpot API
+    // Use NOT_STARTED filter for all requests
     const filters = [
       {
         propertyName: 'hs_task_status',
@@ -40,15 +40,17 @@ serve(async (req) => {
       }
     ]
 
-    // Only add the owner filter to query if specified
+    // ADD owner filter ONLY if ownerId is specified, never for "all"
     if (ownerId) {
       filters.push({
         propertyName: 'hubspot_owner_id',
         operator: 'EQ',
         value: ownerId
       })
-    } 
-    // If not, do NOT add the filter; we want all owners.
+      console.log("Applying ownerId filter:", ownerId)
+    } else {
+      console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
+    }
 
     // Fetch tasks with NOT_STARTED status only
     const tasksResponse = await fetch(
@@ -186,7 +188,7 @@ serve(async (req) => {
       console.log('Total contacts fetched:', Object.keys(contacts).length)
     }
 
-    // Get all active owners from the allowed teams
+    // --- Fetch all possible owners and build allowed owners set
     console.log('Fetching filtered owners from HubSpot...')
     const allOwnersResponse = await fetch(
       `https://api.hubapi.com/crm/v3/owners`,
@@ -207,18 +209,21 @@ serve(async (req) => {
       
       // Filter owners by team membership
       const allowedTeamIds = ['162028741', '135903065']
-      
       const validOwners = allOwnersData.results?.filter((owner: any) => {
         const ownerTeams = owner.teams || []
         const hasAllowedTeam = ownerTeams.some((team: any) => {
           const teamIdString = team.id?.toString()
           return allowedTeamIds.includes(teamIdString)
         })
-        
         if (hasAllowedTeam) {
           validOwnerIds.add(owner.id.toString())
         }
-        
+        // Debug each owner and their included/excluded status
+        if (hasAllowedTeam) {
+          console.log(`✔️ INCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
+        } else {
+          console.log(`❌ EXCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
+        }
         return hasAllowedTeam
       }) || []
 
@@ -233,17 +238,31 @@ serve(async (req) => {
       console.error('Failed to fetch owners:', await allOwnersResponse.text())
     }
 
+    // --- Final filtering step: tasksWithContacts => (must have allowed owner)
+    // For ALL OWNERS, filter by allowed team owners only.
+    // For single owner filter, the query should have already filtered by ownerId, but do a defensive check anyway.
+
+    const tasksWithAllowedOwners = (tasksWithContacts || []).filter((task: any) => {
+      const taskOwnerId = task.properties?.hubspot_owner_id;
+      if (!taskOwnerId) {
+        console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
+        return false; // not assigned, skip!
+      }
+      // Defensive: must be a valid owner
+      if (validOwnerIds.has(taskOwnerId.toString())) {
+        return true;
+      } else {
+        console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
+        return false;
+      }
+    });
+
+    console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasksWithContacts.length || 0}`);
+
     // Get current date for filtering - now only show overdue tasks
     const currentDate = new Date()
 
-    // Transform tasks to our format and filter by overdue status and valid owners
-    const transformedTasks = tasksWithContacts.filter((task: any) => {
-      const taskOwnerId = task.properties?.hubspot_owner_id;
-
-      // Only include tasks with a valid owner (in allowed teams and non-empty)
-      // (This guarantees no "Unassigned" tasks and only those whose owner is in allowed teams)
-      return !!taskOwnerId && validOwnerIds.has(taskOwnerId.toString());
-    }).map((task: any) => {
+    const transformedTasks = tasksWithAllowedOwners.map((task: any) => {
       const props = task.properties;
 
       // Get associated contact from our mapping
@@ -343,17 +362,18 @@ serve(async (req) => {
       return isOverdue;
     }) || [];
 
-    console.log('Final transformed tasks:', transformedTasks.length)
+    console.log('Final transformed tasks:', transformedTasks.length);
 
+    // Remove taskDueDate from response
     return new Response(
       JSON.stringify({ 
-        tasks: transformedTasks.map(({ taskDueDate, ...task }) => task), // Remove taskDueDate from response
+        tasks: transformedTasks.map(({ taskDueDate, ...task }) => task),
         total: transformedTasks.length,
         success: true
       }),
       { 
         headers: { 
-          ...corsHeaders, 
+          ...corsHeaders,
           'Content-Type': 'application/json' 
         } 
       }
