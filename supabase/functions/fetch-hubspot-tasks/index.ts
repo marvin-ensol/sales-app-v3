@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -178,32 +179,32 @@ serve(async (req) => {
       }
     }
 
-    // Get owner details for all unique owner IDs
-    const ownerIds = new Set(tasksData.results?.map((task: any) => task.properties.hubspot_owner_id).filter(Boolean) || [])
-    let ownersMap = {}
-
-    if (ownerIds.size > 0) {
-      const ownersResponse = await fetch(
-        `https://api.hubapi.com/crm/v3/owners/batch/read`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${hubspotToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: Array.from(ownerIds).map(id => ({ id }))
-          })
+    // Get owner details for all unique owner IDs - FIXED: Get ALL owners first, then filter
+    console.log('Fetching all owners from HubSpot...')
+    const allOwnersResponse = await fetch(
+      `https://api.hubapi.com/crm/v3/owners`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${hubspotToken}`,
+          'Content-Type': 'application/json',
         }
-      )
-
-      if (ownersResponse.ok) {
-        const ownersData = await ownersResponse.json()
-        ownersMap = ownersData.results?.reduce((acc: any, owner: any) => {
-          acc[owner.id] = owner
-          return acc
-        }, {}) || {}
       }
+    )
+
+    let ownersMap = {}
+    if (allOwnersResponse.ok) {
+      const allOwnersData = await allOwnersResponse.json()
+      console.log('All owners fetched successfully:', allOwnersData.results?.length || 0)
+      
+      // Create a map of all owners by ID
+      ownersMap = allOwnersData.results?.reduce((acc: any, owner: any) => {
+        acc[owner.id] = owner
+        console.log(`Owner ${owner.id}: ${owner.firstName} ${owner.lastName} (${owner.email})`)
+        return acc
+      }, {}) || {}
+    } else {
+      console.error('Failed to fetch owners:', await allOwnersResponse.text())
     }
 
     // Get current date for filtering
@@ -267,11 +268,14 @@ serve(async (req) => {
         'LOW': 'low'
       }
 
-      // Get owner name
-      const owner = ownersMap[props.hubspot_owner_id]
+      // Get owner name - FIXED: Use the ownersMap to get proper owner details
+      const taskOwnerId = props.hubspot_owner_id
+      const owner = taskOwnerId ? ownersMap[taskOwnerId] : null
       const ownerName = owner 
         ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
         : 'Unassigned'
+
+      console.log(`Task ${task.id} owner ID: ${taskOwnerId}, Owner details:`, owner, `Resolved name: ${ownerName}`)
 
       // Determine queue based on hs_queue_membership_ids using correct IDs
       let queue = 'other'
@@ -284,7 +288,7 @@ serve(async (req) => {
         queue = 'attempted'
       }
 
-      console.log(`Task: ${props.hs_task_subject}, Contact ID: ${contactId}, Contact: ${contactName}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}`)
+      console.log(`Task: ${props.hs_task_subject}, Contact ID: ${contactId}, Contact: ${contactName}, Queue IDs: ${queueIds.join(',')}, Assigned Queue: ${queue}, Owner: ${ownerName}`)
 
       return {
         id: task.id,
