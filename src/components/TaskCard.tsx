@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
@@ -46,10 +45,8 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     
     if (task.contactId) {
       const hubspotUrl = `https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${task.contactId}`;
-      console.log('Calling frame URL change with:', hubspotUrl);
-      console.log('About to call onFrameUrlChange...');
+      console.log('Opening HubSpot URL:', hubspotUrl);
       onFrameUrlChange(hubspotUrl);
-      console.log('onFrameUrlChange called successfully');
     } else {
       console.log('No contactId found for task');
     }
@@ -77,44 +74,45 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     <div
       className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
         task.priority
-      )} p-4 hover:shadow-md transition-shadow cursor-pointer relative`}
+      )} p-3 m-2 hover:shadow-md transition-shadow cursor-pointer relative max-w-full`}
       onClick={handleCardClick}
     >
       {/* Edit icon in top right corner */}
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-2 right-2 z-10">
         <button
           onClick={handleEditClick}
           className="p-1 hover:bg-gray-100 rounded transition-colors"
           title="Edit task"
         >
-          <Edit className="h-4 w-4 text-gray-600 hover:text-gray-800" />
+          <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
         </button>
       </div>
 
-      <div className="space-y-3 pr-8">
+      <div className="space-y-2 pr-6">
         {/* OWNER ROW (with icon), only if showOwner is true */}
         {showOwner && (
-          <div className="flex items-center text-sm font-medium text-gray-700 mb-1">
-            <User className="h-4 w-4 mr-2 text-gray-400" />
-            <span>{task.owner}</span>
+          <div className="flex items-center text-xs font-medium text-gray-700 mb-1">
+            <User className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
+            <span className="truncate">{task.owner}</span>
           </div>
         )}
+        
         {/* Contact name in bold */}
-        <div className="font-bold text-gray-900 text-base">
+        <div className="font-bold text-gray-900 text-sm leading-tight break-words">
           {task.contact}
         </div>
 
         {/* Task name */}
-        <h4 className="font-medium text-gray-700 text-sm leading-relaxed">
+        <h4 className="font-medium text-gray-700 text-xs leading-relaxed break-words">
           {task.title}
         </h4>
 
         {/* Due date with weekday */}
         {task.dueDate && (
-          <div className="flex items-center text-sm">
-            <Clock className="h-3 w-3 mr-2 flex-shrink-0 text-gray-600" />
-            <div>
-              <div className={`font-medium ${isOverdue ? "text-red-700" : "text-gray-900"}`}>
+          <div className="flex items-start text-xs">
+            <Clock className="h-3 w-3 mr-1 flex-shrink-0 text-gray-600 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <div className={`font-medium break-words ${isOverdue ? "text-red-700" : "text-gray-900"}`}>
                 {weekday && `${weekday} `}{task.dueDate}
               </div>
               {isOverdue && counter && (
@@ -130,19 +128,19 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
         {task.description && (
           <div className="space-y-1">
             <div
-              className="flex items-center text-sm text-gray-600 cursor-pointer hover:text-gray-800"
+              className="flex items-center text-xs text-gray-600 cursor-pointer hover:text-gray-800"
               onClick={handleDescriptionToggle}
             >
               <span className="font-medium">Description</span>
               {showDescription ? (
-                <ChevronUp className="h-3 w-3 ml-2 flex-shrink-0" />
+                <ChevronUp className="h-3 w-3 ml-1 flex-shrink-0" />
               ) : (
-                <ChevronDown className="h-3 w-3 ml-2 flex-shrink-0" />
+                <ChevronDown className="h-3 w-3 ml-1 flex-shrink-0" />
               )}
             </div>
             {/* Balanced full-width description box */}
             {showDescription && (
-              <div className="text-sm text-gray-700 mt-2 bg-gray-50 rounded px-5 py-3">
+              <div className="text-xs text-gray-700 mt-2 bg-gray-50 rounded px-3 py-2 break-words">
                 {task.description}
               </div>
             )}

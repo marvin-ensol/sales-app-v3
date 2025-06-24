@@ -87,7 +87,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-4">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <p className="text-red-600 mb-4">Error loading tasks: {error}</p>
           <Button onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -99,9 +99,9 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-screen flex flex-col max-w-2xl mx-auto">
       {/* Header Controls */}
-      <div className="p-4 border-b border-gray-200 space-y-4">
+      <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
         {/* Owner Selection */}
         <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
           <PopoverTrigger asChild>
@@ -109,13 +109,13 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
               variant="outline"
               role="combobox"
               aria-expanded={ownerComboboxOpen}
-              className="w-full justify-between"
+              className="w-full justify-between max-w-sm"
             >
               {getSelectedOwnerName()}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0" align="start">
+          <PopoverContent className="w-full max-w-sm p-0" align="start">
             <Command>
               <CommandInput placeholder="Search owners..." />
               <CommandList>
@@ -146,7 +146,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         </Popover>
 
         {/* Search */}
-        <div className="relative">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="Search tasks or contacts..."
@@ -162,7 +162,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
           size="sm" 
           onClick={handleRefresh} 
           disabled={loading || ownersLoading}
-          className="w-full"
+          className="w-full max-w-xs"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
           Refresh
@@ -175,7 +175,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
       </div>
 
       {/* Vertical Columns */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto px-2">
         {columns.map((column) => (
           <VerticalKanbanColumn
             key={column.id}
