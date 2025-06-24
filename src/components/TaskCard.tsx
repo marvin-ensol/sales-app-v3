@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Edit, User, Phone } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 
@@ -68,6 +68,13 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     setShowDescription(!showDescription);
   };
 
+  const handlePhoneClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (task.contactPhone) {
+      window.location.href = `tel:${task.contactPhone}`;
+    }
+  };
+
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
   const weekday = getFrenchWeekday(task.dueDate);
 
@@ -98,9 +105,23 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
           </div>
         )}
         
-        {/* Contact name in bold */}
-        <div className="font-bold text-gray-900 text-sm leading-tight break-words">
-          {task.contact}
+        {/* Contact name in bold with hover badge */}
+        <div className="relative group">
+          <div 
+            className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
+              task.contactPhone 
+                ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer' 
+                : ''
+            }`}
+            onClick={task.contactPhone ? handlePhoneClick : undefined}
+          >
+            <span className="inline-flex items-center gap-1">
+              {task.contact}
+              {task.contactPhone && (
+                <Phone className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+              )}
+            </span>
+          </div>
         </div>
 
         {/* Task name */}

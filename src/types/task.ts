@@ -9,6 +9,7 @@ export interface Task {
   description?: string;
   contact: string;
   contactId: string | null;
+  contactPhone?: string | null;
   status: TaskStatus;
   dueDate: string;
   priority: "high" | "medium" | "low";

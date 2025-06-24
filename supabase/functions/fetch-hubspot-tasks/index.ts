@@ -160,7 +160,7 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
           },
           body: JSON.stringify({
             inputs: batch.map(id => ({ id })),
-            properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id']
+            properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id', 'mobilephone']
           })
         }
       )
@@ -266,12 +266,14 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     const contact = contactId ? contacts[contactId] : null;
 
     let contactName = 'No Contact';
+    let contactPhone = null;
     if (contact && contact.properties) {
       const contactProps = contact.properties;
       const firstName = contactProps.firstname || '';
       const lastName = contactProps.lastname || '';
       const email = contactProps.email || '';
       const company = contactProps.company || '';
+      contactPhone = contactProps.mobilephone || null;
 
       if (firstName && lastName) {
         contactName = `${firstName} ${lastName}`.trim();
@@ -329,6 +331,7 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       description: props.hs_task_body || undefined,
       contact: contactName,
       contactId: contactId || null,
+      contactPhone: contactPhone,
       status: 'not_started',
       dueDate,
       taskDueDate,
