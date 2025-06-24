@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -43,8 +42,127 @@ function debugLog(message: string, debugTaskId?: string) {
   }
 }
 
+async function fetchSpecificTaskDetails(taskId: string, hubspotToken: string) {
+  debugLog(`🔍 DIRECT FETCH: Starting direct fetch for task ${taskId}`, taskId);
+  
+  try {
+    // Fetch the specific task directly
+    const taskResponse = await fetch(
+      `https://api.hubapi.com/crm/v3/objects/tasks/${taskId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${hubspotToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!taskResponse.ok) {
+      debugLog(`❌ DIRECT FETCH FAILED: ${taskResponse.status} - ${await taskResponse.text()}`, taskId);
+      return null;
+    }
+
+    const taskData = await taskResponse.json();
+    debugLog(`✅ DIRECT FETCH SUCCESS: Task found with properties: ${JSON.stringify(taskData.properties, null, 2)}`, taskId);
+
+    // Fetch task associations
+    let contactId = null;
+    let contactDetails = null;
+    
+    try {
+      const associationsResponse = await fetch(
+        `https://api.hubapi.com/crm/v4/objects/tasks/${taskId}/associations/contacts`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (associationsResponse.ok) {
+        const associationsData = await associationsResponse.json();
+        debugLog(`🔗 ASSOCIATIONS: ${JSON.stringify(associationsData, null, 2)}`, taskId);
+        
+        if (associationsData.results && associationsData.results.length > 0) {
+          contactId = associationsData.results[0].toObjectId;
+          debugLog(`✅ CONTACT FOUND: Associated with contact ID ${contactId}`, taskId);
+
+          // Fetch contact details
+          const contactResponse = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${hubspotToken}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          if (contactResponse.ok) {
+            contactDetails = await contactResponse.json();
+            debugLog(`👤 CONTACT DETAILS: ${JSON.stringify(contactDetails.properties, null, 2)}`, taskId);
+          }
+        } else {
+          debugLog(`❌ NO CONTACT ASSOCIATION found`, taskId);
+        }
+      } else {
+        debugLog(`❌ ASSOCIATIONS FETCH FAILED: ${associationsResponse.status}`, taskId);
+      }
+    } catch (error) {
+      debugLog(`❌ ASSOCIATIONS ERROR: ${error.message}`, taskId);
+    }
+
+    // Analyze why this task might be filtered out
+    debugLog(`🔍 FILTER ANALYSIS for task ${taskId}:`, taskId);
+    debugLog(`  - Status: ${taskData.properties?.hs_task_status} (needed: NOT_STARTED)`, taskId);
+    debugLog(`  - Owner ID: ${taskData.properties?.hubspot_owner_id || 'UNASSIGNED'}`, taskId);
+    debugLog(`  - Queue IDs: ${taskData.properties?.hs_queue_membership_ids || 'NONE'}`, taskId);
+    debugLog(`  - Timestamp: ${taskData.properties?.hs_timestamp}`, taskId);
+    debugLog(`  - Contact Association: ${contactId ? 'YES' : 'NO'}`, taskId);
+
+    // Check if task would pass our filters
+    const isNotStarted = taskData.properties?.hs_task_status === 'NOT_STARTED';
+    const hasContact = !!contactId;
+    const hasTimestamp = !!taskData.properties?.hs_timestamp;
+    const isOverdue = hasTimestamp ? new Date(taskData.properties.hs_timestamp) < new Date() : false;
+
+    debugLog(`🔍 FILTER RESULTS:`, taskId);
+    debugLog(`  - NOT_STARTED status: ${isNotStarted ? '✅ PASS' : '❌ FAIL'}`, taskId);
+    debugLog(`  - Has contact: ${hasContact ? '✅ PASS' : '❌ FAIL'}`, taskId);
+    debugLog(`  - Has timestamp: ${hasTimestamp ? '✅ PASS' : '❌ FAIL'}`, taskId);
+    debugLog(`  - Is overdue: ${isOverdue ? '✅ PASS' : '❌ FAIL'}`, taskId);
+
+    return {
+      task: taskData,
+      contact: contactDetails,
+      contactId,
+      filterAnalysis: {
+        isNotStarted,
+        hasContact,
+        hasTimestamp,
+        isOverdue,
+        wouldPassFilters: isNotStarted && hasContact && hasTimestamp && isOverdue
+      }
+    };
+
+  } catch (error) {
+    debugLog(`❌ DIRECT FETCH ERROR: ${error.message}`, taskId);
+    return null;
+  }
+}
+
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken, debugTaskId }: TaskFilterParams) {
   debugLog(`Starting task fetch. Owner filter: ${ownerId || 'none (ALL OWNERS)'}`, debugTaskId);
+
+  // If we have a debug task ID, fetch it directly first
+  if (debugTaskId) {
+    await fetchSpecificTaskDetails(debugTaskId, hubspotToken);
+    debugLog(`🔍 Now proceeding with normal search to see if debug task appears...`, debugTaskId);
+  }
 
   const filters = [
     {
