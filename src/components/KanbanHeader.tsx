@@ -1,0 +1,73 @@
+
+import { useState } from "react";
+import { Search, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
+import OwnerSelector from "./OwnerSelector";
+
+interface KanbanHeaderProps {
+  owners: HubSpotOwner[];
+  selectedOwnerId: string;
+  onOwnerChange: (ownerId: string) => void;
+  ownerSelectionInitialized: boolean;
+  getSelectedOwnerName: () => string;
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
+  onRefresh: () => void;
+  isLoading: boolean;
+}
+
+const KanbanHeader = ({
+  owners,
+  selectedOwnerId,
+  onOwnerChange,
+  ownerSelectionInitialized,
+  getSelectedOwnerName,
+  searchTerm,
+  onSearchChange,
+  onRefresh,
+  isLoading
+}: KanbanHeaderProps) => {
+  const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
+
+  return (
+    <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
+      {/* Owner Selection and Refresh Button */}
+      <div className="flex items-center gap-2">
+        <OwnerSelector
+          owners={owners}
+          selectedOwnerId={selectedOwnerId}
+          onOwnerChange={onOwnerChange}
+          isOpen={ownerComboboxOpen}
+          onOpenChange={setOwnerComboboxOpen}
+          ownerSelectionInitialized={ownerSelectionInitialized}
+          getSelectedOwnerName={getSelectedOwnerName}
+        />
+
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={onRefresh} 
+          disabled={isLoading}
+          title="Refresh data"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          placeholder="Search tasks or contacts..."
+          className="pl-10"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default KanbanHeader;
