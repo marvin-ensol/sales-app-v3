@@ -47,7 +47,7 @@ const VerticalKanbanColumn = ({
       
       {isExpanded && hasContent && (
         <div className="px-4 pb-4">
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-3 overflow-y-auto">
             {children}
           </div>
         </div>
