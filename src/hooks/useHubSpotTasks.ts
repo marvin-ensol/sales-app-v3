@@ -3,11 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
 
-interface UseHubSpotTasksOptions {
-  debugTaskId?: string;
-}
-
-export const useHubSpotTasks = (selectedOwnerId: string | undefined, options?: UseHubSpotTasksOptions) => {
+export const useHubSpotTasks = (selectedOwnerId: string | undefined) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,15 +14,9 @@ export const useHubSpotTasks = (selectedOwnerId: string | undefined, options?: U
       setError(null);
       
       console.log('Fetching tasks from HubSpot for owner:', ownerId);
-      if (options?.debugTaskId) {
-        console.log('🔍 Debug mode enabled for task ID:', options.debugTaskId);
-      }
       
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
-        body: { 
-          ownerId,
-          ...(options?.debugTaskId && { debugTaskId: options.debugTaskId })
-        }
+        body: { ownerId }
       });
       
       console.log('Raw response:', { data, functionError });
@@ -47,14 +37,6 @@ export const useHubSpotTasks = (selectedOwnerId: string | undefined, options?: U
       }
       
       console.log('Tasks received successfully:', data?.tasks?.length || 0);
-      if (options?.debugTaskId) {
-        const debugTask = data?.tasks?.find((task: Task) => task.id === options.debugTaskId);
-        if (debugTask) {
-          console.log('🔍 Debug task found in response:', debugTask);
-        } else {
-          console.log('🔍 Debug task NOT found in final response');
-        }
-      }
       setTasks(data?.tasks || []);
       
     } catch (err) {
@@ -87,7 +69,7 @@ export const useHubSpotTasks = (selectedOwnerId: string | undefined, options?: U
       setLoading(false);
       setError(null);
     }
-  }, [selectedOwnerId, options?.debugTaskId]);
+  }, [selectedOwnerId]);
 
   const refetch = () => {
     if (selectedOwnerId) {

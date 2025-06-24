@@ -35,18 +35,7 @@ const KanbanContent = ({
   ownerSelectionInitialized
 }: KanbanContentProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
-    const queueTasks = filteredTasks.filter(task => task.queue === queue);
-    
-    // For "new" queue, sort unassigned tasks first
-    if (queue === "new") {
-      return queueTasks.sort((a, b) => {
-        if (a.isUnassigned && !b.isUnassigned) return -1;
-        if (!a.isUnassigned && b.isUnassigned) return 1;
-        return 0;
-      });
-    }
-    
-    return queueTasks;
+    return filteredTasks.filter(task => task.queue === queue);
   };
 
   // Auto-expand columns with search matches

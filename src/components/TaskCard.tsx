@@ -40,11 +40,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
   };
 
   const handleCardClick = () => {
-    // Disable click for unassigned tasks
-    if (task.isUnassigned) {
-      return;
-    }
-    
     console.log('TaskCard clicked, task:', task.title);
     console.log('Task contactId:', task.contactId);
     console.log('onFrameUrlChange function:', typeof onFrameUrlChange);
@@ -87,21 +82,19 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     <div
       className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
         task.priority
-      )} p-3 m-2 hover:shadow-md transition-shadow ${!task.isUnassigned ? 'cursor-pointer' : ''} relative max-w-full`}
+      )} p-3 m-2 hover:shadow-md transition-shadow cursor-pointer relative max-w-full`}
       onClick={handleCardClick}
     >
-      {/* Edit icon in top right corner with lower z-index - hidden for unassigned tasks */}
-      {!task.isUnassigned && (
-        <div className="absolute top-2 right-2 z-0">
-          <button
-            onClick={handleEditClick}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-            title="Edit task"
-          >
-            <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
-          </button>
-        </div>
-      )}
+      {/* Edit icon in top right corner with lower z-index */}
+      <div className="absolute top-2 right-2 z-0">
+        <button
+          onClick={handleEditClick}
+          className="p-1 hover:bg-gray-100 rounded transition-colors"
+          title="Edit task"
+        >
+          <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
+        </button>
+      </div>
 
       <div className="space-y-2 pr-6">
         {/* OWNER ROW (with icon), only if showOwner is true */}
@@ -112,19 +105,19 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
           </div>
         )}
         
-        {/* Contact name in bold with hover badge - disabled for unassigned tasks */}
+        {/* Contact name in bold with hover badge */}
         <div className="relative group">
           <div 
             className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
-              task.contactPhone && !task.isUnassigned
+              task.contactPhone 
                 ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer' 
                 : ''
             }`}
-            onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
+            onClick={task.contactPhone ? handlePhoneClick : undefined}
           >
             <span className="inline-flex items-center gap-1">
               {task.contact}
-              {task.contactPhone && !task.isUnassigned && (
+              {task.contactPhone && (
                 <Phone className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               )}
             </span>

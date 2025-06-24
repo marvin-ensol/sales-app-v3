@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -8,7 +9,6 @@ const corsHeaders = {
 interface TaskFilterParams {
   ownerId?: string;
   hubspotToken: string;
-  debugTaskId?: string;
 }
 
 interface HubSpotTask {
@@ -34,167 +34,8 @@ interface HubSpotOwner {
   teams?: Array<{ id: string }>;
 }
 
-function debugLog(message: string, debugTaskId?: string) {
-  if (debugTaskId) {
-    console.log(`🔍 DEBUG [${debugTaskId}]: ${message}`);
-  } else {
-    console.log(`📋 GENERAL: ${message}`);
-  }
-}
-
-// Helper function to format date in Paris timezone
-function formatDateInParis(date: Date): string {
-  // Use Intl.DateTimeFormat to properly handle Paris timezone including DST
-  const parisFormatter = new Intl.DateTimeFormat('fr-FR', {
-    timeZone: 'Europe/Paris',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-
-  const parts = parisFormatter.formatToParts(date);
-  const day = parts.find(part => part.type === 'day')?.value || '01';
-  const month = parts.find(part => part.type === 'month')?.value || '01';
-  const hour = parts.find(part => part.type === 'hour')?.value || '00';
-  const minute = parts.find(part => part.type === 'minute')?.value || '00';
-
-  return `${day}/${month} à ${hour}:${minute}`;
-}
-
-async function fetchSpecificTaskDetails(taskId: string, hubspotToken: string) {
-  debugLog(`🔍 DIRECT FETCH: Starting direct fetch for task ${taskId}`, taskId);
-  
-  try {
-    // Fetch the specific task directly
-    const taskResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/objects/tasks/${taskId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${hubspotToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!taskResponse.ok) {
-      debugLog(`❌ DIRECT FETCH FAILED: ${taskResponse.status} - ${await taskResponse.text()}`, taskId);
-      return null;
-    }
-
-    const taskData = await taskResponse.json();
-    debugLog(`✅ DIRECT FETCH SUCCESS: Task found with properties: ${JSON.stringify(taskData.properties, null, 2)}`, taskId);
-
-    // Fetch task associations
-    let contactId = null;
-    let contactDetails = null;
-    
-    try {
-      const associationsResponse = await fetch(
-        `https://api.hubapi.com/crm/v4/objects/tasks/${taskId}/associations/contacts`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${hubspotToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (associationsResponse.ok) {
-        const associationsData = await associationsResponse.json();
-        debugLog(`🔗 ASSOCIATIONS: ${JSON.stringify(associationsData, null, 2)}`, taskId);
-        
-        if (associationsData.results && associationsData.results.length > 0) {
-          contactId = associationsData.results[0].toObjectId;
-          debugLog(`✅ CONTACT FOUND: Associated with contact ID ${contactId}`, taskId);
-
-          // Fetch contact details
-          const contactResponse = await fetch(
-            `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
-            {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${hubspotToken}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          if (contactResponse.ok) {
-            contactDetails = await contactResponse.json();
-            debugLog(`👤 CONTACT DETAILS: ${JSON.stringify(contactDetails.properties, null, 2)}`, taskId);
-          }
-        } else {
-          debugLog(`❌ NO CONTACT ASSOCIATION found`, taskId);
-        }
-      } else {
-        debugLog(`❌ ASSOCIATIONS FETCH FAILED: ${associationsResponse.status}`, taskId);
-      }
-    } catch (error) {
-      debugLog(`❌ ASSOCIATIONS ERROR: ${error.message}`, taskId);
-    }
-
-    // Analyze why this task might be filtered out
-    debugLog(`🔍 FILTER ANALYSIS for task ${taskId}:`, taskId);
-    debugLog(`  - Status: ${taskData.properties?.hs_task_status} (needed: NOT_STARTED)`, taskId);
-    debugLog(`  - Owner ID: ${taskData.properties?.hubspot_owner_id || 'UNASSIGNED'}`, taskId);
-    debugLog(`  - Queue IDs: ${taskData.properties?.hs_queue_membership_ids || 'NONE'}`, taskId);
-    debugLog(`  - Timestamp: ${taskData.properties?.hs_timestamp}`, taskId);
-    debugLog(`  - Contact Association: ${contactId ? 'YES' : 'NO'}`, taskId);
-
-    // Check if task would pass our filters with proper timezone handling
-    const isNotStarted = taskData.properties?.hs_task_status === 'NOT_STARTED';
-    const hasContact = !!contactId;
-    const hasTimestamp = !!taskData.properties?.hs_timestamp;
-    
-    let isOverdue = false;
-    if (hasTimestamp) {
-      const dueDate = new Date(taskData.properties.hs_timestamp);
-      const now = new Date();
-      isOverdue = dueDate < now;
-      
-      debugLog(`  - Due date (UTC): ${dueDate.toISOString()}`, taskId);
-      debugLog(`  - Current time (UTC): ${now.toISOString()}`, taskId);
-      debugLog(`  - Due date (Paris): ${formatDateInParis(dueDate)}`, taskId);
-      debugLog(`  - Current time (Paris): ${formatDateInParis(now)}`, taskId);
-    }
-
-    debugLog(`🔍 FILTER RESULTS:`, taskId);
-    debugLog(`  - NOT_STARTED status: ${isNotStarted ? '✅ PASS' : '❌ FAIL'}`, taskId);
-    debugLog(`  - Has contact: ${hasContact ? '✅ PASS' : '❌ FAIL'}`, taskId);
-    debugLog(`  - Has timestamp: ${hasTimestamp ? '✅ PASS' : '❌ FAIL'}`, taskId);
-    debugLog(`  - Is overdue: ${isOverdue ? '✅ PASS' : '❌ FAIL'}`, taskId);
-
-    return {
-      task: taskData,
-      contact: contactDetails,
-      contactId,
-      filterAnalysis: {
-        isNotStarted,
-        hasContact,
-        hasTimestamp,
-        isOverdue,
-        wouldPassFilters: isNotStarted && hasContact && hasTimestamp && isOverdue
-      }
-    };
-
-  } catch (error) {
-    debugLog(`❌ DIRECT FETCH ERROR: ${error.message}`, taskId);
-    return null;
-  }
-}
-
-async function fetchTasksFromHubSpot({ ownerId, hubspotToken, debugTaskId }: TaskFilterParams) {
-  debugLog(`Starting task fetch. Owner filter: ${ownerId || 'none (ALL OWNERS)'}`, debugTaskId);
-
-  // If we have a debug task ID, fetch it directly first
-  if (debugTaskId) {
-    await fetchSpecificTaskDetails(debugTaskId, hubspotToken);
-    debugLog(`🔍 Now proceeding with normal search to see if debug task appears...`, debugTaskId);
-  }
+async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
+  console.log('Owner filter:', ownerId || 'none (ALL OWNERS)');
 
   const filters = [
     {
@@ -204,7 +45,16 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken, debugTaskId }: Tas
     }
   ]
 
-  debugLog("Fetching tasks for both assigned and unassigned owners", debugTaskId);
+  if (ownerId) {
+    filters.push({
+      propertyName: 'hubspot_owner_id',
+      operator: 'EQ',
+      value: ownerId
+    })
+    console.log("Applying ownerId filter:", ownerId)
+  } else {
+    console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
+  }
 
   const tasksResponse = await fetch(
     `https://api.hubapi.com/crm/v3/objects/tasks/search`,
@@ -249,29 +99,15 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken, debugTaskId }: Tas
   }
 
   const tasksData = await tasksResponse.json()
-  const allTasks = tasksData.results || []
+  console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
   
-  debugLog(`Tasks fetched from HubSpot: ${allTasks.length}`, debugTaskId);
-  
-  // Check if our debug task is in the initial fetch
-  if (debugTaskId) {
-    const debugTask = allTasks.find((task: HubSpotTask) => task.id === debugTaskId);
-    if (debugTask) {
-      debugLog(`✅ Found debug task in initial fetch. Status: ${debugTask.properties?.hs_task_status}, Owner: ${debugTask.properties?.hubspot_owner_id || 'UNASSIGNED'}, Queue IDs: ${debugTask.properties?.hs_queue_membership_ids || 'NONE'}, Timestamp: ${debugTask.properties?.hs_timestamp}`, debugTaskId);
-    } else {
-      debugLog(`❌ Debug task NOT found in initial fetch. This means it either doesn't exist, isn't NOT_STARTED status, or was filtered out by HubSpot API`, debugTaskId);
-    }
-  }
-  
-  return allTasks
+  return tasksData.results || []
 }
 
-async function fetchTaskAssociations(taskIds: string[], hubspotToken: string, debugTaskId?: string) {
+async function fetchTaskAssociations(taskIds: string[], hubspotToken: string) {
   let taskContactMap: { [key: string]: string } = {}
   
   if (taskIds.length > 0) {
-    debugLog(`Fetching associations for ${taskIds.length} tasks`, debugTaskId);
-    
     const associationsResponse = await fetch(
       `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
       {
@@ -288,19 +124,13 @@ async function fetchTaskAssociations(taskIds: string[], hubspotToken: string, de
 
     if (associationsResponse.ok) {
       const associationsData = await associationsResponse.json()
-      debugLog('Task associations fetched successfully', debugTaskId);
+      console.log('Task associations fetched successfully')
       
       associationsData.results?.forEach((result: any) => {
         if (result.to && result.to.length > 0) {
           taskContactMap[result.from.id] = result.to[0].toObjectId
         }
       })
-      
-      // Debug specific task association
-      if (debugTaskId && taskIds.includes(debugTaskId)) {
-        const debugContact = taskContactMap[debugTaskId];
-        debugLog(`Association check: ${debugContact ? `✅ Associated with contact ${debugContact}` : '❌ NO contact association found'}`, debugTaskId);
-      }
     } else {
       console.error('Failed to fetch associations:', await associationsResponse.text())
     }
@@ -309,10 +139,10 @@ async function fetchTaskAssociations(taskIds: string[], hubspotToken: string, de
   return taskContactMap
 }
 
-async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string, debugTaskId?: string) {
+async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string) {
   let contacts = {}
   if (contactIds.size > 0) {
-    debugLog(`Fetching contact details for ${contactIds.size} contacts`, debugTaskId);
+    console.log('Fetching contact details for', contactIds.size, 'contacts')
     
     const contactIdsArray = Array.from(contactIds)
     const batchSize = 100
@@ -349,14 +179,14 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
       }
     }
     
-    debugLog(`Total contacts fetched: ${Object.keys(contacts).length}`, debugTaskId);
+    console.log('Total contacts fetched:', Object.keys(contacts).length)
   }
 
   return contacts
 }
 
-async function fetchValidOwners(hubspotToken: string, debugTaskId?: string) {
-  debugLog('Fetching filtered owners from HubSpot...', debugTaskId);
+async function fetchValidOwners(hubspotToken: string) {
+  console.log('Fetching filtered owners from HubSpot...')
   const allOwnersResponse = await fetch(
     `https://api.hubapi.com/crm/v3/owners`,
     {
@@ -372,7 +202,7 @@ async function fetchValidOwners(hubspotToken: string, debugTaskId?: string) {
   let ownersMap = {}
   if (allOwnersResponse.ok) {
     const allOwnersData = await allOwnersResponse.json()
-    debugLog(`Owners fetched successfully: ${allOwnersData.results?.length || 0}`, debugTaskId);
+    console.log('Owners fetched successfully:', allOwnersData.results?.length || 0)
     
     const allowedTeamIds = ['162028741', '135903065']
     const validOwners = allOwnersData.results?.filter((owner: HubSpotOwner) => {
@@ -393,7 +223,7 @@ async function fetchValidOwners(hubspotToken: string, debugTaskId?: string) {
       return hasAllowedTeam
     }) || []
 
-    debugLog(`Valid owners (in allowed teams): ${validOwners.length}`, debugTaskId);
+    console.log(`Valid owners (in allowed teams): ${validOwners.length}`)
     
     ownersMap = validOwners.reduce((acc: any, owner: HubSpotOwner) => {
       acc[owner.id] = owner
@@ -406,66 +236,31 @@ async function fetchValidOwners(hubspotToken: string, debugTaskId?: string) {
   return { validOwnerIds, ownersMap }
 }
 
-function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>, ownerId?: string, debugTaskId?: string) {
-  debugLog(`Starting owner filtering. Input tasks: ${tasks.length}`, debugTaskId);
-  
-  const filteredTasks = tasks.filter((task: HubSpotTask) => {
+function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
+  const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
     const taskOwnerId = task.properties?.hubspot_owner_id;
-    const isDebugTask = debugTaskId && task.id === debugTaskId;
-    
-    // Include tasks with no owner (unassigned)
     if (!taskOwnerId) {
-      if (isDebugTask) {
-        debugLog(`✅ INCLUDED: Task has NO OWNER (unassigned)`, debugTaskId);
-      } else {
-        console.log(`✔️ INCLUDED: Task ${task.id} has NO OWNER (unassigned)`);
-      }
-      return true;
+      console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
+      return false;
     }
     
-    // Include tasks with valid owners
     if (validOwnerIds.has(taskOwnerId.toString())) {
-      // If a specific owner is requested, only include their tasks and unassigned tasks
-      if (ownerId) {
-        if (taskOwnerId === ownerId) {
-          if (isDebugTask) {
-            debugLog(`✅ INCLUDED: Task belongs to selected owner ${taskOwnerId}`, debugTaskId);
-          } else {
-            console.log(`✔️ INCLUDED: Task ${task.id} belongs to selected owner ${taskOwnerId}`);
-          }
-          return true;
-        } else {
-          if (isDebugTask) {
-            debugLog(`❌ FILTERED OUT: Task belongs to different owner ${taskOwnerId} (selected: ${ownerId})`, debugTaskId);
-          } else {
-            console.log(`❌ FILTERED OUT: Task ${task.id} belongs to different owner ${taskOwnerId}`);
-          }
-          return false;
-        }
-      }
       return true;
     } else {
-      if (isDebugTask) {
-        debugLog(`❌ DROPPED: Task ownerId ${taskOwnerId} not in allowed teams`, debugTaskId);
-      } else {
-        console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
-      }
+      console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
       return false;
     }
   });
 
-  debugLog(`After owner filtering: ${filteredTasks.length} tasks remaining`, debugTaskId);
-  return filteredTasks;
+  console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasks.length}`);
+  return tasksWithAllowedOwners;
 }
 
-function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any, debugTaskId?: string) {
+function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
   const currentDate = new Date()
-  debugLog(`Starting task transformation. Input tasks: ${tasks.length}`, debugTaskId);
-  debugLog(`Current UTC time: ${currentDate.toISOString()}`, debugTaskId);
 
-  const transformedTasks = tasks.map((task: HubSpotTask) => {
+  return tasks.map((task: HubSpotTask) => {
     const props = task.properties;
-    const isDebugTask = debugTaskId && task.id === debugTaskId;
 
     const contactId = taskContactMap[task.id] || null;
     const contact = contactId ? contacts[contactId] : null;
@@ -498,16 +293,15 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     let dueDate = '';
     let taskDueDate = null;
     if (props.hs_timestamp) {
-      // Parse the UTC timestamp directly from HubSpot
       const date = new Date(props.hs_timestamp);
       taskDueDate = date;
 
-      // Format the date in Paris timezone using proper timezone handling
-      dueDate = formatDateInParis(date);
-
-      if (isDebugTask) {
-        debugLog(`Date parsing - UTC: ${date.toISOString()}, Paris formatted: ${dueDate}`, debugTaskId);
-      }
+      const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000));
+      const day = parisDate.getUTCDate().toString().padStart(2, '0');
+      const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0');
+      const hours = parisDate.getUTCHours().toString().padStart(2, '0');
+      const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0');
+      dueDate = `${day}/${month} à ${hours}:${minutes}`;
     }
 
     const priorityMap: { [key: string]: string } = {
@@ -531,10 +325,6 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       queue = 'attempted';
     }
 
-    if (isDebugTask) {
-      debugLog(`Transformation details - Contact: ${contactName}, Queue: ${queue}, Queue IDs: ${queueIds.join(',')}, Due Date: ${dueDate}, Owner: ${ownerName}`, debugTaskId);
-    }
-
     return {
       id: task.id,
       title: props.hs_task_subject || 'Untitled Task',
@@ -549,38 +339,13 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       owner: ownerName,
       hubspotId: task.id,
       queue: queue,
-      queueIds: queueIds,
-      isUnassigned: !taskOwnerId
+      queueIds: queueIds
     };
   }).filter((task: any) => {
-    if (!task.taskDueDate) {
-      if (debugTaskId && task.id === debugTaskId) {
-        debugLog(`❌ FILTERED OUT: No due date`, debugTaskId);
-      }
-      return false;
-    }
-    
-    // Use direct UTC comparison - no timezone conversion needed here
+    if (!task.taskDueDate) return false;
     const isOverdue = task.taskDueDate < currentDate;
-    
-    if (debugTaskId && task.id === debugTaskId) {
-      debugLog(`Overdue check - Due: ${task.taskDueDate.toISOString()}, Current: ${currentDate.toISOString()}, Overdue: ${isOverdue}`, debugTaskId);
-    }
-    
-    if (!isOverdue) {
-      if (debugTaskId && task.id === debugTaskId) {
-        debugLog(`❌ FILTERED OUT: Not overdue`, debugTaskId);
-      }
-      return false;
-    }
-    if (debugTaskId && task.id === debugTaskId) {
-      debugLog(`✅ PASSED: Task is overdue and will be included in final results`, debugTaskId);
-    }
-    return true;
+    return isOverdue;
   });
-
-  debugLog(`Final transformed tasks: ${transformedTasks.length}`, debugTaskId);
-  return transformedTasks;
 }
 
 serve(async (req) => {
@@ -599,49 +364,39 @@ serve(async (req) => {
     }
 
     let ownerId = null
-    let debugTaskId = null
     try {
       const body = await req.json()
       ownerId = body?.ownerId
-      debugTaskId = body?.debugTaskId
     } catch (e) {
       // No body or invalid JSON, continue without owner filter
     }
 
-    if (debugTaskId) {
-      console.log(`🔍 DEBUG MODE ENABLED for task ID: ${debugTaskId}`);
-    }
-
     // Fetch tasks from HubSpot
-    const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken, debugTaskId })
+    const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
     // Get task associations
-    const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken, debugTaskId)
+    const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
     // Filter out tasks that don't have contact associations
     const tasksWithContacts = tasks.filter((task: HubSpotTask) => {
-      const hasContact = taskContactMap[task.id];
-      if (debugTaskId && task.id === debugTaskId) {
-        debugLog(`Contact association filter: ${hasContact ? '✅ HAS contact association' : '❌ NO contact association - FILTERED OUT'}`, debugTaskId);
-      }
-      return hasContact;
+      return taskContactMap[task.id]
     })
 
-    debugLog(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasks.length} total tasks`, debugTaskId);
+    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasks.length} total tasks`)
 
     // Get unique contact IDs and fetch contact details
     const contactIds = new Set(Object.values(taskContactMap))
-    const contacts = await fetchContactDetails(contactIds, hubspotToken, debugTaskId)
+    const contacts = await fetchContactDetails(contactIds, hubspotToken)
 
     // Fetch valid owners and build allowed owners set
-    const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken, debugTaskId)
+    const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
-    // Filter tasks by allowed team owners and owner selection
-    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds, ownerId, debugTaskId)
+    // Filter tasks by allowed team owners
+    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
 
     // Transform and filter tasks
-    const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap, debugTaskId)
+    const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
 
     console.log('Final transformed tasks:', transformedTasks.length);
 

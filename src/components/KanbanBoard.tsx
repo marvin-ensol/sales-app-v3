@@ -16,7 +16,6 @@ interface KanbanBoardProps {
 const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedColumn, setExpandedColumn] = useState<string>("new");
-  const [debugTaskId, setDebugTaskId] = useState<string>("");
   
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
   const { 
@@ -26,10 +25,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     getSelectedOwnerName 
   } = useOwnerSelection(owners);
   
-  const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(
-    selectedOwnerId || undefined,
-    { debugTaskId: debugTaskId || undefined }
-  );
+  const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,8 +83,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onSearchChange={setSearchTerm}
         onRefresh={handleRefresh}
         isLoading={tasksLoading || ownersLoading}
-        debugTaskId={debugTaskId}
-        onDebugTaskIdChange={setDebugTaskId}
       />
 
       <KanbanContent
