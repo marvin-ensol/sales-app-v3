@@ -42,6 +42,27 @@ function debugLog(message: string, debugTaskId?: string) {
   }
 }
 
+// Helper function to format date in Paris timezone
+function formatDateInParis(date: Date): string {
+  // Use Intl.DateTimeFormat to properly handle Paris timezone including DST
+  const parisFormatter = new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  const parts = parisFormatter.formatToParts(date);
+  const day = parts.find(part => part.type === 'day')?.value || '01';
+  const month = parts.find(part => part.type === 'month')?.value || '01';
+  const hour = parts.find(part => part.type === 'hour')?.value || '00';
+  const minute = parts.find(part => part.type === 'minute')?.value || '00';
+
+  return `${day}/${month} à ${hour}:${minute}`;
+}
+
 async function fetchSpecificTaskDetails(taskId: string, hubspotToken: string) {
   debugLog(`🔍 DIRECT FETCH: Starting direct fetch for task ${taskId}`, taskId);
   
@@ -124,11 +145,22 @@ async function fetchSpecificTaskDetails(taskId: string, hubspotToken: string) {
     debugLog(`  - Timestamp: ${taskData.properties?.hs_timestamp}`, taskId);
     debugLog(`  - Contact Association: ${contactId ? 'YES' : 'NO'}`, taskId);
 
-    // Check if task would pass our filters
+    // Check if task would pass our filters with proper timezone handling
     const isNotStarted = taskData.properties?.hs_task_status === 'NOT_STARTED';
     const hasContact = !!contactId;
     const hasTimestamp = !!taskData.properties?.hs_timestamp;
-    const isOverdue = hasTimestamp ? new Date(taskData.properties.hs_timestamp) < new Date() : false;
+    
+    let isOverdue = false;
+    if (hasTimestamp) {
+      const dueDate = new Date(taskData.properties.hs_timestamp);
+      const now = new Date();
+      isOverdue = dueDate < now;
+      
+      debugLog(`  - Due date (UTC): ${dueDate.toISOString()}`, taskId);
+      debugLog(`  - Current time (UTC): ${now.toISOString()}`, taskId);
+      debugLog(`  - Due date (Paris): ${formatDateInParis(dueDate)}`, taskId);
+      debugLog(`  - Current time (Paris): ${formatDateInParis(now)}`, taskId);
+    }
 
     debugLog(`🔍 FILTER RESULTS:`, taskId);
     debugLog(`  - NOT_STARTED status: ${isNotStarted ? '✅ PASS' : '❌ FAIL'}`, taskId);
@@ -429,6 +461,7 @@ function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<strin
 function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any, debugTaskId?: string) {
   const currentDate = new Date()
   debugLog(`Starting task transformation. Input tasks: ${tasks.length}`, debugTaskId);
+  debugLog(`Current UTC time: ${currentDate.toISOString()}`, debugTaskId);
 
   const transformedTasks = tasks.map((task: HubSpotTask) => {
     const props = task.properties;
@@ -465,15 +498,16 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     let dueDate = '';
     let taskDueDate = null;
     if (props.hs_timestamp) {
+      // Parse the UTC timestamp directly from HubSpot
       const date = new Date(props.hs_timestamp);
       taskDueDate = date;
 
-      const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000));
-      const day = parisDate.getUTCDate().toString().padStart(2, '0');
-      const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0');
-      const hours = parisDate.getUTCHours().toString().padStart(2, '0');
-      const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0');
-      dueDate = `${day}/${month} à ${hours}:${minutes}`;
+      // Format the date in Paris timezone using proper timezone handling
+      dueDate = formatDateInParis(date);
+
+      if (isDebugTask) {
+        debugLog(`Date parsing - UTC: ${date.toISOString()}, Paris formatted: ${dueDate}`, debugTaskId);
+      }
     }
 
     const priorityMap: { [key: string]: string } = {
@@ -525,10 +559,17 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       }
       return false;
     }
+    
+    // Use direct UTC comparison - no timezone conversion needed here
     const isOverdue = task.taskDueDate < currentDate;
+    
+    if (debugTaskId && task.id === debugTaskId) {
+      debugLog(`Overdue check - Due: ${task.taskDueDate.toISOString()}, Current: ${currentDate.toISOString()}, Overdue: ${isOverdue}`, debugTaskId);
+    }
+    
     if (!isOverdue) {
       if (debugTaskId && task.id === debugTaskId) {
-        debugLog(`❌ FILTERED OUT: Not overdue (due: ${task.taskDueDate.toISOString()}, current: ${currentDate.toISOString()})`, debugTaskId);
+        debugLog(`❌ FILTERED OUT: Not overdue`, debugTaskId);
       }
       return false;
     }
