@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,21 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
     return filteredTasks.filter(task => task.queue === queue);
   };
+
+  // Auto-expand columns with search matches
+  useEffect(() => {
+    if (searchTerm) {
+      // Find columns that have matching tasks
+      const columnsWithMatches = columns.filter(column => 
+        getTasksByQueue(column.id as TaskQueue).length > 0
+      );
+      
+      // If there are matches, expand the first column with matches
+      if (columnsWithMatches.length > 0) {
+        setExpandedColumn(columnsWithMatches[0].id);
+      }
+    }
+  }, [searchTerm, filteredTasks]);
 
   const handleTaskMove = (taskId: string, newQueue: TaskQueue) => {
     console.log(`Moving task ${taskId} to ${newQueue} queue`);
