@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,29 +30,45 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [expandedColumn, setExpandedColumn] = useState<string>("new");
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
+  const [ownerSelectionInitialized, setOwnerSelectionInitialized] = useState(false);
   
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
-  const { tasks, loading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
+  const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
 
-  // Load saved owner selection on component mount, or default to first owner
+  // Consolidated owner selection logic - runs only once when owners are loaded
   useEffect(() => {
-    const savedOwnerId = localStorage.getItem(STORAGE_KEY);
-    if (savedOwnerId) {
-      setSelectedOwnerId(savedOwnerId);
-    } else if (owners.length > 0 && !selectedOwnerId) {
-      // Auto-select first owner if none saved and owners are available
-      const firstOwner = owners[0];
-      setSelectedOwnerId(firstOwner.id);
-      localStorage.setItem(STORAGE_KEY, firstOwner.id);
+    if (owners.length > 0 && !ownerSelectionInitialized) {
+      console.log('Initializing owner selection with', owners.length, 'owners');
+      
+      const savedOwnerId = localStorage.getItem(STORAGE_KEY);
+      console.log('Saved owner ID from localStorage:', savedOwnerId);
+      
+      // Check if saved owner exists in current owners list
+      const savedOwnerExists = savedOwnerId && owners.some(owner => owner.id === savedOwnerId);
+      console.log('Saved owner exists in current list:', savedOwnerExists);
+      
+      if (savedOwnerExists) {
+        console.log('Using saved owner:', savedOwnerId);
+        setSelectedOwnerId(savedOwnerId);
+      } else {
+        // Fallback to first owner if no valid saved selection
+        const firstOwner = owners[0];
+        console.log('Using first owner as fallback:', firstOwner.id, firstOwner.fullName);
+        setSelectedOwnerId(firstOwner.id);
+        localStorage.setItem(STORAGE_KEY, firstOwner.id);
+      }
+      
+      setOwnerSelectionInitialized(true);
     }
-  }, [owners, selectedOwnerId]);
+  }, [owners, ownerSelectionInitialized]);
 
-  // Save owner selection to localStorage when it changes
-  useEffect(() => {
-    if (selectedOwnerId) {
-      localStorage.setItem(STORAGE_KEY, selectedOwnerId);
-    }
-  }, [selectedOwnerId]);
+  // Handle manual owner selection changes
+  const handleOwnerChange = (ownerId: string) => {
+    console.log('Manual owner change to:', ownerId);
+    setSelectedOwnerId(ownerId);
+    localStorage.setItem(STORAGE_KEY, ownerId);
+    setOwnerComboboxOpen(false);
+  };
 
   // Sort owners alphabetically by full name
   const sortedOwners = [...owners].sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -77,12 +94,24 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const getSelectedOwnerName = () => {
     if (!selectedOwnerId) return "Select owner";
     const owner = owners.find(o => o.id === selectedOwnerId);
-    return owner?.fullName || selectedOwnerId;
+    return owner?.fullName || "Select owner";
   };
 
   const handleColumnToggle = (columnId: string) => {
     setExpandedColumn(expandedColumn === columnId ? "" : columnId);
   };
+
+  // Show loading state while owners are being fetched
+  if (ownersLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] p-4">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-600">Loading owners...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -99,7 +128,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   }
 
   return (
-    <div className="h-screen flex flex-col max-w-2xl mx-auto">
+    <div className="h-screen flex flex-col w-full">
       {/* Header Controls */}
       <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
         {/* Owner Selection */}
@@ -110,8 +139,9 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
               role="combobox"
               aria-expanded={ownerComboboxOpen}
               className="w-full justify-between max-w-sm"
+              disabled={!ownerSelectionInitialized}
             >
-              {getSelectedOwnerName()}
+              {ownerSelectionInitialized ? getSelectedOwnerName() : "Loading owners..."}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
@@ -125,10 +155,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
                     <CommandItem
                       key={owner.id}
                       value={owner.fullName}
-                      onSelect={() => {
-                        setSelectedOwnerId(owner.id);
-                        setOwnerComboboxOpen(false);
-                      }}
+                      onSelect={() => handleOwnerChange(owner.id)}
                     >
                       <Check
                         className={cn(
@@ -161,15 +188,15 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
           variant="outline" 
           size="sm" 
           onClick={handleRefresh} 
-          disabled={loading || ownersLoading}
+          disabled={tasksLoading || ownersLoading}
           className="w-full max-w-xs"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${(loading || ownersLoading) ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 mr-2 ${(tasksLoading || ownersLoading) ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
 
         {/* Status indicator */}
-        {(loading || ownersLoading) && (
+        {tasksLoading && (
           <div className="text-sm text-gray-500 text-center">Syncing with HubSpot...</div>
         )}
       </div>
@@ -194,7 +221,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
                 showOwner={false}
               />
             ))}
-            {getTasksByQueue(column.id as TaskQueue).length === 0 && !loading && (
+            {getTasksByQueue(column.id as TaskQueue).length === 0 && !tasksLoading && ownerSelectionInitialized && (
               <div className="text-center text-gray-500 py-8">
                 No tasks
               </div>

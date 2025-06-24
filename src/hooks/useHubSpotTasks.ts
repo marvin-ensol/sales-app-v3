@@ -3,26 +3,20 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
 
-export const useHubSpotTasks = (selectedOwnerId: string) => {
+export const useHubSpotTasks = (selectedOwnerId: string | undefined) => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTasks = async () => {
-    if (!selectedOwnerId) {
-      console.log('No owner selected, skipping task fetch');
-      setLoading(false);
-      return;
-    }
-
+  const fetchTasks = async (ownerId: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching tasks from HubSpot for owner:', selectedOwnerId);
+      console.log('Fetching tasks from HubSpot for owner:', ownerId);
       
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
-        body: { ownerId: selectedOwnerId }
+        body: { ownerId }
       });
       
       console.log('Raw response:', { data, functionError });
@@ -62,19 +56,31 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
 
   useEffect(() => {
     if (selectedOwnerId) {
-      fetchTasks();
+      console.log('Owner ID changed, fetching tasks for:', selectedOwnerId);
+      fetchTasks(selectedOwnerId);
       
       // Set up polling every 30 seconds
-      const interval = setInterval(fetchTasks, 30000);
+      const interval = setInterval(() => fetchTasks(selectedOwnerId), 30000);
       
       return () => clearInterval(interval);
+    } else {
+      console.log('No owner selected, clearing tasks');
+      setTasks([]);
+      setLoading(false);
+      setError(null);
     }
   }, [selectedOwnerId]);
+
+  const refetch = () => {
+    if (selectedOwnerId) {
+      fetchTasks(selectedOwnerId);
+    }
+  };
 
   return {
     tasks,
     loading,
     error,
-    refetch: fetchTasks
+    refetch
   };
 };
