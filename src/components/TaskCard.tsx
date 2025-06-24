@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
@@ -77,8 +78,8 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
       )} p-3 m-2 hover:shadow-md transition-shadow cursor-pointer relative max-w-full`}
       onClick={handleCardClick}
     >
-      {/* Edit icon in top right corner */}
-      <div className="absolute top-2 right-2 z-10">
+      {/* Edit icon in top right corner with lower z-index */}
+      <div className="absolute top-2 right-2 z-0">
         <button
           onClick={handleEditClick}
           className="p-1 hover:bg-gray-100 rounded transition-colors"
