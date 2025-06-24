@@ -17,4 +17,5 @@ export interface Task {
   hubspotId?: string;
   queue: TaskQueue;
   queueIds?: string[];
+  isUnassigned?: boolean;
 }

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -45,16 +44,8 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
     }
   ]
 
-  if (ownerId) {
-    filters.push({
-      propertyName: 'hubspot_owner_id',
-      operator: 'EQ',
-      value: ownerId
-    })
-    console.log("Applying ownerId filter:", ownerId)
-  } else {
-    console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
-  }
+  // Remove owner filter to get both assigned and unassigned tasks
+  console.log("Fetching tasks for both assigned and unassigned owners")
 
   const tasksResponse = await fetch(
     `https://api.hubapi.com/crm/v3/objects/tasks/search`,
@@ -236,15 +227,28 @@ async function fetchValidOwners(hubspotToken: string) {
   return { validOwnerIds, ownersMap }
 }
 
-function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
-  const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
+function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>, ownerId?: string) {
+  const filteredTasks = tasks.filter((task: HubSpotTask) => {
     const taskOwnerId = task.properties?.hubspot_owner_id;
+    
+    // Include tasks with no owner (unassigned)
     if (!taskOwnerId) {
-      console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
-      return false;
+      console.log(`✔️ INCLUDED: Task ${task.id} has NO OWNER (unassigned)`);
+      return true;
     }
     
+    // Include tasks with valid owners
     if (validOwnerIds.has(taskOwnerId.toString())) {
+      // If a specific owner is requested, only include their tasks and unassigned tasks
+      if (ownerId) {
+        if (taskOwnerId === ownerId) {
+          console.log(`✔️ INCLUDED: Task ${task.id} belongs to selected owner ${taskOwnerId}`);
+          return true;
+        } else {
+          console.log(`❌ FILTERED OUT: Task ${task.id} belongs to different owner ${taskOwnerId}`);
+          return false;
+        }
+      }
       return true;
     } else {
       console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
@@ -252,8 +256,8 @@ function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<strin
     }
   });
 
-  console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasks.length}`);
-  return tasksWithAllowedOwners;
+  console.log(`Filtered tasks: ${filteredTasks.length} out of ${tasks.length}`);
+  return filteredTasks;
 }
 
 function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
@@ -339,7 +343,8 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       owner: ownerName,
       hubspotId: task.id,
       queue: queue,
-      queueIds: queueIds
+      queueIds: queueIds,
+      isUnassigned: !taskOwnerId
     };
   }).filter((task: any) => {
     if (!task.taskDueDate) return false;
@@ -392,8 +397,8 @@ serve(async (req) => {
     // Fetch valid owners and build allowed owners set
     const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
-    // Filter tasks by allowed team owners
-    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
+    // Filter tasks by allowed team owners and owner selection
+    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds, ownerId)
 
     // Transform and filter tasks
     const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
