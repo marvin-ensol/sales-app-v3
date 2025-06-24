@@ -24,7 +24,7 @@ const VerticalKanbanColumn = ({
   return (
     <div className="border-b border-gray-200">
       <div 
-        className={`p-4 transition-colors ${color} ${hasContent ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'}`}
+        className={`p-4 transition-colors ${color} ${hasContent ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-10 border-b border-gray-200' : ''}`}
         onClick={hasContent ? onToggle : undefined}
       >
         <div className="flex items-center justify-between">
