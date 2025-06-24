@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Search, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,7 +101,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   };
 
   // Show loading state while owners are being fetched
-  if (ownersLoading) {
+  if (ownersLoading && !ownerSelectionInitialized) {
     return (
       <div className="flex items-center justify-center min-h-[400px] p-4">
         <div className="text-center">
@@ -131,46 +130,58 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     <div className="h-screen flex flex-col w-full">
       {/* Header Controls */}
       <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
-        {/* Owner Selection */}
-        <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={ownerComboboxOpen}
-              className="w-full justify-between max-w-sm"
-              disabled={!ownerSelectionInitialized}
-            >
-              {ownerSelectionInitialized ? getSelectedOwnerName() : "Loading owners..."}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-full max-w-sm p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search owners..." />
-              <CommandList>
-                <CommandEmpty>No owner found.</CommandEmpty>
-                <CommandGroup>
-                  {sortedOwners.map((owner) => (
-                    <CommandItem
-                      key={owner.id}
-                      value={owner.fullName}
-                      onSelect={() => handleOwnerChange(owner.id)}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      {owner.fullName}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        {/* Owner Selection and Refresh Button */}
+        <div className="flex items-center gap-2">
+          <Popover open={ownerComboboxOpen} onOpenChange={setOwnerComboboxOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={ownerComboboxOpen}
+                className="flex-1 justify-between max-w-sm"
+                disabled={!ownerSelectionInitialized}
+              >
+                {ownerSelectionInitialized ? getSelectedOwnerName() : "Loading owners..."}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full max-w-sm p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search owners..." />
+                <CommandList>
+                  <CommandEmpty>No owner found.</CommandEmpty>
+                  <CommandGroup>
+                    {sortedOwners.map((owner) => (
+                      <CommandItem
+                        key={owner.id}
+                        value={owner.fullName}
+                        onSelect={() => handleOwnerChange(owner.id)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {owner.fullName}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleRefresh} 
+            disabled={tasksLoading || ownersLoading}
+            title="Refresh data"
+          >
+            <RefreshCw className={`h-4 w-4 ${(tasksLoading || ownersLoading) ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
 
         {/* Search */}
         <div className="relative max-w-md">
@@ -182,23 +193,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-
-        {/* Refresh Button */}
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh} 
-          disabled={tasksLoading || ownersLoading}
-          className="w-full max-w-xs"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${(tasksLoading || ownersLoading) ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-
-        {/* Status indicator */}
-        {tasksLoading && (
-          <div className="text-sm text-gray-500 text-center">Syncing with HubSpot...</div>
-        )}
       </div>
 
       {/* Vertical Columns */}
