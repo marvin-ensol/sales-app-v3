@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Search, RefreshCw } from "lucide-react";
+import { Search, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
@@ -30,6 +30,10 @@ const KanbanHeader = ({
   isLoading
 }: KanbanHeaderProps) => {
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
+
+  const handleClearSearch = () => {
+    onSearchChange("");
+  };
 
   return (
     <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
@@ -61,10 +65,21 @@ const KanbanHeader = ({
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
         <Input
           placeholder="Search tasks or contacts..."
-          className="pl-10"
+          className="pl-10 pr-10"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
         />
+        {searchTerm && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+            onClick={handleClearSearch}
+            title="Clear search"
+          >
+            <X className="h-4 w-4 text-gray-400" />
+          </Button>
+        )}
       </div>
     </div>
   );
