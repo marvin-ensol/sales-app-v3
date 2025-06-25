@@ -1,10 +1,9 @@
 
-import { useState } from "react";
-import { Search, RefreshCw, X } from "lucide-react";
+import { RefreshCw, Search, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
 import OwnerSelector from "./OwnerSelector";
+import { HubSpotOwner } from "@/types/task";
 
 interface KanbanHeaderProps {
   owners: HubSpotOwner[];
@@ -13,9 +12,10 @@ interface KanbanHeaderProps {
   ownerSelectionInitialized: boolean;
   getSelectedOwnerName: () => string;
   searchTerm: string;
-  onSearchChange: (term: string) => void;
+  onSearchChange: (search: string) => void;
   onRefresh: () => void;
   isLoading: boolean;
+  onDebugTotalCounts?: () => void; // Add debug function prop
 }
 
 const KanbanHeader = ({
@@ -27,59 +27,55 @@ const KanbanHeader = ({
   searchTerm,
   onSearchChange,
   onRefresh,
-  isLoading
+  isLoading,
+  onDebugTotalCounts
 }: KanbanHeaderProps) => {
-  const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
-
-  const handleClearSearch = () => {
-    onSearchChange("");
-  };
-
   return (
-    <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
-      {/* Owner Selection and Refresh Button */}
-      <div className="flex items-center gap-2">
-        <OwnerSelector
-          owners={owners}
-          selectedOwnerId={selectedOwnerId}
-          onOwnerChange={onOwnerChange}
-          isOpen={ownerComboboxOpen}
-          onOpenChange={setOwnerComboboxOpen}
-          ownerSelectionInitialized={ownerSelectionInitialized}
-          getSelectedOwnerName={getSelectedOwnerName}
-        />
-
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={onRefresh} 
-          disabled={isLoading}
-          title="Actualiser"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-        <Input
-          placeholder="Trouver une tâche ou un contact..."
-          className="pl-10 pr-10"
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-        {searchTerm && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-            onClick={handleClearSearch}
-            title="Clear search"
+    <div className="bg-white border-b border-gray-200 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-1">
+          <OwnerSelector
+            owners={owners}
+            selectedOwnerId={selectedOwnerId}
+            onOwnerChange={onOwnerChange}
+            ownerSelectionInitialized={ownerSelectionInitialized}
+            getSelectedOwnerName={getSelectedOwnerName}
+          />
+          
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {onDebugTotalCounts && (
+            <Button
+              onClick={onDebugTotalCounts}
+              variant="outline"
+              size="sm"
+              className="text-orange-600 border-orange-600 hover:bg-orange-50"
+            >
+              <Bug className="h-4 w-4 mr-2" />
+              Debug Counts
+            </Button>
+          )}
+          
+          <Button 
+            onClick={onRefresh}
+            disabled={isLoading}
+            variant="outline"
+            size="sm"
           >
-            <X className="h-4 w-4 text-gray-400" />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
           </Button>
-        )}
+        </div>
       </div>
     </div>
   );

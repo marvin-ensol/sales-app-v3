@@ -126,10 +126,66 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     }
   };
 
+  // Add debug function to investigate total counts
+  const debugTotalCounts = async () => {
+    try {
+      console.log('=== DEBUG: Investigating total task counts ===');
+      
+      // First check what's in our database
+      const { data: dbTasks, error: dbError } = await supabase
+        .from('tasks')
+        .select('*');
+      
+      if (dbError) {
+        console.error('Error fetching from database:', dbError);
+      } else {
+        console.log(`Total tasks in database: ${dbTasks?.length || 0}`);
+        
+        // Break down by status
+        const notStarted = dbTasks?.filter(t => t.status === 'not_started') || [];
+        const completed = dbTasks?.filter(t => t.status === 'completed') || [];
+        
+        console.log(`Not started tasks: ${notStarted.length}`);
+        console.log(`Completed tasks: ${completed.length}`);
+        
+        // Break down by queue
+        const queueBreakdown = dbTasks?.reduce((acc, task) => {
+          acc[task.queue] = (acc[task.queue] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>) || {};
+        
+        console.log('Queue breakdown:', queueBreakdown);
+        
+        // Check for tasks with contacts
+        const tasksWithContacts = dbTasks?.filter(t => t.contact_id) || [];
+        const tasksWithoutContacts = dbTasks?.filter(t => !t.contact_id) || [];
+        
+        console.log(`Tasks with contacts: ${tasksWithContacts.length}`);
+        console.log(`Tasks without contacts: ${tasksWithoutContacts.length}`);
+      }
+      
+      // Now trigger a force background sync to see what HubSpot returns
+      console.log('Triggering force background sync to investigate...');
+      const { data, error } = await supabase.functions.invoke('background-task-sync', {
+        body: { forceRefresh: true, debug: true }
+      });
+      
+      if (error) {
+        console.error('Background sync error:', error);
+      } else {
+        console.log('Background sync response:', data);
+      }
+      
+    } catch (err) {
+      console.error('Debug investigation failed:', err);
+    }
+  };
+
   return {
     tasks,
     loading,
     error,
-    refetch
+    refetch,
+    debugTotalCounts // Add debug function to the return
   };
 };
