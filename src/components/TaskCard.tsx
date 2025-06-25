@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getFrenchWeekday } from "@/lib/dateUtils";
 
 interface TaskCardProps {
   task: Task;
@@ -32,19 +34,9 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
     }
   };
 
-  const getFrenchWeekday = (dateString: string) => {
-    if (!dateString) return "";
-    const [datePart] = dateString.split(' à ');
-    if (!datePart) return "";
-    const [day, month] = datePart.split('/');
-    const currentYear = new Date().getFullYear();
-    const date = new Date(currentYear, parseInt(month) - 1, parseInt(day));
-    const weekdays = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-    return weekdays[date.getDay()];
-  };
+  const weekday = getFrenchWeekday(task.dueDate);
 
   const handleCardClick = () => {
-    // Disable click functionality for unassigned tasks
     if (task.isUnassigned) {
       return;
     }
@@ -146,7 +138,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
           description: "La tâche a été attribuée avec succès",
         });
         
-        // Call the refresh callback
         if (onTaskAssigned) {
           onTaskAssigned();
         }
@@ -165,8 +156,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
   };
 
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
-  const weekday = getFrenchWeekday(task.dueDate);
-  
   const cursorStyle = task.isUnassigned ? "cursor-default" : "cursor-pointer";
 
   return (
@@ -204,7 +193,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
         {/* Contact name in bold with hover effects */}
         <div className="relative group">
           {task.isUnassigned && task.queue === 'new' ? (
-            // Green hover effect for unassigned "New" tasks
             <div 
               className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 group-hover:bg-green-100 group-hover:text-green-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer ${
                 isAssigning ? 'opacity-50 cursor-not-allowed' : ''
@@ -217,7 +205,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
               </span>
             </div>
           ) : (
-            // Blue hover effect for assigned tasks with phone numbers
             <div 
               className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
                 task.contactPhone && !task.isUnassigned
@@ -274,7 +261,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
                 <ChevronDown className="h-3 w-3 ml-1 flex-shrink-0" />
               )}
             </div>
-            {/* Balanced full-width description box */}
             {showDescription && (
               <div className="text-xs text-gray-700 mt-2 bg-gray-50 rounded px-3 py-2 break-words">
                 {task.description}

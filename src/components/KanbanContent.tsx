@@ -2,14 +2,7 @@
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
-
-// Define columns based on task queues - Rappels & RDV comes first
-const columns = [
-  { id: "rappels", title: "Rappels & RDV", color: "border-l-4 border-l-purple-400" },
-  { id: "new", title: "New", color: "border-l-4 border-l-blue-400" },
-  { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400" },
-  { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400" }
-];
+import { KANBAN_COLUMNS } from "@/lib/constants";
 
 interface KanbanContentProps {
   filteredTasks: Task[];
@@ -44,7 +37,6 @@ const KanbanContent = ({
 }: KanbanContentProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
     const tasks = filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
-    // Ensure unique tasks by ID to prevent duplicate key errors
     const uniqueTasks = tasks.filter((task, index, arr) => 
       arr.findIndex(t => t.id === task.id) === index
     );
@@ -56,11 +48,9 @@ const KanbanContent = ({
     return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
   };
 
-  // Removed the auto-expand search logic that was conflicting with manual column selection
-
   return (
     <div className="flex-1 overflow-y-auto px-1">
-      {columns.map((column) => {
+      {KANBAN_COLUMNS.map((column) => {
         const columnTasks = getTasksByQueue(column.id as TaskQueue);
         const isLocked = lockedColumns.includes(column.id);
         const hasContent = columnTasks.length > 0;

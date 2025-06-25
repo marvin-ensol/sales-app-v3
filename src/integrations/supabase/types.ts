@@ -9,7 +9,102 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      sync_metadata: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          last_sync_success: boolean
+          last_sync_timestamp: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_sync_success?: boolean
+          last_sync_timestamp?: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_sync_success?: boolean
+          last_sync_timestamp?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          completion_date: string | null
+          contact: string
+          contact_id: string | null
+          contact_phone: string | null
+          created_at: string
+          description: string | null
+          due_date: string
+          hs_lastmodifieddate: string
+          hs_timestamp: string | null
+          hubspot_id: string
+          id: string
+          is_unassigned: boolean
+          owner: string
+          priority: string
+          queue: string
+          queue_ids: string[]
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completion_date?: string | null
+          contact: string
+          contact_id?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          due_date: string
+          hs_lastmodifieddate: string
+          hs_timestamp?: string | null
+          hubspot_id: string
+          id: string
+          is_unassigned?: boolean
+          owner: string
+          priority: string
+          queue: string
+          queue_ids?: string[]
+          status: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completion_date?: string | null
+          contact?: string
+          contact_id?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          hs_lastmodifieddate?: string
+          hs_timestamp?: string | null
+          hubspot_id?: string
+          id?: string
+          is_unassigned?: boolean
+          owner?: string
+          priority?: string
+          queue?: string
+          queue_ids?: string[]
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
+import { API_CONFIG } from '@/lib/constants';
 
 export const useHubSpotTasks = (selectedOwnerId: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -22,7 +23,6 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
   }, []);
 
   const fetchTasks = async (ownerId: string, retryCount = 0) => {
-    // Don't make API calls if the app isn't visible
     if (!isVisibleRef.current) {
       console.log('Skipping API call - app not visible');
       return;
@@ -34,9 +34,8 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       
       console.log('Fetching tasks from HubSpot for owner:', ownerId);
       
-      // Add a small delay to avoid burst calling if this is part of multiple calls
       if (retryCount > 0) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+        const delay = Math.min(API_CONFIG.RETRY_DELAY_BASE * Math.pow(2, retryCount), API_CONFIG.MAX_RETRY_DELAY);
         console.log(`Retrying after ${delay}ms delay (attempt ${retryCount + 1})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -55,9 +54,8 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       if (data?.error) {
         console.error('HubSpot API error:', data.error);
         
-        // Handle rate limiting with exponential backoff
         if (data.error.includes('429') || data.error.includes('rate limit')) {
-          if (retryCount < 3) {
+          if (retryCount < API_CONFIG.MAX_RETRIES) {
             console.log(`Rate limited, retrying in ${Math.pow(2, retryCount + 1)} seconds...`);
             return fetchTasks(ownerId, retryCount + 1);
           }
@@ -94,19 +92,17 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       console.log('Owner ID changed, fetching tasks for:', selectedOwnerId);
       fetchTasks(selectedOwnerId);
       
-      // Clear any existing interval
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
       
-      // Set up polling every 20 seconds (reduced from 30)
       intervalRef.current = setInterval(() => {
         if (isVisibleRef.current) {
           fetchTasks(selectedOwnerId);
         } else {
           console.log('Skipping scheduled fetch - app not visible');
         }
-      }, 20000);
+      }, API_CONFIG.POLLING_INTERVAL);
       
       return () => {
         if (intervalRef.current) {
@@ -119,7 +115,6 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       setLoading(false);
       setError(null);
       
-      // Clear interval when no owner is selected
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
