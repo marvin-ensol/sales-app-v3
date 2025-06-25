@@ -1,6 +1,6 @@
 
 import { ReactNode } from "react";
-import { ChevronDown, ChevronRight, Lock } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock, Clock, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface VerticalKanbanColumnProps {
@@ -52,25 +52,19 @@ const VerticalKanbanColumn = ({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <Clock className="w-3 h-3" />
               <span className="text-xs font-medium">{count}</span>
             </Badge>
-            {completedCount > 0 && (
-              <Badge className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 hover:bg-green-200">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-xs font-medium">{completedCount}</span>
-              </Badge>
-            )}
+            <Badge className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 hover:bg-green-200">
+              <Check className="w-3 h-3" />
+              <span className="text-xs font-medium">{completedCount}</span>
+            </Badge>
           </div>
         </div>
       </div>
       
       {isExpanded && hasContent && !isLocked && (
-        <div className="px-2 pb-3">
+        <div className="px-1 pb-3">
           <div className="space-y-2">
             {children}
           </div>
