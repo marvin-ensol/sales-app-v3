@@ -49,6 +49,7 @@ export type Database = {
           description: string | null
           due_date: string
           hs_lastmodifieddate: string
+          hs_timestamp: string | null
           hubspot_id: string
           id: string
           is_unassigned: boolean
@@ -69,6 +70,7 @@ export type Database = {
           description?: string | null
           due_date: string
           hs_lastmodifieddate: string
+          hs_timestamp?: string | null
           hubspot_id: string
           id: string
           is_unassigned?: boolean
@@ -89,6 +91,7 @@ export type Database = {
           description?: string | null
           due_date?: string
           hs_lastmodifieddate?: string
+          hs_timestamp?: string | null
           hubspot_id?: string
           id?: string
           is_unassigned?: boolean
