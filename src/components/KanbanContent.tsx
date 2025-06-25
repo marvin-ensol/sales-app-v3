@@ -1,5 +1,4 @@
 
-import { useEffect } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
@@ -57,21 +56,7 @@ const KanbanContent = ({
     return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
   };
 
-  // Auto-expand columns with search matches, but only if they're not locked
-  useEffect(() => {
-    if (searchTerm) {
-      // Find columns that have matching tasks and are not locked
-      const columnsWithMatches = columns.filter(column => 
-        getTasksByQueue(column.id as TaskQueue).length > 0 && 
-        !lockedColumns.includes(column.id)
-      );
-      
-      // If there are matches, expand the first column with matches
-      if (columnsWithMatches.length > 0) {
-        setExpandedColumn(columnsWithMatches[0].id);
-      }
-    }
-  }, [searchTerm, filteredTasks, setExpandedColumn, lockedColumns]);
+  // Removed the auto-expand search logic that was conflicting with manual column selection
 
   return (
     <div className="flex-1 overflow-y-auto px-1">

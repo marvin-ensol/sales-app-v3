@@ -16,6 +16,7 @@ interface KanbanBoardProps {
 const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedColumn, setExpandedColumn] = useState<string>("rappels");
+  const [autoExpandInitialized, setAutoExpandInitialized] = useState(false);
   
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
   const { 
@@ -45,17 +46,21 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   
   const lockedColumns = getLockedColumns();
 
-  // Auto-expand logic - prioritize rappels if it has tasks, otherwise new
+  // Auto-expand logic - only run once when tasks are first loaded, not on every render
   useEffect(() => {
-    const rappelsQueueTasks = notStartedTasks.filter(task => task.queue === 'rappels');
-    const hasRappelsTasks = rappelsQueueTasks.length > 0;
-    
-    if (hasRappelsTasks) {
-      setExpandedColumn("rappels");
-    } else if (hasNewTasks && lockedColumns.length > 0) {
-      setExpandedColumn("new");
+    if (!autoExpandInitialized && notStartedTasks.length > 0) {
+      const rappelsQueueTasks = notStartedTasks.filter(task => task.queue === 'rappels');
+      const hasRappelsTasks = rappelsQueueTasks.length > 0;
+      
+      if (hasRappelsTasks) {
+        setExpandedColumn("rappels");
+      } else if (hasNewTasks && lockedColumns.length > 0) {
+        setExpandedColumn("new");
+      }
+      
+      setAutoExpandInitialized(true);
     }
-  }, [notStartedTasks, hasNewTasks, lockedColumns.length]);
+  }, [notStartedTasks, hasNewTasks, lockedColumns.length, autoExpandInitialized]);
 
   // Filter not started tasks based on the existing requirements and locking logic
   const filteredTasks = notStartedTasks.filter(task => {
