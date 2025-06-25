@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -35,25 +34,48 @@ interface HubSpotOwner {
 }
 
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
-  console.log('Owner filter:', ownerId || 'none (ALL OWNERS)');
+  console.log('Owner filter:', ownerId);
 
-  const filters = [
+  // Create filter groups: one for unassigned tasks in "New" queue, one for selected owner's tasks
+  const filterGroups = [
+    // Filter group for unassigned tasks in "New" queue (queue ID: 22859489)
     {
-      propertyName: 'hs_task_status',
-      operator: 'EQ',
-      value: 'NOT_STARTED'
+      filters: [
+        {
+          propertyName: 'hs_task_status',
+          operator: 'EQ',
+          value: 'NOT_STARTED'
+        },
+        {
+          propertyName: 'hs_queue_membership_ids',
+          operator: 'CONTAINS_TOKEN',
+          value: '22859489'
+        },
+        {
+          propertyName: 'hubspot_owner_id',
+          operator: 'NOT_HAS_PROPERTY'
+        }
+      ]
     }
-  ]
+  ];
 
+  // Add filter group for selected owner's tasks if ownerId is provided
   if (ownerId) {
-    filters.push({
-      propertyName: 'hubspot_owner_id',
-      operator: 'EQ',
-      value: ownerId
-    })
-    console.log("Applying ownerId filter:", ownerId)
-  } else {
-    console.log("No ownerId filter, fetching all owners' tasks in allowed teams after final filter step.")
+    filterGroups.push({
+      filters: [
+        {
+          propertyName: 'hs_task_status',
+          operator: 'EQ',
+          value: 'NOT_STARTED'
+        },
+        {
+          propertyName: 'hubspot_owner_id',
+          operator: 'EQ',
+          value: ownerId
+        }
+      ]
+    });
+    console.log("Added ownerId filter group for:", ownerId);
   }
 
   const tasksResponse = await fetch(
@@ -65,11 +87,7 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        filterGroups: [
-          {
-            filters: filters
-          }
-        ],
+        filterGroups: filterGroups,
         properties: [
           'hs_task_subject',
           'hs_task_body',
@@ -239,9 +257,11 @@ async function fetchValidOwners(hubspotToken: string) {
 function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
   const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
     const taskOwnerId = task.properties?.hubspot_owner_id;
+    
+    // Allow unassigned tasks (no owner)
     if (!taskOwnerId) {
-      console.log(`❌ DROPPED: Task ${task.id} had NO OWNER`);
-      return false;
+      console.log(`✔️ ALLOWED: Task ${task.id} has NO OWNER (unassigned)`);
+      return true;
     }
     
     if (validOwnerIds.has(taskOwnerId.toString())) {
@@ -339,7 +359,8 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       owner: ownerName,
       hubspotId: task.id,
       queue: queue,
-      queueIds: queueIds
+      queueIds: queueIds,
+      isUnassigned: !taskOwnerId
     };
   }).filter((task: any) => {
     if (!task.taskDueDate) return false;
@@ -371,19 +392,29 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    // Fetch tasks from HubSpot
+    // Fetch tasks from HubSpot (both unassigned "New" tasks and selected owner's tasks)
     const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
     // Get task associations
     const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
-    // Filter out tasks that don't have contact associations
-    const tasksWithContacts = tasks.filter((task: HubSpotTask) => {
-      return taskContactMap[task.id]
+    // Filter out tasks that don't have contact associations (except for unassigned tasks in "New" queue)
+    const tasksWithContactsOrUnassigned = tasks.filter((task: HubSpotTask) => {
+      const isUnassigned = !task.properties?.hubspot_owner_id;
+      const isInNewQueue = task.properties?.hs_queue_membership_ids?.includes('22859489');
+      const hasContact = taskContactMap[task.id];
+      
+      // Keep unassigned tasks in "New" queue even without contacts
+      if (isUnassigned && isInNewQueue) {
+        return true;
+      }
+      
+      // For assigned tasks, require contact association
+      return hasContact;
     })
 
-    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasks.length} total tasks`)
+    console.log(`Filtered tasks with contacts or unassigned: ${tasksWithContactsOrUnassigned.length} out of ${tasks.length} total tasks`)
 
     // Get unique contact IDs and fetch contact details
     const contactIds = new Set(Object.values(taskContactMap))
@@ -392,18 +423,28 @@ serve(async (req) => {
     // Fetch valid owners and build allowed owners set
     const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
-    // Filter tasks by allowed team owners
-    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
+    // Filter tasks by allowed team owners (but allow unassigned tasks)
+    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContactsOrUnassigned, validOwnerIds)
 
     // Transform and filter tasks
     const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
 
-    console.log('Final transformed tasks:', transformedTasks.length);
+    // Sort tasks: unassigned "New" tasks first, then assigned tasks
+    const sortedTasks = transformedTasks.sort((a, b) => {
+      // If both are in "new" queue, prioritize unassigned tasks
+      if (a.queue === 'new' && b.queue === 'new') {
+        if (a.isUnassigned && !b.isUnassigned) return -1;
+        if (!a.isUnassigned && b.isUnassigned) return 1;
+      }
+      return 0; // Keep original order for other cases
+    });
+
+    console.log('Final transformed and sorted tasks:', sortedTasks.length);
 
     return new Response(
       JSON.stringify({ 
-        tasks: transformedTasks.map(({ taskDueDate, ...task }) => task),
-        total: transformedTasks.length,
+        tasks: sortedTasks.map(({ taskDueDate, ...task }) => task),
+        total: sortedTasks.length,
         success: true
       }),
       { 

@@ -25,7 +25,8 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     getSelectedOwnerName 
   } = useOwnerSelection(owners);
   
-  const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId || undefined);
+  // Remove the undefined check since selectedOwnerId is now always a string due to owner selection being required
+  const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId);
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
