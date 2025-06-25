@@ -1,4 +1,3 @@
-
 import { TIME_CONFIG } from './constants';
 
 /**
@@ -17,14 +16,20 @@ export function getCurrentParisTime(): Date {
 }
 
 /**
- * Format date for display (DD/MM à HH:MM)
+ * Format date for display (DD/MM à HH:MM) - ensuring Paris timezone
  */
 export function formatTaskDate(timestamp: string | number): string {
   if (!timestamp) return '';
   
-  const date = typeof timestamp === 'string' ? 
-    new Date(timestamp) : 
-    getParisTimeFromUTC(timestamp);
+  let date: Date;
+  if (typeof timestamp === 'string') {
+    // Parse string timestamp and convert to Paris time
+    const utcDate = new Date(timestamp);
+    date = new Date(utcDate.toLocaleString("en-US", { timeZone: TIME_CONFIG.TIMEZONE }));
+  } else {
+    // Convert UTC timestamp to Paris time
+    date = getParisTimeFromUTC(timestamp);
+  }
 
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -45,6 +50,8 @@ export function getFrenchWeekday(dateString: string): string {
   
   const [day, month] = datePart.split('/');
   const currentYear = new Date().getFullYear();
+  
+  // Create date in Paris timezone
   const date = new Date(currentYear, parseInt(month) - 1, parseInt(day));
   
   const weekdays = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
@@ -52,7 +59,7 @@ export function getFrenchWeekday(dateString: string): string {
 }
 
 /**
- * Parse date string to Date object (handles "DD/MM à HH:MM" format)
+ * Parse date string to Date object (handles "DD/MM à HH:MM" format) - in Paris timezone
  */
 export function parseTaskDate(dateString: string): Date {
   const [datePart, timePart] = dateString.split(' à ');
@@ -60,13 +67,12 @@ export function parseTaskDate(dateString: string): Date {
   const [hours, minutes] = timePart.split(':');
   const currentYear = new Date().getFullYear();
   
-  return new Date(
-    currentYear, 
-    parseInt(month) - 1, 
-    parseInt(day), 
-    parseInt(hours), 
-    parseInt(minutes)
-  );
+  // Create date in Paris timezone
+  const parisDate = new Date();
+  parisDate.setFullYear(currentYear, parseInt(month) - 1, parseInt(day));
+  parisDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+  
+  return parisDate;
 }
 
 /**

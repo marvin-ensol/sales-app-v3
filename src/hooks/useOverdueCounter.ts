@@ -36,22 +36,22 @@ export const useOverdueCounter = (dueDate: string) => {
 
         const currentYear = new Date().getFullYear();
         
-        // Create due date in Paris timezone
-        const parisDateString = `${currentYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
-        const dueDateParis = new Date(parisDateString);
+        // Create due date in Paris timezone using the Intl API for proper timezone handling
+        const dueDateParis = new Date();
+        dueDateParis.setFullYear(currentYear, parseInt(month) - 1, parseInt(day));
+        dueDateParis.setHours(parseInt(hours), parseInt(minutes), 0, 0);
         
         // Check if the date is valid
         if (isNaN(dueDateParis.getTime())) {
-          console.log('Invalid date created:', parisDateString);
+          console.log('Invalid date created for:', dueDate);
           setCounter('');
           setIsOverdue(false);
           return;
         }
         
-        // Get current time in Paris timezone
+        // Get current time in Paris timezone using Intl API
         const nowUTC = new Date();
-        const nowParisString = nowUTC.toLocaleString("en-CA", { timeZone: "Europe/Paris" });
-        const nowParis = new Date(nowParisString);
+        const nowParis = new Date(nowUTC.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
         
         // Check if current time is valid
         if (isNaN(nowParis.getTime())) {
@@ -65,8 +65,8 @@ export const useOverdueCounter = (dueDate: string) => {
         
         // Debug logging
         console.log(`Task due: ${dueDate}`);
-        console.log(`Parsed Paris date: ${dueDateParis.toISOString()}`);
-        console.log(`Current Paris time: ${nowParis.toISOString()}`);
+        console.log(`Parsed Paris date: ${dueDateParis.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
+        console.log(`Current Paris time: ${nowParis.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
         console.log(`Diff (ms): ${diff}`);
         
         if (diff > 0) {
