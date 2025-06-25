@@ -1,8 +1,11 @@
 
+import { useState } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
 import { KANBAN_COLUMNS } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Eye, EyeOff } from "lucide-react";
 
 interface KanbanContentProps {
   filteredTasks: Task[];
@@ -33,6 +36,8 @@ const KanbanContent = ({
   selectedOwnerId,
   lockedColumns
 }: KanbanContentProps) => {
+  const [showEmptyCategories, setShowEmptyCategories] = useState(false);
+
   const getTasksByQueue = (queue: TaskQueue) => {
     const tasks = filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
     const uniqueTasks = tasks.filter((task, index, arr) => 
@@ -46,8 +51,24 @@ const KanbanContent = ({
     return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
   };
 
+  // Check if a column is completely empty (no to-do tasks and no completed tasks)
+  const isColumnCompletelyEmpty = (columnId: string) => {
+    const todoCount = getTasksByQueue(columnId as TaskQueue).length;
+    const completedCount = getCompletedTasksByQueue(columnId as TaskQueue);
+    return todoCount === 0 && completedCount === 0;
+  };
+
+  // Check if we should show the toggle button (at least one completely empty category exists)
+  const hasEmptyCategories = KANBAN_COLUMNS.some(column => isColumnCompletelyEmpty(column.id));
+
+  // Filter columns based on the toggle state
+  const visibleColumns = KANBAN_COLUMNS.filter(column => {
+    if (showEmptyCategories) return true;
+    return !isColumnCompletelyEmpty(column.id);
+  });
+
   // Sort columns: first those with tasks, then those without, maintaining original order within each group
-  const sortedColumns = [...KANBAN_COLUMNS].sort((a, b) => {
+  const sortedColumns = [...visibleColumns].sort((a, b) => {
     const aTaskCount = getTasksByQueue(a.id as TaskQueue).length;
     const bTaskCount = getTasksByQueue(b.id as TaskQueue).length;
     
@@ -101,6 +122,29 @@ const KanbanContent = ({
           </VerticalKanbanColumn>
         );
       })}
+      
+      {hasEmptyCategories && (
+        <div className="flex justify-center py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowEmptyCategories(!showEmptyCategories)}
+            className="text-gray-500 hover:text-gray-700 bg-transparent hover:bg-gray-50"
+          >
+            {showEmptyCategories ? (
+              <>
+                <EyeOff className="w-4 h-4 mr-2" />
+                Masquer les catégories sans activité
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4 mr-2" />
+                Montrer les catégories sans activité
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
