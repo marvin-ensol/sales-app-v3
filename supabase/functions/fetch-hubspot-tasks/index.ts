@@ -34,6 +34,11 @@ interface HubSpotOwner {
   teams?: Array<{ id: string }>;
 }
 
+// Helper function to add delays between API calls
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching unassigned New tasks...');
   
@@ -104,6 +109,9 @@ async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTas
 async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching owner tasks for:', ownerId);
   
+  // Add delay before this API call
+  await delay(300);
+  
   const ownerResponse = await fetch(
     `https://api.hubapi.com/crm/v3/objects/tasks/search`,
     {
@@ -166,6 +174,9 @@ async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<H
 
 async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching completed tasks for today for owner:', ownerId);
+  
+  // Add delay before this API call
+  await delay(300);
   
   // Get today's date in UTC (start and end of day)
   const today = new Date();
@@ -249,15 +260,18 @@ async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): 
 
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
   console.log('Owner filter:', ownerId);
+  console.log('Starting API calls with delays to avoid rate limiting...');
 
-  // Always fetch unassigned "New" tasks
+  // Always fetch unassigned "New" tasks first
   const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
   
   let ownerTasks: HubSpotTask[] = [];
   let completedTasks: HubSpotTask[] = [];
   
   if (ownerId) {
+    // Fetch owner tasks with delay
     ownerTasks = await fetchOwnerTasks(ownerId, hubspotToken);
+    // Fetch completed tasks with delay
     completedTasks = await fetchCompletedTasksToday(ownerId, hubspotToken);
   }
 
@@ -289,6 +303,9 @@ async function fetchTaskAssociations(taskIds: string[], hubspotToken: string) {
   let taskContactMap: { [key: string]: string } = {}
   
   if (taskIds.length > 0) {
+    // Add delay before associations call
+    await delay(300);
+    
     const associationsResponse = await fetch(
       `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
       {
@@ -325,11 +342,19 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
   if (contactIds.size > 0) {
     console.log('Fetching contact details for', contactIds.size, 'contacts')
     
+    // Add delay before contacts call
+    await delay(300);
+    
     const contactIdsArray = Array.from(contactIds)
     const batchSize = 100
     
     for (let i = 0; i < contactIdsArray.length; i += batchSize) {
       const batch = contactIdsArray.slice(i, i + batchSize)
+      
+      // Add delay between batches
+      if (i > 0) {
+        await delay(200);
+      }
       
       const contactsResponse = await fetch(
         `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
@@ -368,6 +393,10 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
 
 async function fetchValidOwners(hubspotToken: string) {
   console.log('Fetching filtered owners from HubSpot...')
+  
+  // Add delay before owners call
+  await delay(300);
+  
   const allOwnersResponse = await fetch(
     `https://api.hubapi.com/crm/v3/owners`,
     {
@@ -548,7 +577,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting HubSpot tasks fetch...')
+    console.log('Starting HubSpot tasks fetch with staggered API calls...')
     
     const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
     
@@ -565,11 +594,11 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    // Fetch tasks from HubSpot (unassigned "New" tasks + selected owner's tasks + completed tasks today)
+    // Fetch tasks from HubSpot (with delays between calls)
     const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
-    // Get task associations - but allow tasks without contacts for completed tasks
+    // Get task associations (with delay)
     const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
     // Filter tasks: completed tasks don't need contact associations, but not started tasks do
@@ -592,11 +621,11 @@ serve(async (req) => {
 
     console.log(`Filtered tasks: ${filteredTasks.length} out of ${tasks.length} total tasks`)
 
-    // Get unique contact IDs and fetch contact details
+    // Get unique contact IDs and fetch contact details (with delay)
     const contactIds = new Set(Object.values(taskContactMap))
     const contacts = await fetchContactDetails(contactIds, hubspotToken)
 
-    // Fetch valid owners and build allowed owners set
+    // Fetch valid owners and build allowed owners set (with delay)
     const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
     // Filter tasks by allowed team owners (but allow unassigned tasks)
@@ -623,6 +652,7 @@ serve(async (req) => {
     });
 
     console.log('Final transformed and sorted tasks:', sortedTasks.length);
+    console.log('API calls completed with staggered delays to avoid rate limiting');
 
     return new Response(
       JSON.stringify({ 
