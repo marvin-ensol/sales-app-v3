@@ -36,26 +36,27 @@ export const useOverdueCounter = (dueDate: string) => {
 
         const currentYear = new Date().getFullYear();
         
-        // Create due date in Paris timezone using the Intl API for proper timezone handling
-        const dueDateParis = new Date();
-        dueDateParis.setFullYear(currentYear, parseInt(month) - 1, parseInt(day));
-        dueDateParis.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        // Create due date in local time, then convert to Paris timezone
+        const dueDateLocal = new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
         
         // Check if the date is valid
-        if (isNaN(dueDateParis.getTime())) {
+        if (isNaN(dueDateLocal.getTime())) {
           console.log('Invalid date created for:', dueDate);
           setCounter('');
           setIsOverdue(false);
           return;
         }
         
-        // Get current time in Paris timezone using Intl API
+        // Get current time in Paris timezone
         const nowUTC = new Date();
         const nowParis = new Date(nowUTC.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
         
+        // Convert due date to Paris timezone for comparison
+        const dueDateParis = new Date(dueDateLocal.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+        
         // Check if current time is valid
-        if (isNaN(nowParis.getTime())) {
-          console.log('Invalid current time created');
+        if (isNaN(nowParis.getTime()) || isNaN(dueDateParis.getTime())) {
+          console.log('Invalid time created');
           setCounter('');
           setIsOverdue(false);
           return;
@@ -65,7 +66,7 @@ export const useOverdueCounter = (dueDate: string) => {
         
         // Debug logging
         console.log(`Task due: ${dueDate}`);
-        console.log(`Parsed Paris date: ${dueDateParis.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
+        console.log(`Parsed due date (Paris): ${dueDateParis.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
         console.log(`Current Paris time: ${nowParis.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
         console.log(`Diff (ms): ${diff}`);
         
