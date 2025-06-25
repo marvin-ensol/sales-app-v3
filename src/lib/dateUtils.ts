@@ -1,11 +1,26 @@
-
 import { TIME_CONFIG } from './constants';
 
 /**
  * Get Paris time from UTC timestamp
  */
 export function getParisTimeFromUTC(utcTimestamp: number): Date {
-  return new Date(utcTimestamp);
+  // Create date from UTC timestamp and convert to Paris timezone
+  const utcDate = new Date(utcTimestamp);
+  
+  // Use Intl.DateTimeFormat to properly convert to Paris timezone
+  const parisTimeString = utcDate.toLocaleString("en-CA", { 
+    timeZone: TIME_CONFIG.TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  // Parse the properly formatted Paris time string
+  return new Date(parisTimeString.replace(',', ''));
 }
 
 /**
@@ -13,7 +28,20 @@ export function getParisTimeFromUTC(utcTimestamp: number): Date {
  */
 export function getCurrentParisTime(): Date {
   const now = new Date();
-  return new Date(now.toLocaleString("en-US", { timeZone: TIME_CONFIG.TIMEZONE }));
+  
+  // Use Intl.DateTimeFormat to get proper Paris time
+  const parisTimeString = now.toLocaleString("en-CA", { 
+    timeZone: TIME_CONFIG.TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  return new Date(parisTimeString.replace(',', ''));
 }
 
 /**
@@ -30,7 +58,18 @@ export function formatTaskDate(timestamp: string | number): string {
   }
 
   // Convert to Paris timezone for display
-  const parisDate = new Date(date.toLocaleString("en-US", { timeZone: TIME_CONFIG.TIMEZONE }));
+  const parisTimeString = date.toLocaleString("en-CA", { 
+    timeZone: TIME_CONFIG.TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  const parisDate = new Date(parisTimeString.replace(',', ''));
 
   const day = parisDate.getDate().toString().padStart(2, '0');
   const month = (parisDate.getMonth() + 1).toString().padStart(2, '0');
@@ -54,10 +93,9 @@ export function getFrenchWeekday(dateString: string): string {
   
   // Create date and convert to Paris timezone
   const date = new Date(currentYear, parseInt(month) - 1, parseInt(day));
-  const parisDate = new Date(date.toLocaleString("en-US", { timeZone: TIME_CONFIG.TIMEZONE }));
   
   const weekdays = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-  return weekdays[parisDate.getDay()];
+  return weekdays[date.getDay()];
 }
 
 /**
@@ -69,15 +107,10 @@ export function parseTaskDate(dateString: string): Date {
   const [hours, minutes] = timePart.split(':');
   const currentYear = new Date().getFullYear();
   
-  // Create date object
+  // Create date object in local time (which should be properly handled)
   const date = new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
   
-  // Convert from Paris timezone to UTC, then back to get proper Paris time
-  const parisOffset = date.getTimezoneOffset() + 60; // Paris is UTC+1 (or UTC+2 during DST)
-  const utc = date.getTime() + (parisOffset * 60000);
-  const parisTime = new Date(utc);
-  
-  return parisTime;
+  return date;
 }
 
 /**
