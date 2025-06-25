@@ -21,8 +21,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const fetchTasks = async (ownerId: string, retryCount = 0) => {
-    // Don't make API calls if the app isn't visible
+  const fetchTasks = async (ownerId: string, retryCount = 0, forceFullSync = false) => {
     if (!isVisibleRef.current) {
       console.log('Skipping API call - app not visible');
       return;
@@ -32,17 +31,19 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching tasks from HubSpot for owner:', ownerId);
+      console.log(`Fetching tasks from HubSpot for owner: ${ownerId} (${forceFullSync ? 'full sync' : 'incremental sync'})`);
       
-      // Add a small delay to avoid burst calling if this is part of multiple calls
       if (retryCount > 0) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
         console.log(`Retrying after ${delay}ms delay (attempt ${retryCount + 1})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
-        body: { ownerId }
+        body: { 
+          ownerId,
+          forceFullSync
+        }
       });
       
       console.log('Raw response:', { data, functionError });
@@ -55,11 +56,10 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       if (data?.error) {
         console.error('HubSpot API error:', data.error);
         
-        // Handle rate limiting with exponential backoff
         if (data.error.includes('429') || data.error.includes('rate limit')) {
           if (retryCount < 3) {
             console.log(`Rate limited, retrying in ${Math.pow(2, retryCount + 1)} seconds...`);
-            return fetchTasks(ownerId, retryCount + 1);
+            return fetchTasks(ownerId, retryCount + 1, forceFullSync);
           }
         }
         
@@ -71,7 +71,11 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
         throw new Error('Failed to fetch tasks from HubSpot');
       }
       
-      console.log('Tasks received successfully:', data?.tasks?.length || 0);
+      console.log(`Tasks received successfully: ${data?.tasks?.length || 0} (source: ${data?.source || 'unknown'})`);
+      if (data?.sync_type) {
+        console.log(`Sync type: ${data.sync_type}`);
+      }
+      
       setTasks(data?.tasks || []);
       
     } catch (err) {
@@ -89,6 +93,38 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     }
   };
 
+  // Set up realtime subscriptions for instant updates
+  useEffect(() => {
+    if (!selectedOwnerId) return;
+
+    console.log('Setting up realtime subscription for tasks...');
+    
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'tasks'
+        },
+        (payload) => {
+          console.log('Realtime task update:', payload);
+          
+          // Refetch tasks when database changes
+          if (isVisibleRef.current) {
+            fetchTasks(selectedOwnerId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [selectedOwnerId]);
+
   useEffect(() => {
     if (selectedOwnerId) {
       console.log('Owner ID changed, fetching tasks for:', selectedOwnerId);
@@ -99,14 +135,15 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
         clearInterval(intervalRef.current);
       }
       
-      // Set up polling every 20 seconds (reduced from 30)
+      // Set up polling every 2 minutes (reduced frequency since we have caching)
       intervalRef.current = setInterval(() => {
         if (isVisibleRef.current) {
-          fetchTasks(selectedOwnerId);
+          // Use incremental sync for background updates
+          fetchTasks(selectedOwnerId, 0, false);
         } else {
           console.log('Skipping scheduled fetch - app not visible');
         }
-      }, 20000);
+      }, 120000); // 2 minutes
       
       return () => {
         if (intervalRef.current) {
@@ -119,16 +156,15 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       setLoading(false);
       setError(null);
       
-      // Clear interval when no owner is selected
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     }
   }, [selectedOwnerId]);
 
-  const refetch = () => {
+  const refetch = (forceFullSync = false) => {
     if (selectedOwnerId && isVisibleRef.current) {
-      fetchTasks(selectedOwnerId);
+      fetchTasks(selectedOwnerId, 0, forceFullSync);
     }
   };
 
