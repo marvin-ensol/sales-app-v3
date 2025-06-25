@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
@@ -140,8 +141,8 @@ async function updateGlobalSyncMetadata(supabase: any, ownerIds: string[], succe
   }
 }
 
-async function fetchIncrementalTasksForAllOwners(ownerIds: string[], hubspotToken: string, lastSyncTimestamp: string): Promise<HubSpotTask[]> {
-  console.log(`Fetching incremental tasks for ${ownerIds.length} owners since timestamp: ${lastSyncTimestamp}`);
+async function fetchAllTasksForAllOwners(ownerIds: string[], hubspotToken: string, lastSyncTimestamp: string): Promise<HubSpotTask[]> {
+  console.log(`Fetching ALL not_started tasks for ${ownerIds.length} owners since timestamp: ${lastSyncTimestamp}`);
   
   const filters = [
     {
@@ -156,7 +157,7 @@ async function fetchIncrementalTasksForAllOwners(ownerIds: string[], hubspotToke
     }
   ];
 
-  // Add timestamp filter for incremental sync
+  // Add timestamp filter for incremental sync (only if not initial sync)
   if (lastSyncTimestamp !== '0') {
     filters.push({
       propertyName: 'hs_lastmodifieddate',
@@ -164,6 +165,8 @@ async function fetchIncrementalTasksForAllOwners(ownerIds: string[], hubspotToke
       value: lastSyncTimestamp
     });
     console.log(`Using incremental sync with timestamp filter: > ${lastSyncTimestamp}`);
+  } else {
+    console.log('Initial sync - fetching ALL not_started tasks for all owners');
   }
 
   const requestBody = {
@@ -194,7 +197,7 @@ async function fetchIncrementalTasksForAllOwners(ownerIds: string[], hubspotToke
     hubspotToken
   );
 
-  console.log(`Incremental sync fetched: ${results.length} tasks for all owners`);
+  console.log(`All owner tasks sync fetched: ${results.length} tasks`);
   return results;
 }
 
@@ -252,14 +255,9 @@ async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTas
   return results;
 }
 
-async function fetchRappelsRdvTasksForAllOwners(ownerIds: string[], hubspotToken: string): Promise<HubSpotTask[]> {
-  console.log(`Fetching Rappels & RDV tasks for ${ownerIds.length} owners`);
+async function fetchCompletedTasksForAllOwners(ownerIds: string[], hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log(`Fetching completed tasks for ${ownerIds.length} owners`);
   
-  const nowParis = getCurrentParisTime();
-  const oneHourFromNowParis = new Date(nowParis.getTime() + (60 * 60 * 1000));
-  const oneHourFromNowUTC = new Date(oneHourFromNowParis.toLocaleString("en-US", { timeZone: "UTC" }));
-  const oneHourFromNowTimestamp = oneHourFromNowUTC.getTime();
-
   const requestBody = {
     filterGroups: [
       {
@@ -267,22 +265,12 @@ async function fetchRappelsRdvTasksForAllOwners(ownerIds: string[], hubspotToken
           {
             propertyName: 'hs_task_status',
             operator: 'EQ',
-            value: 'NOT_STARTED'
-          },
-          {
-            propertyName: 'hs_queue_membership_ids',
-            operator: 'CONTAINS_TOKEN',
-            value: '22933271'
+            value: 'COMPLETED'
           },
           {
             propertyName: 'hubspot_owner_id',
             operator: 'IN',
             values: ownerIds
-          },
-          {
-            propertyName: 'hs_timestamp',
-            operator: 'LTE',
-            value: oneHourFromNowTimestamp.toString()
           }
         ]
       }
@@ -301,8 +289,8 @@ async function fetchRappelsRdvTasksForAllOwners(ownerIds: string[], hubspotToken
     ],
     sorts: [
       {
-        propertyName: 'hs_timestamp',
-        direction: 'ASCENDING'
+        propertyName: 'hs_lastmodifieddate',
+        direction: 'DESCENDING'
       }
     ]
   };
@@ -314,7 +302,7 @@ async function fetchRappelsRdvTasksForAllOwners(ownerIds: string[], hubspotToken
     300
   );
 
-  console.log('Rappels & RDV tasks fetched for all owners:', results.length);
+  console.log('Completed tasks fetched for all owners:', results.length);
   return results;
 }
 
@@ -488,28 +476,8 @@ async function fetchValidOwners(hubspotToken: string) {
   return { validOwnerIds, ownersMap }
 }
 
-function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
-  const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
-    const taskOwnerId = task.properties?.hubspot_owner_id;
-    
-    if (!taskOwnerId) {
-      return true;
-    }
-    
-    if (validOwnerIds.has(taskOwnerId.toString())) {
-      return true;
-    } else {
-      console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
-      return false;
-    }
-  });
-
-  console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasks.length}`);
-  return tasksWithAllowedOwners;
-}
-
 function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
-  const currentParisTime = getCurrentParisTime();
+  console.log(`Transforming ${tasks.length} tasks...`);
 
   return tasks.map((task: HubSpotTask) => {
     const props = task.properties;
@@ -600,18 +568,6 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       completionDate: props.hs_task_completion_date ? new Date(parseInt(props.hs_task_completion_date)) : null,
       hs_lastmodifieddate: props.hs_lastmodifieddate ? new Date(props.hs_lastmodifieddate) : new Date()
     };
-  }).filter((task: any) => {
-    if (task.status === 'completed') {
-      return true;
-    }
-    
-    if (task.queue === 'rappels') {
-      return true;
-    }
-    
-    if (!task.taskDueDate) return false;
-    const isOverdue = task.taskDueDate < currentParisTime;
-    return isOverdue;
   });
 }
 
@@ -704,34 +660,28 @@ serve(async (req) => {
     const lastSyncTimestamp = await getGlobalLastSyncTimestamp(supabase);
 
     try {
-      // Fetch all task types with incremental sync
-      const ownerTasks = await fetchIncrementalTasksForAllOwners(ownerIdsArray, hubspotToken, lastSyncTimestamp);
+      // Fetch all task types - removed the filtering logic that was preventing tasks from being fetched
+      const ownerTasks = await fetchAllTasksForAllOwners(ownerIdsArray, hubspotToken, lastSyncTimestamp);
       const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
-      const rappelsTasks = await fetchRappelsRdvTasksForAllOwners(ownerIdsArray, hubspotToken);
+      const completedTasks = await fetchCompletedTasksForAllOwners(ownerIdsArray, hubspotToken);
       
       // Combine all tasks and remove duplicates
-      const allTasks = [...ownerTasks, ...unassignedTasks, ...rappelsTasks];
+      const allTasks = [...ownerTasks, ...unassignedTasks, ...completedTasks];
       const uniqueTasks = allTasks.filter((task, index, arr) => 
         arr.findIndex(t => t.id === task.id) === index
       );
       
-      console.log(`Combined unique tasks: ${uniqueTasks.length}`);
+      console.log(`Combined unique tasks: ${uniqueTasks.length} (${ownerTasks.length} owner tasks + ${unassignedTasks.length} unassigned + ${completedTasks.length} completed)`);
       
       if (uniqueTasks.length > 0) {
-        // Process tasks (associations, contacts, validation)
+        // Process tasks (associations, contacts, validation) - removed the contact requirement filter
         const taskIds = uniqueTasks.map((task: HubSpotTask) => task.id);
         const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken);
-        
-        const filteredTasks = uniqueTasks.filter((task: HubSpotTask) => {
-          const isCompleted = task.properties?.hs_task_status === 'COMPLETED';
-          const hasContact = taskContactMap[task.id];
-          return isCompleted || hasContact;
-        });
         
         const contactIds = new Set(Object.values(taskContactMap));
         const contacts = await fetchContactDetails(contactIds, hubspotToken);
         
-        const transformedTasks = transformTasks(filteredTasks, taskContactMap, contacts, ownersMap);
+        const transformedTasks = transformTasks(uniqueTasks, taskContactMap, contacts, ownersMap);
         
         // Sync to database
         await syncTasksToDatabase(supabase, transformedTasks);
