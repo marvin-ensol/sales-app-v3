@@ -600,8 +600,17 @@ async function syncTasksToDatabase(supabase: any, transformedTasks: any[]) {
     return;
   }
 
+  // Filter out tasks without associated contacts
+  const tasksWithContacts = transformedTasks.filter(task => task.contactId !== null);
+  console.log(`Filtered to ${tasksWithContacts.length} tasks with associated contacts`);
+
+  if (tasksWithContacts.length === 0) {
+    console.log('No tasks with contacts to sync');
+    return;
+  }
+
   // Prepare tasks for database insertion
-  const tasksForDB = transformedTasks.map(task => ({
+  const tasksForDB = tasksWithContacts.map(task => ({
     id: task.id,
     title: task.title,
     description: task.description,
@@ -708,7 +717,7 @@ serve(async (req) => {
         
         const transformedTasks = transformTasks(uniqueTasks, taskContactMap, contacts, ownersMap);
         
-        // Sync to database
+        // Sync to database - now with contact filtering
         await syncTasksToDatabase(supabase, transformedTasks);
         
         console.log(`✅ Background sync completed: ${transformedTasks.length} tasks processed`);
