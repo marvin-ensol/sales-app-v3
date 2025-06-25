@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Task, TaskQueue } from "@/types/task";
@@ -40,6 +39,13 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   };
   
   const lockedColumns = getLockedColumns();
+
+  // Auto-expand "New" column when there are new tasks and other columns are locked
+  useEffect(() => {
+    if (hasNewTasks && lockedColumns.length > 0) {
+      setExpandedColumn("new");
+    }
+  }, [hasNewTasks, lockedColumns.length]);
 
   // Filter tasks based on the new requirements and locking logic
   const filteredTasks = tasks.filter(task => {
