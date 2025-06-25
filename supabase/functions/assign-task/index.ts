@@ -69,6 +69,19 @@ async function assignContactToOwner(contactId: string, ownerId: string, hubspotT
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Failed to assign contact: ${response.status} - ${errorText}`);
+    
+    // Check for specific HubSpot scope error
+    if (response.status === 403) {
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.category === 'MISSING_SCOPES') {
+          throw new Error('HubSpot access token missing required permissions to modify contacts. Please contact your HubSpot administrator to grant contact write permissions.');
+        }
+      } catch (parseError) {
+        // If we can't parse the error, fall back to generic message
+      }
+    }
+    
     throw new Error(`Failed to assign contact: ${response.status}`);
   }
 
@@ -99,6 +112,19 @@ async function assignTaskToOwner(taskId: string, ownerId: string, hubspotToken: 
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Failed to assign task: ${response.status} - ${errorText}`);
+    
+    // Check for specific HubSpot scope error
+    if (response.status === 403) {
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.category === 'MISSING_SCOPES') {
+          throw new Error('HubSpot access token missing required permissions to modify tasks. Please contact your HubSpot administrator to grant task write permissions.');
+        }
+      } catch (parseError) {
+        // If we can't parse the error, fall back to generic message
+      }
+    }
+    
     throw new Error(`Failed to assign task: ${response.status}`);
   }
 
