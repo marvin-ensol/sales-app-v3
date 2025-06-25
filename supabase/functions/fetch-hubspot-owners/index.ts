@@ -44,29 +44,79 @@ serve(async (req) => {
     const ownersData = await ownersResponse.json()
     console.log(`📊 Total owners from HubSpot: ${ownersData.results?.length || 0}`)
 
-    // Define the specific users we want to include
-    const allowedOwnerNames = [
-      'Benjamin Rivet',
-      'Thomas Bertiaux', 
-      'Marine Fessart',
-      'Gauthier Bonder',
-      'Lucas Grenier',
-      'Marvin Luksenberg'
-    ]
-
-    console.log(`🎯 Filtering for specific owners: ${allowedOwnerNames.join(', ')}`)
+    // Transform owners to our format and filter by team IDs
+    const allowedTeamIds = ['162028741', '135903065']
+    console.log(`🎯 Allowed team IDs: ${JSON.stringify(allowedTeamIds)}`)
     
-    // Filter owners to only include the specified users
+    // Log ALL owners first
+    console.log('=== ALL OWNERS FROM HUBSPOT ===')
+    ownersData.results?.forEach((owner, index) => {
+      const teams = owner.teams || []
+      const teamIds = teams.map(t => t.id?.toString())
+      console.log(`Owner ${index + 1}: ${owner.firstName} ${owner.lastName} (${owner.email}) - Teams: [${teamIds.join(', ')}]`)
+    })
+    
+    // Check specifically for Adrien first
+    const adrienOwner = ownersData.results?.find((owner) => 
+      (owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') ||
+      owner.email?.toLowerCase().includes('adrien')
+    )
+    
+    if (adrienOwner) {
+      console.log(`🔍 FOUND ADRIEN HOLVOET:`)
+      console.log(`   ID: ${adrienOwner.id}`)
+      console.log(`   Name: ${adrienOwner.firstName} ${adrienOwner.lastName}`)
+      console.log(`   Email: ${adrienOwner.email}`)
+      console.log(`   Teams: ${JSON.stringify(adrienOwner.teams || [])}`)
+      
+      if (adrienOwner.teams && adrienOwner.teams.length > 0) {
+        adrienOwner.teams.forEach((team, index) => {
+          const teamIdStr = team.id?.toString()
+          const isAllowed = allowedTeamIds.includes(teamIdStr)
+          console.log(`   Team ${index + 1}: ID="${teamIdStr}", Name="${team.name}", Allowed: ${isAllowed}`)
+        })
+      } else {
+        console.log(`   ⚠️ Adrien has NO TEAMS`)
+      }
+    } else {
+      console.log(`🔍 ADRIEN HOLVOET NOT FOUND in raw data`)
+    }
+    
+    // Filter owners
     const transformedOwners = ownersData.results?.filter((owner) => {
-      const firstName = owner.firstName || ''
-      const lastName = owner.lastName || ''
-      const fullName = `${firstName} ${lastName}`.trim()
+      const ownerTeams = owner.teams || []
       
-      const isAllowed = allowedOwnerNames.includes(fullName)
+      if (ownerTeams.length === 0) {
+        console.log(`❌ EXCLUDING ${owner.firstName} ${owner.lastName} - NO TEAMS`)
+        return false
+      }
       
-      console.log(`${isAllowed ? '✅' : '❌'} ${isAllowed ? 'INCLUDED' : 'EXCLUDED'}: ${fullName} (${owner.email})`)
+      const hasAllowedTeam = ownerTeams.some((team) => {
+        const teamIdString = team.id?.toString()
+        return allowedTeamIds.includes(teamIdString)
+      })
       
-      return isAllowed
+      // Log every filtering decision
+      const result = hasAllowedTeam ? 'INCLUDED' : 'EXCLUDED'
+      console.log(`${hasAllowedTeam ? '✅' : '❌'} ${result}: ${owner.firstName} ${owner.lastName} (${owner.email})`)
+      
+      // Special logging for Adrien
+      if ((owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') || 
+          owner.email?.toLowerCase().includes('adrien')) {
+        console.log(`🚨 ADRIEN FILTER RESULT: ${hasAllowedTeam ? 'INCLUDED' : 'EXCLUDED'}`)
+        if (hasAllowedTeam) {
+          console.log(`❌❌❌ BUG: Adrien should be EXCLUDED but is INCLUDED!`)
+          console.log(`❌❌❌ Adrien's teams that are causing inclusion:`)
+          ownerTeams.forEach(team => {
+            const teamIdStr = team.id?.toString()
+            if (allowedTeamIds.includes(teamIdStr)) {
+              console.log(`❌❌❌ PROBLEM TEAM: ID="${teamIdStr}", Name="${team.name}"`)
+            }
+          })
+        }
+      }
+      
+      return hasAllowedTeam
     }).map((owner) => {
       const firstName = owner.firstName || ''
       const lastName = owner.lastName || ''
@@ -90,6 +140,18 @@ serve(async (req) => {
     }) || []
 
     console.log(`📋 Final filtered count: ${transformedOwners.length}`)
+    
+    // Final check for Adrien in results
+    const adrienInFinal = transformedOwners.find(o => 
+      o.fullName.toLowerCase().includes('adrien') || 
+      o.email.toLowerCase().includes('adrien')
+    )
+    
+    if (adrienInFinal) {
+      console.log(`❌❌❌ CRITICAL: Adrien is in final results: ${JSON.stringify(adrienInFinal)}`)
+    } else {
+      console.log(`✅ GOOD: Adrien not in final results`)
+    }
 
     const response = { 
       owners: transformedOwners,

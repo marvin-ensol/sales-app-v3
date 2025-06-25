@@ -1,104 +1,716 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function getTasksFromDatabase(supabase: any, ownerId?: string) {
-  console.log(`Fetching tasks from database${ownerId ? ` for owner ${ownerId}` : ''}...`);
-
-  // First, let's get more debugging info about what's in the database
-  const { data: allTasks, error: allError } = await supabase
-    .from('tasks')
-    .select('*');
-
-  if (allError) {
-    console.error('Error fetching all tasks for debugging:', allError);
-  } else {
-    console.log(`DEBUG: Total tasks in database: ${allTasks?.length || 0}`);
-    
-    // Check owner distribution
-    const ownerBreakdown = allTasks?.reduce((acc, task) => {
-      const owner = task.owner || 'unassigned';
-      acc[owner] = (acc[owner] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>) || {};
-    
-    console.log('DEBUG: Owner breakdown:', ownerBreakdown);
-    
-    // Check status distribution
-    const statusBreakdown = allTasks?.reduce((acc, task) => {
-      acc[task.status] = (acc[task.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>) || {};
-    
-    console.log('DEBUG: Status breakdown:', statusBreakdown);
-  }
-
-  let query = supabase.from('tasks').select('*');
-  
-  if (ownerId) {
-    // More permissive filtering - let's see what we get
-    // Get tasks for this owner OR unassigned new tasks OR tasks from key queues
-    query = query.or(`owner.eq.${ownerId},and(queue.eq.new,is_unassigned.eq.true),queue.eq.rappels,queue.eq.attempted`);
-    console.log(`DEBUG: Applied owner filter for ${ownerId} with permissive queue filtering`);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching tasks from database:', error);
-    throw error;
-  }
-
-  console.log(`Fetched ${data?.length || 0} tasks from database`);
-  
-  // Debug the filtered results
-  if (data && data.length > 0) {
-    const filteredOwnerBreakdown = data.reduce((acc, task) => {
-      const owner = task.owner || 'unassigned';
-      acc[owner] = (acc[owner] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const filteredQueueBreakdown = data.reduce((acc, task) => {
-      acc[task.queue] = (acc[task.queue] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    console.log('DEBUG: Filtered results - Owner breakdown:', filteredOwnerBreakdown);
-    console.log('DEBUG: Filtered results - Queue breakdown:', filteredQueueBreakdown);
-    console.log('DEBUG: Filtered results - Status breakdown:', data.reduce((acc, task) => {
-      acc[task.status] = (acc[task.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>));
-  }
-  
-  return data || [];
+interface TaskFilterParams {
+  ownerId?: string;
+  hubspotToken: string;
 }
 
-async function forceRefreshSync(supabase: any) {
-  console.log('Triggering force refresh via background sync...');
-  
-  try {
-    // Call the background sync function to force a refresh
-    const { data, error } = await supabase.functions.invoke('background-task-sync', {
-      body: { forceRefresh: true }
+interface HubSpotTask {
+  id: string;
+  properties: {
+    hs_task_subject?: string;
+    hs_body_preview?: string;
+    hs_task_status?: string;
+    hs_task_priority?: string;
+    hs_task_type?: string;
+    hs_timestamp?: string;
+    hubspot_owner_id?: string;
+    hs_queue_membership_ids?: string;
+    hs_lastmodifieddate?: string;
+    hs_task_completion_date?: string;
+  };
+}
+
+interface HubSpotOwner {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  teams?: Array<{ id: string }>;
+}
+
+// Helper function to get Paris time from UTC timestamp
+function getParisTimeFromUTC(utcTimestamp: number): Date {
+  const utcDate = new Date(utcTimestamp);
+  // Convert to Paris time (UTC+1 in winter, UTC+2 in summer)
+  // JavaScript automatically handles DST for Europe/Paris
+  return new Date(utcDate.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+}
+
+// Helper function to get current time in Paris
+function getCurrentParisTime(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+}
+
+// Helper function to add delays between API calls
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchAllPages(url: string, requestBody: any, hubspotToken: string, initialDelay = 0): Promise<HubSpotTask[]> {
+  let allResults: HubSpotTask[] = [];
+  let after = undefined;
+  let hasMore = true;
+  let pageCount = 0;
+
+  if (initialDelay > 0) {
+    await delay(initialDelay);
+  }
+
+  while (hasMore) {
+    pageCount++;
+    console.log(`Fetching page ${pageCount}...`);
+
+    // Add pagination to the request body
+    const paginatedBody = {
+      ...requestBody,
+      limit: 100, // Use standard page size
+      ...(after && { after })
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${hubspotToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(paginatedBody)
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`HubSpot API error on page ${pageCount}: ${response.status} - ${errorText}`);
+      throw new Error(`HubSpot API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const results = data.results || [];
+    allResults = allResults.concat(results);
+
+    // Check if there are more pages
+    hasMore = data.paging && data.paging.next && data.paging.next.after;
+    after = hasMore ? data.paging.next.after : undefined;
+
+    console.log(`Page ${pageCount} fetched: ${results.length} results. Total so far: ${allResults.length}`);
+
+    // Add delay between pages to avoid rate limiting (except for the last iteration)
+    if (hasMore) {
+      await delay(300);
+    }
+  }
+
+  console.log(`Completed pagination: ${pageCount} pages, ${allResults.length} total results`);
+  return allResults;
+}
+
+async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching unassigned New tasks...');
+  
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'NOT_STARTED'
+          },
+          {
+            propertyName: 'hs_queue_membership_ids',
+            operator: 'CONTAINS_TOKEN',
+            value: '22859489'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'NOT_HAS_PROPERTY'
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_timestamp',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken
+  );
+
+  console.log('Unassigned New tasks fetched:', results.length);
+  return results;
+}
+
+async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching owner tasks for:', ownerId);
+  
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'NOT_STARTED'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'EQ',
+            value: ownerId
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_timestamp',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken,
+    300 // Initial delay before starting this call
+  );
+
+  console.log('Owner tasks fetched:', results.length);
+  return results;
+}
+
+async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching completed tasks for today for owner:', ownerId);
+  
+  // Get today's date in Paris timezone
+  const nowParis = getCurrentParisTime();
+  const startOfDayParis = new Date(nowParis.getFullYear(), nowParis.getMonth(), nowParis.getDate());
+  const endOfDayParis = new Date(nowParis.getFullYear(), nowParis.getMonth(), nowParis.getDate() + 1);
+  
+  // Convert Paris times to UTC timestamps for HubSpot API
+  const startTimestamp = new Date(startOfDayParis.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+  const endTimestamp = new Date(endOfDayParis.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+  
+  console.log('Fetching completed tasks between (Paris time):', startOfDayParis.toISOString(), 'and', endOfDayParis.toISOString());
+  console.log('Using UTC timestamps:', startTimestamp, 'to', endTimestamp);
+
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'COMPLETED'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'EQ',
+            value: ownerId
+          },
+          {
+            propertyName: 'hs_task_completion_date',
+            operator: 'GTE',
+            value: startTimestamp.toString()
+          },
+          {
+            propertyName: 'hs_task_completion_date',
+            operator: 'LT',
+            value: endTimestamp.toString()
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_task_completion_date',
+        direction: 'DESCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken,
+    300 // Initial delay before starting this call
+  );
+
+  console.log('Completed tasks fetched:', results.length);
+  return results;
+}
+
+async function fetchRappelsRdvTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching Rappels & RDV tasks for owner:', ownerId);
+  
+  // Get current Paris time and add 60 minutes
+  const nowParis = getCurrentParisTime();
+  const oneHourFromNowParis = new Date(nowParis.getTime() + (60 * 60 * 1000));
+  
+  // Convert Paris time to UTC timestamp for HubSpot API
+  const oneHourFromNowUTC = new Date(oneHourFromNowParis.toLocaleString("en-US", { timeZone: "UTC" }));
+  const oneHourFromNowTimestamp = oneHourFromNowUTC.getTime();
+  
+  console.log('Current Paris time:', nowParis.toISOString());
+  console.log('60 minutes from now (Paris time):', oneHourFromNowParis.toISOString());
+  console.log('Using UTC timestamp for filter:', oneHourFromNowTimestamp);
+
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'NOT_STARTED'
+          },
+          {
+            propertyName: 'hs_queue_membership_ids',
+            operator: 'CONTAINS_TOKEN',
+            value: '22933271'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'EQ',
+            value: ownerId
+          },
+          {
+            propertyName: 'hs_timestamp',
+            operator: 'LTE',
+            value: oneHourFromNowTimestamp.toString()
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_timestamp',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken,
+    600 // Initial delay before starting this call
+  );
+
+  console.log('Rappels & RDV tasks fetched:', results.length);
+  return results;
+}
+
+async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
+  console.log('Owner filter:', ownerId);
+  console.log('Starting API calls with delays and pagination to retrieve all tasks...');
+
+  // Always fetch unassigned "New" tasks first
+  const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
+  
+  let ownerTasks: HubSpotTask[] = [];
+  let completedTasks: HubSpotTask[] = [];
+  let rappelsRdvTasks: HubSpotTask[] = [];
+  
+  if (ownerId) {
+    // Fetch owner tasks with delay and pagination
+    ownerTasks = await fetchOwnerTasks(ownerId, hubspotToken);
+    // Fetch completed tasks with delay and pagination
+    completedTasks = await fetchCompletedTasksToday(ownerId, hubspotToken);
+    // Fetch Rappels & RDV tasks with delay and pagination
+    rappelsRdvTasks = await fetchRappelsRdvTasks(ownerId, hubspotToken);
+  }
+
+  // Combine all tasks, removing any duplicates by ID
+  const allTasks = [...unassignedTasks, ...completedTasks, ...rappelsRdvTasks];
+  const taskIds = new Set(unassignedTasks.map(task => task.id));
+  
+  // Add completed tasks (they shouldn't overlap with unassigned)
+  completedTasks.forEach(task => {
+    if (!taskIds.has(task.id)) {
+      taskIds.add(task.id);
+    }
+  });
+  
+  // Add rappels & rdv tasks
+  rappelsRdvTasks.forEach(task => {
+    if (!taskIds.has(task.id)) {
+      allTasks.push(task);
+      taskIds.add(task.id);
+    }
+  });
+  
+  // Add owner tasks
+  ownerTasks.forEach(task => {
+    if (!taskIds.has(task.id)) {
+      allTasks.push(task);
+      taskIds.add(task.id);
+    }
+  });
+
+  console.log(`Combined tasks: ${allTasks.length} (${unassignedTasks.length} unassigned + ${ownerTasks.length} owner tasks + ${completedTasks.length} completed today + ${rappelsRdvTasks.length} rappels & rdv)`);
+  
+  return allTasks;
+}
+
+async function fetchTaskAssociations(taskIds: string[], hubspotToken: string) {
+  let taskContactMap: { [key: string]: string } = {}
+  
+  if (taskIds.length > 0) {
+    // Add delay before associations call
+    await delay(300);
     
-    if (error) {
-      console.error('Error calling background sync for force refresh:', error);
-      throw error;
+    // Process associations in batches to handle large numbers of tasks
+    const batchSize = 100;
+    console.log(`Fetching task associations for ${taskIds.length} tasks in batches of ${batchSize}...`);
+
+    for (let i = 0; i < taskIds.length; i += batchSize) {
+      const batch = taskIds.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(taskIds.length / batchSize);
+      
+      console.log(`Fetching associations batch ${batchNumber}/${totalBatches} (${batch.length} tasks)...`);
+
+      if (i > 0) {
+        await delay(200); // Delay between batches
+      }
+
+      const associationsResponse = await fetch(
+        `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batch.map(id => ({ id }))
+          })
+        }
+      );
+
+      if (associationsResponse.ok) {
+        const associationsData = await associationsResponse.json();
+        console.log(`Associations batch ${batchNumber} fetched successfully`);
+        
+        associationsData.results?.forEach((result: any) => {
+          if (result.to && result.to.length > 0) {
+            taskContactMap[result.from.id] = result.to[0].toObjectId
+          }
+        });
+      } else {
+        console.error(`Failed to fetch associations batch ${batchNumber}:`, await associationsResponse.text());
+      }
+    }
+
+    console.log(`Total task-contact associations fetched: ${Object.keys(taskContactMap).length}`);
+  }
+
+  return taskContactMap;
+}
+
+async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string) {
+  let contacts = {}
+  if (contactIds.size > 0) {
+    console.log('Fetching contact details for', contactIds.size, 'contacts')
+    
+    // Add delay before contacts call
+    await delay(300);
+    
+    const contactIdsArray = Array.from(contactIds)
+    const batchSize = 100
+    
+    for (let i = 0; i < contactIdsArray.length; i += batchSize) {
+      const batch = contactIdsArray.slice(i, i + batchSize)
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(contactIdsArray.length / batchSize);
+      
+      console.log(`Fetching contacts batch ${batchNumber}/${totalBatches} (${batch.length} contacts)...`);
+      
+      // Add delay between batches
+      if (i > 0) {
+        await delay(200);
+      }
+      
+      const contactsResponse = await fetch(
+        `https://api.hubapi.com/crm/v3/objects/contacts/batch/read`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batch.map(id => ({ id })),
+            properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id', 'mobilephone']
+          })
+        }
+      )
+
+      if (contactsResponse.ok) {
+        const contactsData = await contactsResponse.json()
+        
+        const batchContacts = contactsData.results?.reduce((acc: any, contact: any) => {
+          acc[contact.id] = contact
+          return acc
+        }, {}) || {}
+        
+        contacts = { ...contacts, ...batchContacts }
+        console.log(`Contacts batch ${batchNumber} fetched: ${Object.keys(batchContacts).length} contacts`);
+      } else {
+        console.error(`Failed to fetch contact batch ${batchNumber}:`, await contactsResponse.text())
+      }
     }
     
-    console.log('Force refresh completed via background sync');
-    return data;
-  } catch (error) {
-    console.error('Force refresh failed:', error);
-    throw error;
+    console.log('Total contacts fetched:', Object.keys(contacts).length)
   }
+
+  return contacts
+}
+
+async function fetchValidOwners(hubspotToken: string) {
+  console.log('Fetching filtered owners from HubSpot...')
+  
+  // Add delay before owners call
+  await delay(300);
+  
+  const allOwnersResponse = await fetch(
+    `https://api.hubapi.com/crm/v3/owners`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${hubspotToken}`,
+        'Content-Type': 'application/json',
+      }
+    }
+  )
+
+  let validOwnerIds = new Set<string>()
+  let ownersMap = {}
+  if (allOwnersResponse.ok) {
+    const allOwnersData = await allOwnersResponse.json()
+    console.log('Owners fetched successfully:', allOwnersData.results?.length || 0)
+    
+    const allowedTeamIds = ['162028741', '135903065']
+    const validOwners = allOwnersData.results?.filter((owner: HubSpotOwner) => {
+      const ownerTeams = owner.teams || []
+      const hasAllowedTeam = ownerTeams.some((team: any) => {
+        const teamIdString = team.id?.toString()
+        return allowedTeamIds.includes(teamIdString)
+      })
+      if (hasAllowedTeam) {
+        validOwnerIds.add(owner.id.toString())
+      }
+      
+      if (hasAllowedTeam) {
+        console.log(`✔️ INCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
+      } else {
+        console.log(`❌ EXCLUDED OWNER: ${owner.id} (${owner.firstName || ''} ${owner.lastName || ''})`);
+      }
+      return hasAllowedTeam
+    }) || []
+
+    console.log(`Valid owners (in allowed teams): ${validOwners.length}`)
+    
+    ownersMap = validOwners.reduce((acc: any, owner: HubSpotOwner) => {
+      acc[owner.id] = owner
+      return acc
+    }, {}) || {}
+  } else {
+    console.error('Failed to fetch owners:', await allOwnersResponse.text())
+  }
+
+  return { validOwnerIds, ownersMap }
+}
+
+function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<string>) {
+  const tasksWithAllowedOwners = tasks.filter((task: HubSpotTask) => {
+    const taskOwnerId = task.properties?.hubspot_owner_id;
+    
+    // Allow unassigned tasks (no owner)
+    if (!taskOwnerId) {
+      console.log(`✔️ ALLOWED: Task ${task.id} has NO OWNER (unassigned)`);
+      return true;
+    }
+    
+    if (validOwnerIds.has(taskOwnerId.toString())) {
+      return true;
+    } else {
+      console.log(`❌ DROPPED: Task ${task.id} ownerId ${taskOwnerId} not in allowed teams`);
+      return false;
+    }
+  });
+
+  console.log(`Filtered tasks with allowed owners: ${tasksWithAllowedOwners.length} out of ${tasks.length}`);
+  return tasksWithAllowedOwners;
+}
+
+function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
+  const currentParisTime = getCurrentParisTime();
+
+  return tasks.map((task: HubSpotTask) => {
+    const props = task.properties;
+
+    const contactId = taskContactMap[task.id] || null;
+    const contact = contactId ? contacts[contactId] : null;
+
+    let contactName = 'No Contact';
+    let contactPhone = null;
+    if (contact && contact.properties) {
+      const contactProps = contact.properties;
+      const firstName = contactProps.firstname || '';
+      const lastName = contactProps.lastname || '';
+      const email = contactProps.email || '';
+      const company = contactProps.company || '';
+      contactPhone = contactProps.mobilephone || null;
+
+      if (firstName && lastName) {
+        contactName = `${firstName} ${lastName}`.trim();
+      } else if (firstName) {
+        contactName = firstName;
+      } else if (lastName) {
+        contactName = lastName;
+      } else if (email) {
+        contactName = email;
+      } else if (company) {
+        contactName = company;
+      } else {
+        contactName = `Contact ${contactId}`;
+      }
+    }
+
+    let dueDate = '';
+    let taskDueDate = null;
+    if (props.hs_timestamp) {
+      // HubSpot timestamps are in UTC - convert to Paris time for display
+      const utcDate = new Date(props.hs_timestamp);
+      taskDueDate = getParisTimeFromUTC(utcDate.getTime());
+
+      const day = taskDueDate.getDate().toString().padStart(2, '0');
+      const month = (taskDueDate.getMonth() + 1).toString().padStart(2, '0');
+      const hours = taskDueDate.getHours().toString().padStart(2, '0');
+      const minutes = taskDueDate.getMinutes().toString().padStart(2, '0');
+      dueDate = `${day}/${month} à ${hours}:${minutes}`;
+    }
+
+    const priorityMap: { [key: string]: string } = {
+      'HIGH': 'high',
+      'MEDIUM': 'medium',
+      'LOW': 'low'
+    };
+
+    const taskOwnerId = props.hubspot_owner_id;
+    const owner = taskOwnerId ? ownersMap[taskOwnerId] : null;
+    const ownerName = owner
+      ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email || 'Unknown Owner'
+      : 'Unassigned';
+
+    let queue = 'other';
+    const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : [];
+
+    if (queueIds.includes('22933271')) {
+      queue = 'rappels';
+    } else if (queueIds.includes('22859489')) {
+      queue = 'new';
+    } else if (queueIds.includes('22859490')) {
+      queue = 'attempted';
+    }
+
+    const isCompleted = props.hs_task_status === 'COMPLETED';
+    const status = isCompleted ? 'completed' : 'not_started';
+
+    return {
+      id: task.id,
+      title: props.hs_task_subject || 'Untitled Task',
+      description: props.hs_body_preview || undefined,
+      contact: contactName,
+      contactId: contactId || null,
+      contactPhone: contactPhone,
+      status: status,
+      dueDate,
+      taskDueDate,
+      priority: priorityMap[props.hs_task_priority] || 'medium',
+      owner: ownerName,
+      hubspotId: task.id,
+      queue: queue,
+      queueIds: queueIds,
+      isUnassigned: !taskOwnerId,
+      completionDate: props.hs_task_completion_date ? new Date(parseInt(props.hs_task_completion_date)) : null
+    };
+  }).filter((task: any) => {
+    // For completed tasks, we don't need the overdue filter
+    if (task.status === 'completed') {
+      return true;
+    }
+    
+    // For rappels & rdv tasks, they are already filtered by the API call
+    if (task.queue === 'rappels') {
+      return true;
+    }
+    
+    // For not started tasks, apply the overdue filter using Paris time
+    if (!task.taskDueDate) return false;
+    const isOverdue = task.taskDueDate < currentParisTime;
+    return isOverdue;
+  });
 }
 
 serve(async (req) => {
@@ -107,68 +719,88 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting HubSpot tasks fetch from cache...')
+    console.log('Starting HubSpot tasks fetch with pagination and staggered API calls...')
     
-    // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
+    
+    if (!hubspotToken) {
+      console.error('HubSpot access token not found in environment variables')
+      throw new Error('HubSpot access token not configured. Please check your environment variables.')
+    }
 
     let ownerId = null
-    let forceFullSync = false
     try {
       const body = await req.json()
       ownerId = body?.ownerId
-      forceFullSync = body?.forceFullSync || false
-      console.log(`DEBUG: Request params - ownerId: ${ownerId}, forceFullSync: ${forceFullSync}`);
     } catch (e) {
       // No body or invalid JSON, continue without owner filter
-      console.log('DEBUG: No request body or invalid JSON');
     }
 
-    // If force refresh is requested, trigger background sync first
-    if (forceFullSync) {
-      try {
-        await forceRefreshSync(supabase);
-        // Add a small delay to allow the background sync to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.error('Force refresh failed, continuing with cached data:', error);
+    // Fetch tasks from HubSpot (with delays and pagination)
+    const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
+    const taskIds = tasks.map((task: HubSpotTask) => task.id)
+
+    // Get task associations (with delay and batching)
+    const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
+
+    // Filter tasks: completed tasks don't need contact associations, but not started tasks do
+    const filteredTasks = tasks.filter((task: HubSpotTask) => {
+      const isCompleted = task.properties?.hs_task_status === 'COMPLETED';
+      const hasContact = taskContactMap[task.id];
+      
+      if (isCompleted) {
+        // Allow completed tasks regardless of contact association
+        return true;
+      } else {
+        // Not started tasks must have contact associations
+        if (!hasContact) {
+          console.log(`❌ DROPPED: Task ${task.id} has no contact association`);
+          return false;
+        }
+        return true;
       }
-    }
+    })
 
-    // Always get data from database cache
-    const cachedTasks = await getTasksFromDatabase(supabase, ownerId);
+    console.log(`Filtered tasks: ${filteredTasks.length} out of ${tasks.length} total tasks`)
 
-    // Convert cached data to API response format
-    const responseTasks = cachedTasks.map(task => ({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      contact: task.contact,
-      contactId: task.contact_id,
-      contactPhone: task.contact_phone,
-      status: task.status,
-      dueDate: task.due_date,
-      priority: task.priority,
-      owner: task.owner,
-      hubspotId: task.hubspot_id,
-      queue: task.queue,
-      queueIds: task.queue_ids,
-      isUnassigned: task.is_unassigned,
-      completionDate: task.completion_date ? new Date(task.completion_date) : null
-    }));
+    // Get unique contact IDs and fetch contact details (with delay and batching)
+    const contactIds = new Set(Object.values(taskContactMap))
+    const contacts = await fetchContactDetails(contactIds, hubspotToken)
 
-    console.log(`DEBUG: Returning ${responseTasks.length} tasks to frontend`);
+    // Fetch valid owners and build allowed owners set (with delay)
+    const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
+
+    // Filter tasks by allowed team owners (but allow unassigned tasks)
+    const tasksWithAllowedOwners = filterTasksByValidOwners(filteredTasks, validOwnerIds)
+
+    // Transform and filter tasks
+    const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
+
+    // Sort tasks: unassigned "New" tasks first, then assigned tasks, then completed tasks
+    const sortedTasks = transformedTasks.sort((a, b) => {
+      // Completed tasks go to the end
+      if (a.status === 'completed' && b.status !== 'completed') return 1;
+      if (a.status !== 'completed' && b.status === 'completed') return -1;
+      
+      // For not started tasks, prioritize as before
+      if (a.status !== 'completed' && b.status !== 'completed') {
+        if (a.queue === 'new' && b.queue === 'new') {
+          if (a.isUnassigned && !b.isUnassigned) return -1;
+          if (!a.isUnassigned && b.isUnassigned) return 1;
+        }
+      }
+      
+      return 0; // Keep original order for other cases
+    });
+
+    console.log('Final transformed and sorted tasks:', sortedTasks.length);
+    console.log('API calls completed with pagination and staggered delays to avoid rate limiting');
 
     return new Response(
       JSON.stringify({ 
-        tasks: responseTasks,
-        total: responseTasks.length,
-        success: true,
-        source: 'cache',
-        sync_type: forceFullSync ? 'force_refresh' : 'cache'
+        tasks: sortedTasks.map(({ taskDueDate, ...task }) => task),
+        total: sortedTasks.length,
+        success: true
       }),
       { 
         headers: { 
@@ -176,7 +808,7 @@ serve(async (req) => {
           'Content-Type': 'application/json' 
         } 
       }
-    );
+    )
 
   } catch (error) {
     console.error('Error in fetch-hubspot-tasks function:', error)

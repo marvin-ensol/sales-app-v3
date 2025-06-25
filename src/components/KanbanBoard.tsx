@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     getSelectedOwnerName 
   } = useOwnerSelection(owners);
   
-  const { tasks, loading: tasksLoading, error, refetch, debugTotalCounts } = useHubSpotTasks(selectedOwnerId);
+  const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId);
 
   // Separate not started and completed tasks
   const notStartedTasks = tasks.filter(task => task.status === 'not_started');
@@ -194,7 +195,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onSearchChange={setSearchTerm}
         onRefresh={handleRefresh}
         isLoading={tasksLoading || ownersLoading}
-        onDebugTotalCounts={debugTotalCounts}
       />
 
       <KanbanContent
