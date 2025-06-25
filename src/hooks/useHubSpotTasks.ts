@@ -141,7 +141,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     }
   };
 
-  // Add debug function to investigate total counts
+  // ENHANCED debug function to trigger FORCE FULL SYNC
   const debugTotalCounts = async () => {
     try {
       console.log('=== DEBUG: Investigating total task counts ===');
@@ -188,8 +188,8 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
         console.log(`Tasks without contacts: ${tasksWithoutContacts.length}`);
       }
       
-      // Now trigger a force background sync to see what HubSpot returns
-      console.log('Triggering force background sync to investigate...');
+      // Now trigger a FORCE FULL SYNC to see what HubSpot returns
+      console.log('🚀 Triggering FORCE FULL SYNC to investigate...');
       const { data, error } = await supabase.functions.invoke('background-task-sync', {
         body: { forceRefresh: true, debug: true }
       });
@@ -197,7 +197,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       if (error) {
         console.error('Background sync error:', error);
       } else {
-        console.log('Background sync response:', data);
+        console.log('🎯 FORCE FULL SYNC response:', data);
       }
       
     } catch (err) {

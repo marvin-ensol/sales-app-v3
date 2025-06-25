@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
@@ -158,6 +159,68 @@ async function updateGlobalSyncMetadata(supabase: any, ownerIds: string[], succe
   } else {
     console.log(`Updated sync metadata for ${ownerIds.length} owners: success=${success}`);
   }
+}
+
+// FORCE FULL SYNC: Remove all incremental sync filters and fetch everything
+async function fetchAllTasksForOwnersFullSync(ownerIds: string[], hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log(`🔍 FORCE FULL SYNC - ALL TASKS FOR ALL OWNERS:`);
+  console.log(`Owner IDs (${ownerIds.length}): ${ownerIds.join(', ')}`);
+  
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'IN',
+            values: ownerIds
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_lastmodifieddate',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  console.log(`🎯 FULL SYNC SEARCH CRITERIA:`);
+  console.log(`- Owners: ${ownerIds.length} owners`);
+  console.log(`- Status filter: NONE (getting all tasks)`);
+  console.log(`- Timestamp filter: NONE (full sync)`);
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken
+  );
+
+  console.log(`✅ Full sync completed: ${results.length} total tasks for all owners`);
+  
+  // Log status breakdown
+  const statusBreakdown = results.reduce((acc, task) => {
+    const status = task.properties.hs_task_status || 'unknown';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  console.log(`📊 Status breakdown from HubSpot:`, statusBreakdown);
+  
+  return results;
 }
 
 async function fetchAllNotStartedTasksForAllOwners(ownerIds: string[], hubspotToken: string, lastSyncTimestamp: string): Promise<HubSpotTask[]> {
@@ -685,21 +748,36 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
 }
 
 async function syncTasksToDatabase(supabase: any, transformedTasks: any[]) {
-  console.log(`Syncing ${transformedTasks.length} tasks to database...`);
+  console.log(`🔄 DATABASE SYNC DEBUG:`);
+  console.log(`Input: ${transformedTasks.length} tasks to sync`);
 
   if (transformedTasks.length === 0) {
-    console.log('No tasks to sync');
+    console.log('❌ No tasks to sync - returning early');
     return;
   }
+
+  // Check current database count before sync
+  const { data: beforeCount, error: beforeError } = await supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true });
+  
+  console.log(`📊 Database count BEFORE sync: ${beforeCount?.length || 'unknown'} tasks`);
 
   // Filter out tasks without associated contacts
   const tasksWithContacts = transformedTasks.filter(task => task.contactId !== null);
-  console.log(`Filtered to ${tasksWithContacts.length} tasks with associated contacts`);
+  console.log(`🔍 Filtered to ${tasksWithContacts.length} tasks WITH associated contacts`);
+  console.log(`📉 Removed ${transformedTasks.length - tasksWithContacts.length} tasks WITHOUT contacts`);
 
   if (tasksWithContacts.length === 0) {
-    console.log('No tasks with contacts to sync');
+    console.log('❌ No tasks with contacts to sync - returning early');
     return;
   }
+
+  // Log sample of what we're about to insert
+  console.log(`📋 Sample task data (first 3 tasks):`);
+  tasksWithContacts.slice(0, 3).forEach((task, index) => {
+    console.log(`Task ${index + 1}: ID=${task.id}, status=${task.status}, owner=${task.owner}, queue=${task.queue}`);
+  });
 
   // Prepare tasks for database insertion
   const tasksForDB = tasksWithContacts.map(task => ({
@@ -722,17 +800,43 @@ async function syncTasksToDatabase(supabase: any, transformedTasks: any[]) {
     hs_timestamp: task.hs_timestamp_raw // Store the raw timestamp from HubSpot
   }));
 
+  console.log(`💾 About to upsert ${tasksForDB.length} tasks to database...`);
+
   // Upsert tasks (insert or update if exists)
-  const { error } = await supabase
+  const { data: upsertData, error } = await supabase
     .from('tasks')
-    .upsert(tasksForDB, { onConflict: 'id' });
+    .upsert(tasksForDB, { onConflict: 'id' })
+    .select('id');
 
   if (error) {
-    console.error('Error syncing tasks to database:', error);
+    console.error('❌ Error syncing tasks to database:', error);
     throw error;
   }
 
-  console.log(`Successfully synced ${tasksForDB.length} tasks to database`);
+  console.log(`✅ Upsert completed successfully`);
+  console.log(`📊 Upsert result: ${upsertData?.length || 'unknown'} rows affected`);
+
+  // Check database count after sync
+  const { data: afterCount, error: afterError } = await supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true });
+  
+  console.log(`📊 Database count AFTER sync: ${afterCount?.length || 'unknown'} tasks`);
+  
+  // Check final breakdown by status
+  const { data: finalBreakdown, error: finalError } = await supabase
+    .from('tasks')
+    .select('status');
+    
+  if (finalBreakdown) {
+    const statusCounts = finalBreakdown.reduce((acc, task) => {
+      acc[task.status] = (acc[task.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log(`📊 Final database status breakdown:`, statusCounts);
+  }
+
+  console.log(`🎯 Database sync completed successfully!`);
 }
 
 serve(async (req) => {
@@ -743,6 +847,11 @@ serve(async (req) => {
   try {
     console.log('=== BACKGROUND SYNC START ===')
     console.log('Timestamp:', new Date().toISOString())
+    
+    const body = await req.json().catch(() => ({}));
+    const forceFullSync = body?.forceRefresh || false;
+    
+    console.log(`🔄 Sync mode: ${forceFullSync ? 'FORCE FULL SYNC' : 'INCREMENTAL'}`);
     
     const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
     
@@ -779,37 +888,49 @@ serve(async (req) => {
 
     console.log(`🎯 Found ${ownerIdsArray.length} valid owners for sync: ${ownerIdsArray.join(', ')}`);
 
-    // Get the last sync timestamp across all owners
-    const lastSyncTimestamp = await getGlobalLastSyncTimestamp(supabase);
-
     try {
-      console.log(`🔄 STARTING MULTI-PHASE SYNC:`);
-      console.log(`  Phase 1: All not_started tasks for the 6 users`);
-      console.log(`  Phase 2: Unassigned new tasks`);
-      console.log(`  Phase 3: Completed tasks from today`);
+      let uniqueTasks: HubSpotTask[] = [];
       
-      // Fetch tasks according to user requirements:
-      // 1. All not_started tasks for the 6 users
-      // 2. Completed tasks only if completed today  
-      // 3. Unassigned new tasks
-      const notStartedTasks = await fetchAllNotStartedTasksForAllOwners(ownerIdsArray, hubspotToken, lastSyncTimestamp);
-      const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
-      const completedTasksToday = await fetchCompletedTasksFromTodayForAllOwners(ownerIdsArray, hubspotToken);
-      
-      // Combine all tasks and remove duplicates
-      console.log(`🔄 COMBINING RESULTS:`);
-      console.log(`  - Not started tasks: ${notStartedTasks.length}`);
-      console.log(`  - Unassigned tasks: ${unassignedTasks.length}`);
-      console.log(`  - Completed today: ${completedTasksToday.length}`);
-      
-      const allTasks = [...notStartedTasks, ...unassignedTasks, ...completedTasksToday];
-      console.log(`  - Combined total: ${allTasks.length}`);
-      
-      const uniqueTasks = allTasks.filter((task, index, arr) => 
-        arr.findIndex(t => t.id === task.id) === index
-      );
-      
-      console.log(`✅ UNIQUE TASKS: ${uniqueTasks.length} (removed ${allTasks.length - uniqueTasks.length} duplicates)`);
+      if (forceFullSync) {
+        console.log(`🚀 PERFORMING FORCE FULL SYNC`);
+        
+        // FORCE FULL SYNC: Get ALL tasks for our owners, no filters
+        uniqueTasks = await fetchAllTasksForOwnersFullSync(ownerIdsArray, hubspotToken);
+        
+        console.log(`✅ FORCE FULL SYNC COMPLETED: ${uniqueTasks.length} total tasks`);
+        
+      } else {
+        // Get the last sync timestamp across all owners
+        const lastSyncTimestamp = await getGlobalLastSyncTimestamp(supabase);
+
+        console.log(`🔄 STARTING MULTI-PHASE INCREMENTAL SYNC:`);
+        console.log(`  Phase 1: All not_started tasks for the 6 users`);
+        console.log(`  Phase 2: Unassigned new tasks`);
+        console.log(`  Phase 3: Completed tasks from today`);
+        
+        // Fetch tasks according to user requirements:
+        // 1. All not_started tasks for the 6 users
+        // 2. Completed tasks only if completed today  
+        // 3. Unassigned new tasks
+        const notStartedTasks = await fetchAllNotStartedTasksForAllOwners(ownerIdsArray, hubspotToken, lastSyncTimestamp);
+        const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
+        const completedTasksToday = await fetchCompletedTasksFromTodayForAllOwners(ownerIdsArray, hubspotToken);
+        
+        // Combine all tasks and remove duplicates
+        console.log(`🔄 COMBINING RESULTS:`);
+        console.log(`  - Not started tasks: ${notStartedTasks.length}`);
+        console.log(`  - Unassigned tasks: ${unassignedTasks.length}`);
+        console.log(`  - Completed today: ${completedTasksToday.length}`);
+        
+        const allTasks = [...notStartedTasks, ...unassignedTasks, ...completedTasksToday];
+        console.log(`  - Combined total: ${allTasks.length}`);
+        
+        uniqueTasks = allTasks.filter((task, index, arr) => 
+          arr.findIndex(t => t.id === task.id) === index
+        );
+        
+        console.log(`✅ UNIQUE TASKS: ${uniqueTasks.length} (removed ${allTasks.length - uniqueTasks.length} duplicates)`);
+      }
       
       if (uniqueTasks.length > 0) {
         // Process tasks (associations, contacts, validation)
@@ -821,7 +942,7 @@ serve(async (req) => {
         
         const transformedTasks = transformTasks(uniqueTasks, taskContactMap, contacts, ownersMap);
         
-        // Sync to database - now with contact filtering
+        // Sync to database - now with contact filtering and detailed logging
         await syncTasksToDatabase(supabase, transformedTasks);
         
         console.log(`✅ Background sync completed: ${transformedTasks.length} tasks processed`);
@@ -836,13 +957,13 @@ serve(async (req) => {
         JSON.stringify({ 
           message: 'Background sync completed successfully',
           tasksProcessed: uniqueTasks.length,
-          breakdown: {
-            notStarted: notStartedTasks.length,
-            unassigned: unassignedTasks.length,
-            completedToday: completedTasksToday.length
+          breakdown: forceFullSync ? { fullSync: uniqueTasks.length } : {
+            notStarted: uniqueTasks.filter(t => t.properties.hs_task_status === 'NOT_STARTED').length,
+            completed: uniqueTasks.filter(t => t.properties.hs_task_status === 'COMPLETED').length
           },
           success: true,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          syncType: forceFullSync ? 'FORCE_FULL_SYNC' : 'INCREMENTAL'
         }),
         { 
           headers: { 
