@@ -42,6 +42,14 @@ function getCurrentParisTime(): Date {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
 }
 
+// Helper function to check if a date is today in Paris timezone
+function isToday(date: Date): boolean {
+  const today = getCurrentParisTime();
+  return date.getDate() === today.getDate() &&
+         date.getMonth() === today.getMonth() &&
+         date.getFullYear() === today.getFullYear();
+}
+
 // Helper function to add delays between API calls
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -141,7 +149,7 @@ async function updateGlobalSyncMetadata(supabase: any, ownerIds: string[], succe
   }
 }
 
-async function fetchAllTasksForAllOwners(ownerIds: string[], hubspotToken: string, lastSyncTimestamp: string): Promise<HubSpotTask[]> {
+async function fetchAllNotStartedTasksForAllOwners(ownerIds: string[], hubspotToken: string, lastSyncTimestamp: string): Promise<HubSpotTask[]> {
   console.log(`Fetching ALL not_started tasks for ${ownerIds.length} owners since timestamp: ${lastSyncTimestamp}`);
   
   const filters = [
@@ -197,7 +205,7 @@ async function fetchAllTasksForAllOwners(ownerIds: string[], hubspotToken: strin
     hubspotToken
   );
 
-  console.log(`All owner tasks sync fetched: ${results.length} tasks`);
+  console.log(`All not_started tasks sync fetched: ${results.length} tasks`);
   return results;
 }
 
@@ -255,8 +263,15 @@ async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTas
   return results;
 }
 
-async function fetchCompletedTasksForAllOwners(ownerIds: string[], hubspotToken: string): Promise<HubSpotTask[]> {
-  console.log(`Fetching completed tasks for ${ownerIds.length} owners`);
+async function fetchCompletedTasksFromTodayForAllOwners(ownerIds: string[], hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log(`Fetching completed tasks from today for ${ownerIds.length} owners`);
+  
+  // Get today's date in Paris timezone at 00:00:00
+  const todayParis = getCurrentParisTime();
+  todayParis.setHours(0, 0, 0, 0);
+  const todayStartTimestamp = todayParis.getTime().toString();
+  
+  console.log(`Fetching completed tasks since: ${todayParis.toISOString()} (${todayStartTimestamp})`);
   
   const requestBody = {
     filterGroups: [
@@ -271,6 +286,11 @@ async function fetchCompletedTasksForAllOwners(ownerIds: string[], hubspotToken:
             propertyName: 'hubspot_owner_id',
             operator: 'IN',
             values: ownerIds
+          },
+          {
+            propertyName: 'hs_task_completion_date',
+            operator: 'GTE',
+            value: todayStartTimestamp
           }
         ]
       }
@@ -289,7 +309,7 @@ async function fetchCompletedTasksForAllOwners(ownerIds: string[], hubspotToken:
     ],
     sorts: [
       {
-        propertyName: 'hs_lastmodifieddate',
+        propertyName: 'hs_task_completion_date',
         direction: 'DESCENDING'
       }
     ]
@@ -302,7 +322,7 @@ async function fetchCompletedTasksForAllOwners(ownerIds: string[], hubspotToken:
     300
   );
 
-  console.log('Completed tasks fetched for all owners:', results.length);
+  console.log('Completed tasks from today fetched for all owners:', results.length);
   return results;
 }
 
@@ -566,7 +586,8 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       queueIds: queueIds,
       isUnassigned: !taskOwnerId,
       completionDate: props.hs_task_completion_date ? new Date(parseInt(props.hs_task_completion_date)) : null,
-      hs_lastmodifieddate: props.hs_lastmodifieddate ? new Date(props.hs_lastmodifieddate) : new Date()
+      hs_lastmodifieddate: props.hs_lastmodifieddate ? new Date(props.hs_lastmodifieddate) : new Date(),
+      hs_timestamp_raw: props.hs_timestamp // Store the raw timestamp for database
     };
   });
 }
@@ -596,7 +617,8 @@ async function syncTasksToDatabase(supabase: any, transformedTasks: any[]) {
     queue_ids: task.queueIds,
     is_unassigned: task.isUnassigned,
     completion_date: task.completionDate?.toISOString(),
-    hs_lastmodifieddate: task.hs_lastmodifieddate.toISOString()
+    hs_lastmodifieddate: task.hs_lastmodifieddate.toISOString(),
+    hs_timestamp: task.hs_timestamp_raw // Store the raw timestamp from HubSpot
   }));
 
   // Upsert tasks (insert or update if exists)
@@ -660,21 +682,24 @@ serve(async (req) => {
     const lastSyncTimestamp = await getGlobalLastSyncTimestamp(supabase);
 
     try {
-      // Fetch all task types - removed the filtering logic that was preventing tasks from being fetched
-      const ownerTasks = await fetchAllTasksForAllOwners(ownerIdsArray, hubspotToken, lastSyncTimestamp);
+      // Fetch tasks according to user requirements:
+      // 1. All not_started tasks for the 6 users
+      // 2. Completed tasks only if completed today  
+      // 3. Unassigned new tasks
+      const notStartedTasks = await fetchAllNotStartedTasksForAllOwners(ownerIdsArray, hubspotToken, lastSyncTimestamp);
       const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
-      const completedTasks = await fetchCompletedTasksForAllOwners(ownerIdsArray, hubspotToken);
+      const completedTasksToday = await fetchCompletedTasksFromTodayForAllOwners(ownerIdsArray, hubspotToken);
       
       // Combine all tasks and remove duplicates
-      const allTasks = [...ownerTasks, ...unassignedTasks, ...completedTasks];
+      const allTasks = [...notStartedTasks, ...unassignedTasks, ...completedTasksToday];
       const uniqueTasks = allTasks.filter((task, index, arr) => 
         arr.findIndex(t => t.id === task.id) === index
       );
       
-      console.log(`Combined unique tasks: ${uniqueTasks.length} (${ownerTasks.length} owner tasks + ${unassignedTasks.length} unassigned + ${completedTasks.length} completed)`);
+      console.log(`Combined unique tasks: ${uniqueTasks.length} (${notStartedTasks.length} not_started + ${unassignedTasks.length} unassigned + ${completedTasksToday.length} completed today)`);
       
       if (uniqueTasks.length > 0) {
-        // Process tasks (associations, contacts, validation) - removed the contact requirement filter
+        // Process tasks (associations, contacts, validation)
         const taskIds = uniqueTasks.map((task: HubSpotTask) => task.id);
         const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken);
         
@@ -698,6 +723,11 @@ serve(async (req) => {
         JSON.stringify({ 
           message: 'Background sync completed successfully',
           tasksProcessed: uniqueTasks.length,
+          breakdown: {
+            notStarted: notStartedTasks.length,
+            unassigned: unassignedTasks.length,
+            completedToday: completedTasksToday.length
+          },
           success: true,
           timestamp: new Date().toISOString()
         }),
