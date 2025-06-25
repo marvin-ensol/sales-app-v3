@@ -23,7 +23,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   console.log('Initializing hooks...');
   
   // Owner management
-  const { owners, loading: ownersLoading, error: ownersError } = useHubSpotOwners();
+  const { owners, loading: ownersLoading, error: ownersError, refetch: refetchOwners } = useHubSpotOwners();
   console.log('Owners hook result:', { owners: owners?.length, ownersLoading, ownersError });
   
   const { selectedOwnerId, ownerSelectionInitialized, handleOwnerChange, getSelectedOwnerName } = useOwnerSelection(owners);
@@ -64,9 +64,15 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     refetch();
   };
 
-  const handleSearch = (term: string) => {
+  const handleSearchChange = (term: string) => {
     console.log('Search term changed:', term);
     setSearchTerm(term);
+  };
+
+  const handleRefresh = () => {
+    console.log('Refreshing data...');
+    refetch();
+    refetchOwners();
   };
 
   const handleLockColumn = (columnId: string) => {
@@ -105,13 +111,12 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         owners={owners}
         selectedOwnerId={selectedOwnerId}
         onOwnerChange={handleOwnerChange}
+        ownerSelectionInitialized={ownerSelectionInitialized}
+        getSelectedOwnerName={getSelectedOwnerName}
         searchTerm={searchTerm}
-        onSearch={handleSearch}
-        lockedColumns={lockedColumns}
-        onLockColumn={handleLockColumn}
-        onUnlockColumn={handleUnlockColumn}
-        tasksLoading={tasksLoading}
-        ownersLoading={ownersLoading}
+        onSearchChange={handleSearchChange}
+        onRefresh={handleRefresh}
+        isLoading={tasksLoading || ownersLoading}
       />
       
       <KanbanContent
