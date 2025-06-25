@@ -1,5 +1,5 @@
 
-import { KanbanBoard } from "@/components/KanbanBoard";
+import KanbanBoard from "@/components/KanbanBoard";
 import { InitialSyncTrigger } from "@/components/InitialSyncTrigger";
 
 const Index = () => {
