@@ -23,6 +23,7 @@ interface KanbanContentProps {
   ownerSelectionInitialized: boolean;
   onTaskAssigned?: () => void;
   selectedOwnerId: string;
+  lockedColumns: string[];
 }
 
 const KanbanContent = ({
@@ -36,18 +37,20 @@ const KanbanContent = ({
   tasksLoading,
   ownerSelectionInitialized,
   onTaskAssigned,
-  selectedOwnerId
+  selectedOwnerId,
+  lockedColumns
 }: KanbanContentProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
     return filteredTasks.filter(task => task.queue === queue);
   };
 
-  // Auto-expand columns with search matches
+  // Auto-expand columns with search matches, but only if they're not locked
   useEffect(() => {
     if (searchTerm) {
-      // Find columns that have matching tasks
+      // Find columns that have matching tasks and are not locked
       const columnsWithMatches = columns.filter(column => 
-        getTasksByQueue(column.id as TaskQueue).length > 0
+        getTasksByQueue(column.id as TaskQueue).length > 0 && 
+        !lockedColumns.includes(column.id)
       );
       
       // If there are matches, expand the first column with matches
@@ -55,7 +58,7 @@ const KanbanContent = ({
         setExpandedColumn(columnsWithMatches[0].id);
       }
     }
-  }, [searchTerm, filteredTasks, setExpandedColumn]);
+  }, [searchTerm, filteredTasks, setExpandedColumn, lockedColumns]);
 
   return (
     <div className="flex-1 overflow-y-auto px-2">
@@ -67,6 +70,7 @@ const KanbanContent = ({
           count={getTasksByQueue(column.id as TaskQueue).length}
           isExpanded={expandedColumn === column.id}
           onToggle={() => onColumnToggle(column.id)}
+          isLocked={lockedColumns.includes(column.id)}
         >
           {getTasksByQueue(column.id as TaskQueue).map((task) => (
             <TaskCard

@@ -1,6 +1,6 @@
 
 import { ReactNode } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock } from "lucide-react";
 
 interface VerticalKanbanColumnProps {
   title: string;
@@ -9,6 +9,7 @@ interface VerticalKanbanColumnProps {
   children: ReactNode;
   isExpanded: boolean;
   onToggle: () => void;
+  isLocked?: boolean;
 }
 
 const VerticalKanbanColumn = ({ 
@@ -17,35 +18,42 @@ const VerticalKanbanColumn = ({
   count, 
   children, 
   isExpanded,
-  onToggle 
+  onToggle,
+  isLocked = false
 }: VerticalKanbanColumnProps) => {
   const hasContent = count > 0;
+  const canExpand = hasContent && !isLocked;
   
   return (
     <div className="border-b border-gray-200">
       <div 
-        className={`p-4 transition-colors ${color} ${hasContent ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-20 border-b border-gray-200' : ''}`}
-        onClick={hasContent ? onToggle : undefined}
+        className={`p-4 transition-colors ${color} ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
+        onClick={canExpand ? onToggle : undefined}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {hasContent && (
+            {canExpand && (
               isExpanded ? (
                 <ChevronDown className="h-4 w-4 text-gray-600" />
               ) : (
                 <ChevronRight className="h-4 w-4 text-gray-600" />
               )
             )}
-            {!hasContent && <div className="w-4 h-4" />}
-            <h3 className="font-semibold text-gray-900">{title}</h3>
+            {isLocked && hasContent && (
+              <Lock className="h-4 w-4 text-gray-500" />
+            )}
+            {!canExpand && !isLocked && <div className="w-4 h-4" />}
+            <h3 className={`font-semibold ${isLocked ? 'text-gray-500' : 'text-gray-900'}`}>
+              {title}
+            </h3>
           </div>
-          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-sm font-medium">
+          <span className={`px-2 py-1 rounded-full text-sm font-medium ${isLocked ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-600'}`}>
             {count}
           </span>
         </div>
       </div>
       
-      {isExpanded && hasContent && (
+      {isExpanded && hasContent && !isLocked && (
         <div className="px-4 pb-4">
           <div className="space-y-3">
             {children}

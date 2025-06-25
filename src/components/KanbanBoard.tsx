@@ -27,8 +27,27 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   
   const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId);
 
-  // Filter tasks based on the new requirements
+  // Check if there are any tasks in the "new" queue to determine locking
+  const newQueueTasks = tasks.filter(task => task.queue === 'new');
+  const hasNewTasks = newQueueTasks.length > 0;
+  
+  // Define which columns are locked
+  const getLockedColumns = () => {
+    if (hasNewTasks) {
+      return ['attempted', 'other']; // Lock these columns when there are new tasks
+    }
+    return []; // No locked columns when new queue is empty
+  };
+  
+  const lockedColumns = getLockedColumns();
+
+  // Filter tasks based on the new requirements and locking logic
   const filteredTasks = tasks.filter(task => {
+    // First check if the task is in a locked column and we have a search term
+    if (searchTerm && lockedColumns.includes(task.queue)) {
+      return false; // Don't show tasks from locked columns in search results
+    }
+    
     // Apply search filter
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.contact.toLowerCase().includes(searchTerm.toLowerCase());
@@ -92,6 +111,10 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   };
 
   const handleColumnToggle = (columnId: string) => {
+    // Don't allow toggling locked columns
+    if (lockedColumns.includes(columnId)) {
+      return;
+    }
     setExpandedColumn(expandedColumn === columnId ? "" : columnId);
   };
 
@@ -152,6 +175,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         ownerSelectionInitialized={ownerSelectionInitialized}
         onTaskAssigned={handleTaskAssigned}
         selectedOwnerId={selectedOwnerId}
+        lockedColumns={lockedColumns}
       />
     </div>
   );
