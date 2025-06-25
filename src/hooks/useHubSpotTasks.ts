@@ -7,7 +7,6 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isVisibleRef = useRef(true);
 
   // Track page visibility
@@ -21,8 +20,8 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const fetchTasks = async (ownerId: string, retryCount = 0, forceFullSync = false) => {
-    if (!isVisibleRef.current) {
+  const fetchTasks = async (ownerId: string, forceFullSync = false) => {
+    if (!isVisibleRef.current && !forceFullSync) {
       console.log('Skipping API call - app not visible');
       return;
     }
@@ -31,13 +30,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       setLoading(true);
       setError(null);
       
-      console.log(`Fetching tasks from HubSpot for owner: ${ownerId} (${forceFullSync ? 'full sync' : 'incremental sync'})`);
-      
-      if (retryCount > 0) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        console.log(`Retrying after ${delay}ms delay (attempt ${retryCount + 1})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+      console.log(`Fetching tasks from cache for owner: ${ownerId} ${forceFullSync ? '(force refresh)' : ''}`);
       
       const { data, error: functionError } = await supabase.functions.invoke('fetch-hubspot-tasks', {
         body: { 
@@ -54,32 +47,21 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
       }
       
       if (data?.error) {
-        console.error('HubSpot API error:', data.error);
-        
-        if (data.error.includes('429') || data.error.includes('rate limit')) {
-          if (retryCount < 3) {
-            console.log(`Rate limited, retrying in ${Math.pow(2, retryCount + 1)} seconds...`);
-            return fetchTasks(ownerId, retryCount + 1, forceFullSync);
-          }
-        }
-        
-        throw new Error(`HubSpot API error: ${data.error}`);
+        console.error('API error:', data.error);
+        throw new Error(`API error: ${data.error}`);
       }
       
       if (!data?.success) {
         console.error('Function returned unsuccessful response:', data);
-        throw new Error('Failed to fetch tasks from HubSpot');
+        throw new Error('Failed to fetch tasks');
       }
       
       console.log(`Tasks received successfully: ${data?.tasks?.length || 0} (source: ${data?.source || 'unknown'})`);
-      if (data?.sync_type) {
-        console.log(`Sync type: ${data.sync_type}`);
-      }
       
       setTasks(data?.tasks || []);
       
     } catch (err) {
-      console.error('Error fetching HubSpot tasks:', err);
+      console.error('Error fetching tasks:', err);
       let errorMessage = 'Failed to fetch tasks';
       
       if (err instanceof Error) {
@@ -93,7 +75,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     }
   };
 
-  // Set up realtime subscriptions for instant updates
+  // Set up realtime subscriptions for instant updates from background sync
   useEffect(() => {
     if (!selectedOwnerId) return;
 
@@ -111,7 +93,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
         (payload) => {
           console.log('Realtime task update:', payload);
           
-          // Refetch tasks when database changes
+          // Refetch tasks when database changes (from background sync)
           if (isVisibleRef.current) {
             fetchTasks(selectedOwnerId);
           }
@@ -125,46 +107,22 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     };
   }, [selectedOwnerId]);
 
+  // Initial fetch when owner changes (no more periodic polling)
   useEffect(() => {
     if (selectedOwnerId) {
       console.log('Owner ID changed, fetching tasks for:', selectedOwnerId);
       fetchTasks(selectedOwnerId);
-      
-      // Clear any existing interval
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      
-      // Set up polling every 2 minutes (reduced frequency since we have caching)
-      intervalRef.current = setInterval(() => {
-        if (isVisibleRef.current) {
-          // Use incremental sync for background updates
-          fetchTasks(selectedOwnerId, 0, false);
-        } else {
-          console.log('Skipping scheduled fetch - app not visible');
-        }
-      }, 120000); // 2 minutes
-      
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
     } else {
       console.log('No owner selected, clearing tasks');
       setTasks([]);
       setLoading(false);
       setError(null);
-      
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
     }
   }, [selectedOwnerId]);
 
   const refetch = (forceFullSync = false) => {
     if (selectedOwnerId && isVisibleRef.current) {
-      fetchTasks(selectedOwnerId, 0, forceFullSync);
+      fetchTasks(selectedOwnerId, forceFullSync);
     }
   };
 
