@@ -12,7 +12,7 @@ interface KanbanContentProps {
   onTaskMove: (taskId: string, newQueue: TaskQueue) => void;
   onFrameUrlChange: (url: string) => void;
   searchTerm: string;
-  setExpandedColumn: (columnId: string) => void;
+  setExpandedColumn: (columnId: string) => void; // Keep for backward compatibility but not used
   tasksLoading: boolean;
   ownerSelectionInitialized: boolean;
   onTaskAssigned?: () => void;
@@ -27,8 +27,6 @@ const KanbanContent = ({
   onColumnToggle,
   onTaskMove,
   onFrameUrlChange,
-  searchTerm,
-  setExpandedColumn,
   tasksLoading,
   ownerSelectionInitialized,
   onTaskAssigned,

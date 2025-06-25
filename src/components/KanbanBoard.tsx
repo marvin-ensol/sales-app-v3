@@ -1,11 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Task, TaskQueue } from "@/types/task";
+import { TaskQueue } from "@/types/task";
 import { useHubSpotTasks } from "@/hooks/useHubSpotTasks";
 import { useHubSpotOwners } from "@/hooks/useHubSpotOwners";
 import { useOwnerSelection } from "@/hooks/useOwnerSelection";
+import { useTaskFiltering } from "@/hooks/useTaskFiltering";
+import { useColumnState } from "@/hooks/useColumnState";
 import KanbanHeader from "./KanbanHeader";
 import KanbanContent from "./KanbanContent";
 
@@ -15,8 +17,6 @@ interface KanbanBoardProps {
 
 const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedColumn, setExpandedColumn] = useState<string>("rappels");
-  const [autoExpandInitialized, setAutoExpandInitialized] = useState(false);
   
   const { owners, loading: ownersLoading, refetch: refetchOwners } = useHubSpotOwners();
   const { 
@@ -28,98 +28,27 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   
   const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId);
 
-  // Separate not started and completed tasks
-  const notStartedTasks = tasks.filter(task => task.status === 'not_started');
-  const completedTasks = tasks.filter(task => task.status === 'completed');
+  const { notStartedTasks, hasNewTasks, filteredTasks } = useTaskFiltering({
+    tasks,
+    searchTerm,
+    lockedColumns: getLockedColumns(),
+    getSelectedOwnerName
+  });
 
-  // Check if there are any not started tasks in the "new" queue to determine locking
-  const newQueueTasks = notStartedTasks.filter(task => task.queue === 'new');
-  const hasNewTasks = newQueueTasks.length > 0;
-  
   // Define which columns are locked - Rappels & RDV is never locked
-  const getLockedColumns = () => {
+  function getLockedColumns() {
     if (hasNewTasks) {
       return ['attempted', 'other']; // Only lock these columns, not rappels
     }
     return []; // No locked columns when new queue is empty
-  };
+  }
   
   const lockedColumns = getLockedColumns();
 
-  // Auto-expand logic - only run once when tasks are first loaded, not on every render
-  useEffect(() => {
-    if (!autoExpandInitialized && notStartedTasks.length > 0) {
-      const rappelsQueueTasks = notStartedTasks.filter(task => task.queue === 'rappels');
-      const hasRappelsTasks = rappelsQueueTasks.length > 0;
-      
-      if (hasRappelsTasks) {
-        setExpandedColumn("rappels");
-      } else if (hasNewTasks && lockedColumns.length > 0) {
-        setExpandedColumn("new");
-      }
-      
-      setAutoExpandInitialized(true);
-    }
-  }, [notStartedTasks, hasNewTasks, lockedColumns.length, autoExpandInitialized]);
-
-  // Filter not started tasks based on the existing requirements and locking logic
-  const filteredTasks = notStartedTasks.filter(task => {
-    // First check if the task is in a locked column and we have a search term
-    if (searchTerm && lockedColumns.includes(task.queue)) {
-      return false; // Don't show tasks from locked columns in search results
-    }
-    
-    // Apply search filter
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.contact.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (!matchesSearch) return false;
-    
-    // For unassigned "New" tasks, apply special filtering logic
-    if (task.isUnassigned && task.queue === 'new') {
-      // Check if the user has any assigned "New" tasks
-      const userHasAssignedNewTasks = notStartedTasks.some(t => 
-        !t.isUnassigned && 
-        t.queue === 'new' && 
-        t.owner === getSelectedOwnerName()
-      );
-      
-      // If user has assigned "New" tasks, hide unassigned ones
-      if (userHasAssignedNewTasks) {
-        return false;
-      }
-      
-      // Only show the oldest unassigned "New" task
-      const unassignedNewTasks = notStartedTasks.filter(t => 
-        t.isUnassigned && 
-        t.queue === 'new' &&
-        (t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         t.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-      
-      if (unassignedNewTasks.length > 1) {
-        // Sort by creation date (oldest first) and only return the first one
-        unassignedNewTasks.sort((a, b) => {
-          // Parse the dates - assuming format is "DD/MM à HH:MM"
-          const parseDate = (dateStr: string) => {
-            const [datePart, timePart] = dateStr.split(' à ');
-            const [day, month] = datePart.split('/');
-            const [hours, minutes] = timePart.split(':');
-            const currentYear = new Date().getFullYear();
-            return new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-          };
-          
-          const dateA = parseDate(a.dueDate);
-          const dateB = parseDate(b.dueDate);
-          return dateA.getTime() - dateB.getTime();
-        });
-        
-        // Only show this task if it's the oldest one
-        return task.id === unassignedNewTasks[0].id;
-      }
-    }
-    
-    return true;
+  const { expandedColumn, handleColumnToggle } = useColumnState({
+    notStartedTasks,
+    hasNewTasks,
+    lockedColumns
   });
 
   const handleTaskMove = (taskId: string, newQueue: TaskQueue) => {
@@ -129,23 +58,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const handleRefresh = () => {
     refetch();
     refetchOwners();
-  };
-
-  const handleColumnToggle = (columnId: string) => {
-    console.log(`=== COLUMN TOGGLE DEBUG ===`);
-    console.log(`Toggling column: ${columnId}`);
-    console.log(`Current expandedColumn: ${expandedColumn}`);
-    console.log(`Locked columns: ${lockedColumns.join(', ')}`);
-    
-    const newExpandedColumn = expandedColumn === columnId ? "" : columnId;
-    console.log(`Setting expandedColumn to: ${newExpandedColumn}`);
-    
-    setExpandedColumn(newExpandedColumn);
-    
-    // Add a small delay to see if the state actually changes
-    setTimeout(() => {
-      console.log(`After setState - expandedColumn should be: ${newExpandedColumn}`);
-    }, 100);
   };
 
   const handleTaskAssigned = () => {
@@ -205,7 +117,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onTaskMove={handleTaskMove}
         onFrameUrlChange={onFrameUrlChange}
         searchTerm={searchTerm}
-        setExpandedColumn={setExpandedColumn}
+        setExpandedColumn={() => {}} // This is no longer needed as we use handleColumnToggle
         tasksLoading={tasksLoading}
         ownerSelectionInitialized={ownerSelectionInitialized}
         onTaskAssigned={handleTaskAssigned}
