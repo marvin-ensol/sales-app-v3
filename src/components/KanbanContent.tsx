@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
@@ -8,7 +7,7 @@ import { Task, TaskQueue } from "@/types/task";
 const columns = [
   { id: "new", title: "New", color: "border-l-4 border-l-blue-400" },
   { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400" },
-  { id: "other", title: "Other", color: "border-l-4 border-l-gray-400" }
+  { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400" }
 ];
 
 interface KanbanContentProps {

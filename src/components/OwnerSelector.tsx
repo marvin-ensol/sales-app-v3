@@ -49,7 +49,7 @@ const OwnerSelector = ({
       </PopoverTrigger>
       <PopoverContent className="w-full max-w-sm p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search owners..." />
+          <CommandInput placeholder="Trouver un owner ..." />
           <CommandList>
             <CommandEmpty>No owner found.</CommandEmpty>
             <CommandGroup>

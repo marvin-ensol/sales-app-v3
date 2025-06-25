@@ -182,7 +182,7 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
           <button
             onClick={handleEditClick}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
-            title="Edit task"
+            title="Modifier la tâche"
           >
             <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
           </button>
@@ -253,7 +253,7 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
               </div>
               {isOverdue && counter && (
                 <div className="text-red-600 font-semibold text-xs mt-1">
-                  Overdue: {counter}
+                  En retard: {counter}
                 </div>
               )}
             </div>
