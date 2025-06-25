@@ -127,10 +127,10 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   };
 
   const handleColumnToggle = (columnId: string) => {
-    // Don't allow toggling locked columns
-    if (lockedColumns.includes(columnId)) {
-      return;
-    }
+    console.log(`Toggling column ${columnId}, currently expanded: ${expandedColumn}, locked columns: ${lockedColumns.join(', ')}`);
+    
+    // Allow toggling any column that has content, even if it's locked
+    // The VerticalKanbanColumn component will handle the display logic
     setExpandedColumn(expandedColumn === columnId ? "" : columnId);
   };
 

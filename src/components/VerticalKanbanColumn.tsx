@@ -30,7 +30,7 @@ const VerticalKanbanColumn = ({
   const canExpand = hasContent && !isLocked;
   
   const handleToggle = () => {
-    console.log(`Column ${title}: canExpand=${canExpand}, isLocked=${isLocked}, hasContent=${hasContent}`);
+    console.log(`Column ${title}: canExpand=${canExpand}, isLocked=${isLocked}, hasContent=${hasContent}, count=${count}`);
     if (canExpand) {
       onToggle();
     }
@@ -86,7 +86,7 @@ const VerticalKanbanColumn = ({
         </div>
       </div>
       
-      {isExpanded && hasContent && !isLocked && (
+      {isExpanded && hasContent && canExpand && (
         <div className="px-1 pb-3">
           <div className="space-y-2">
             {children}
