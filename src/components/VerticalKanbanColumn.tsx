@@ -30,11 +30,24 @@ const VerticalKanbanColumn = ({
   const canExpand = hasContent;
   
   const handleToggle = () => {
-    console.log(`Column ${title}: canExpand=${canExpand}, isLocked=${isLocked}, hasContent=${hasContent}, count=${count}`);
+    console.log(`=== TOGGLE DEBUG FOR ${title} ===`);
+    console.log(`canExpand: ${canExpand}`);
+    console.log(`isLocked: ${isLocked}`);
+    console.log(`hasContent: ${hasContent}`);
+    console.log(`count: ${count}`);
+    console.log(`isExpanded before toggle: ${isExpanded}`);
+    console.log(`Will call onToggle: ${canExpand}`);
+    
     if (canExpand) {
+      console.log(`Calling onToggle for ${title}`);
       onToggle();
+    } else {
+      console.log(`NOT calling onToggle for ${title} - canExpand is false`);
     }
   };
+  
+  console.log(`=== RENDER ${title} ===`);
+  console.log(`isExpanded: ${isExpanded}, hasContent: ${hasContent}, canExpand: ${canExpand}`);
   
   return (
     <div className="border-b border-gray-200">

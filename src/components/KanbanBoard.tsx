@@ -127,11 +127,20 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   };
 
   const handleColumnToggle = (columnId: string) => {
-    console.log(`Toggling column ${columnId}, currently expanded: ${expandedColumn}, locked columns: ${lockedColumns.join(', ')}`);
+    console.log(`=== COLUMN TOGGLE DEBUG ===`);
+    console.log(`Toggling column: ${columnId}`);
+    console.log(`Current expandedColumn: ${expandedColumn}`);
+    console.log(`Locked columns: ${lockedColumns.join(', ')}`);
     
-    // Allow toggling any column that has content, even if it's locked
-    // The VerticalKanbanColumn component will handle the display logic
-    setExpandedColumn(expandedColumn === columnId ? "" : columnId);
+    const newExpandedColumn = expandedColumn === columnId ? "" : columnId;
+    console.log(`Setting expandedColumn to: ${newExpandedColumn}`);
+    
+    setExpandedColumn(newExpandedColumn);
+    
+    // Add a small delay to see if the state actually changes
+    setTimeout(() => {
+      console.log(`After setState - expandedColumn should be: ${newExpandedColumn}`);
+    }, 100);
   };
 
   const handleTaskAssigned = () => {
@@ -164,6 +173,10 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
       </div>
     );
   }
+
+  console.log(`=== KANBAN BOARD RENDER ===`);
+  console.log(`Current expandedColumn: ${expandedColumn}`);
+  console.log(`Locked columns: ${lockedColumns.join(', ')}`);
 
   return (
     <div className="h-screen flex flex-col w-full">
