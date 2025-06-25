@@ -33,52 +33,10 @@ interface HubSpotOwner {
   teams?: Array<{ id: string }>;
 }
 
-async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
-  console.log('Owner filter:', ownerId);
-
-  // Create filter groups: one for unassigned tasks in "New" queue, one for selected owner's tasks
-  const filterGroups = [
-    // Filter group for unassigned tasks in "New" queue (queue ID: 22859489)
-    {
-      filters: [
-        {
-          propertyName: 'hs_task_status',
-          operator: 'EQ',
-          value: 'NOT_STARTED'
-        },
-        {
-          propertyName: 'hs_queue_membership_ids',
-          operator: 'CONTAINS_TOKEN',
-          value: '22859489'
-        },
-        {
-          propertyName: 'hubspot_owner_id',
-          operator: 'NOT_HAS_PROPERTY'
-        }
-      ]
-    }
-  ];
-
-  // Add filter group for selected owner's tasks if ownerId is provided
-  if (ownerId) {
-    filterGroups.push({
-      filters: [
-        {
-          propertyName: 'hs_task_status',
-          operator: 'EQ',
-          value: 'NOT_STARTED'
-        },
-        {
-          propertyName: 'hubspot_owner_id',
-          operator: 'EQ',
-          value: ownerId
-        }
-      ]
-    });
-    console.log("Added ownerId filter group for:", ownerId);
-  }
-
-  const tasksResponse = await fetch(
+async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching unassigned New tasks...');
+  
+  const unassignedResponse = await fetch(
     `https://api.hubapi.com/crm/v3/objects/tasks/search`,
     {
       method: 'POST',
@@ -87,7 +45,88 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        filterGroups: filterGroups,
+        filterGroups: [
+          {
+            filters: [
+              {
+                propertyName: 'hs_task_status',
+                operator: 'EQ',
+                value: 'NOT_STARTED'
+              },
+              {
+                propertyName: 'hs_queue_membership_ids',
+                operator: 'CONTAINS_TOKEN',
+                value: '22859489'
+              },
+              {
+                propertyName: 'hubspot_owner_id',
+                operator: 'NOT_HAS_PROPERTY'
+              }
+            ]
+          }
+        ],
+        properties: [
+          'hs_task_subject',
+          'hs_body_preview',
+          'hs_task_status',
+          'hs_task_priority',
+          'hs_task_type',
+          'hs_timestamp',
+          'hubspot_owner_id',
+          'hs_queue_membership_ids',
+          'hs_lastmodifieddate'
+        ],
+        limit: 100,
+        sorts: [
+          {
+            propertyName: 'hs_timestamp',
+            direction: 'ASCENDING'
+          }
+        ]
+      })
+    }
+  );
+
+  if (!unassignedResponse.ok) {
+    const errorText = await unassignedResponse.text();
+    console.error(`HubSpot unassigned tasks API error: ${unassignedResponse.status} - ${errorText}`);
+    throw new Error(`HubSpot unassigned tasks API error: ${unassignedResponse.status} - ${errorText}`);
+  }
+
+  const unassignedData = await unassignedResponse.json();
+  console.log('Unassigned New tasks fetched:', unassignedData.results?.length || 0);
+  
+  return unassignedData.results || [];
+}
+
+async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching owner tasks for:', ownerId);
+  
+  const ownerResponse = await fetch(
+    `https://api.hubapi.com/crm/v3/objects/tasks/search`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${hubspotToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filterGroups: [
+          {
+            filters: [
+              {
+                propertyName: 'hs_task_status',
+                operator: 'EQ',
+                value: 'NOT_STARTED'
+              },
+              {
+                propertyName: 'hubspot_owner_id',
+                operator: 'EQ',
+                value: ownerId
+              }
+            ]
+          }
+        ],
         properties: [
           'hs_task_subject',
           'hs_body_preview',
@@ -108,18 +147,44 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
         ]
       })
     }
-  )
+  );
 
-  if (!tasksResponse.ok) {
-    const errorText = await tasksResponse.text()
-    console.error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
-    throw new Error(`HubSpot API error: ${tasksResponse.status} - ${errorText}`)
+  if (!ownerResponse.ok) {
+    const errorText = await ownerResponse.text();
+    console.error(`HubSpot owner tasks API error: ${ownerResponse.status} - ${errorText}`);
+    throw new Error(`HubSpot owner tasks API error: ${ownerResponse.status} - ${errorText}`);
   }
 
-  const tasksData = await tasksResponse.json()
-  console.log('Tasks fetched successfully:', tasksData.results?.length || 0)
+  const ownerData = await ownerResponse.json();
+  console.log('Owner tasks fetched:', ownerData.results?.length || 0);
   
-  return tasksData.results || []
+  return ownerData.results || [];
+}
+
+async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
+  console.log('Owner filter:', ownerId);
+
+  // Always fetch unassigned "New" tasks
+  const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
+  
+  let ownerTasks: HubSpotTask[] = [];
+  if (ownerId) {
+    ownerTasks = await fetchOwnerTasks(ownerId, hubspotToken);
+  }
+
+  // Combine both sets of tasks, removing any duplicates by ID
+  const allTasks = [...unassignedTasks];
+  const taskIds = new Set(unassignedTasks.map(task => task.id));
+  
+  ownerTasks.forEach(task => {
+    if (!taskIds.has(task.id)) {
+      allTasks.push(task);
+    }
+  });
+
+  console.log(`Combined tasks: ${allTasks.length} (${unassignedTasks.length} unassigned + ${ownerTasks.length} owner tasks)`);
+  
+  return allTasks;
 }
 
 async function fetchTaskAssociations(taskIds: string[], hubspotToken: string) {
@@ -392,28 +457,23 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    // Fetch tasks from HubSpot (both unassigned "New" tasks and selected owner's tasks)
+    // Fetch tasks from HubSpot (unassigned "New" tasks + selected owner's tasks)
     const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
     // Get task associations
     const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
-    // Filter out tasks that don't have contact associations (for assigned tasks only)
-    const tasksWithContactsOrUnassigned = tasks.filter((task: HubSpotTask) => {
-      const isUnassigned = !task.properties?.hubspot_owner_id;
+    // All tasks should have contact associations (as per user requirement)
+    const tasksWithContacts = tasks.filter((task: HubSpotTask) => {
       const hasContact = taskContactMap[task.id];
-      
-      // Keep all unassigned tasks (they will always have contact associations)
-      if (isUnassigned) {
-        return true;
+      if (!hasContact) {
+        console.log(`❌ DROPPED: Task ${task.id} has no contact association`);
       }
-      
-      // For assigned tasks, require contact association
       return hasContact;
     })
 
-    console.log(`Filtered tasks with contacts or unassigned: ${tasksWithContactsOrUnassigned.length} out of ${tasks.length} total tasks`)
+    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasks.length} total tasks`)
 
     // Get unique contact IDs and fetch contact details
     const contactIds = new Set(Object.values(taskContactMap))
@@ -423,7 +483,7 @@ serve(async (req) => {
     const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
     // Filter tasks by allowed team owners (but allow unassigned tasks)
-    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContactsOrUnassigned, validOwnerIds)
+    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
 
     // Transform and filter tasks
     const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
