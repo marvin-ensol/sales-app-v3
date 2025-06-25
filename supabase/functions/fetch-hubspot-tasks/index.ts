@@ -39,144 +39,169 @@ async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTask[]> {
-  console.log('Fetching unassigned New tasks...');
-  
-  const unassignedResponse = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/tasks/search`,
-    {
+async function fetchAllPages(url: string, requestBody: any, hubspotToken: string, initialDelay = 0): Promise<HubSpotTask[]> {
+  let allResults: HubSpotTask[] = [];
+  let after = undefined;
+  let hasMore = true;
+  let pageCount = 0;
+
+  if (initialDelay > 0) {
+    await delay(initialDelay);
+  }
+
+  while (hasMore) {
+    pageCount++;
+    console.log(`Fetching page ${pageCount}...`);
+
+    // Add pagination to the request body
+    const paginatedBody = {
+      ...requestBody,
+      limit: 100, // Use standard page size
+      ...(after && { after })
+    };
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${hubspotToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        filterGroups: [
-          {
-            filters: [
-              {
-                propertyName: 'hs_task_status',
-                operator: 'EQ',
-                value: 'NOT_STARTED'
-              },
-              {
-                propertyName: 'hs_queue_membership_ids',
-                operator: 'CONTAINS_TOKEN',
-                value: '22859489'
-              },
-              {
-                propertyName: 'hubspot_owner_id',
-                operator: 'NOT_HAS_PROPERTY'
-              }
-            ]
-          }
-        ],
-        properties: [
-          'hs_task_subject',
-          'hs_body_preview',
-          'hs_task_status',
-          'hs_task_priority',
-          'hs_task_type',
-          'hs_timestamp',
-          'hubspot_owner_id',
-          'hs_queue_membership_ids',
-          'hs_lastmodifieddate',
-          'hs_task_completion_date'
-        ],
-        limit: 100,
-        sorts: [
-          {
-            propertyName: 'hs_timestamp',
-            direction: 'ASCENDING'
-          }
-        ]
-      })
-    }
-  );
+      body: JSON.stringify(paginatedBody)
+    });
 
-  if (!unassignedResponse.ok) {
-    const errorText = await unassignedResponse.text();
-    console.error(`HubSpot unassigned tasks API error: ${unassignedResponse.status} - ${errorText}`);
-    throw new Error(`HubSpot unassigned tasks API error: ${unassignedResponse.status} - ${errorText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`HubSpot API error on page ${pageCount}: ${response.status} - ${errorText}`);
+      throw new Error(`HubSpot API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const results = data.results || [];
+    allResults = allResults.concat(results);
+
+    // Check if there are more pages
+    hasMore = data.paging && data.paging.next && data.paging.next.after;
+    after = hasMore ? data.paging.next.after : undefined;
+
+    console.log(`Page ${pageCount} fetched: ${results.length} results. Total so far: ${allResults.length}`);
+
+    // Add delay between pages to avoid rate limiting (except for the last iteration)
+    if (hasMore) {
+      await delay(300);
+    }
   }
 
-  const unassignedData = await unassignedResponse.json();
-  console.log('Unassigned New tasks fetched:', unassignedData.results?.length || 0);
+  console.log(`Completed pagination: ${pageCount} pages, ${allResults.length} total results`);
+  return allResults;
+}
+
+async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching unassigned New tasks...');
   
-  return unassignedData.results || [];
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'NOT_STARTED'
+          },
+          {
+            propertyName: 'hs_queue_membership_ids',
+            operator: 'CONTAINS_TOKEN',
+            value: '22859489'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'NOT_HAS_PROPERTY'
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_timestamp',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken
+  );
+
+  console.log('Unassigned New tasks fetched:', results.length);
+  return results;
 }
 
 async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching owner tasks for:', ownerId);
   
-  // Add delay before this API call
-  await delay(300);
-  
-  const ownerResponse = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/tasks/search`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        filterGroups: [
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
           {
-            filters: [
-              {
-                propertyName: 'hs_task_status',
-                operator: 'EQ',
-                value: 'NOT_STARTED'
-              },
-              {
-                propertyName: 'hubspot_owner_id',
-                operator: 'EQ',
-                value: ownerId
-              }
-            ]
-          }
-        ],
-        properties: [
-          'hs_task_subject',
-          'hs_body_preview',
-          'hs_task_status',
-          'hs_task_priority',
-          'hs_task_type',
-          'hs_timestamp',
-          'hubspot_owner_id',
-          'hs_queue_membership_ids',
-          'hs_lastmodifieddate',
-          'hs_task_completion_date'
-        ],
-        limit: 200,
-        sorts: [
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'NOT_STARTED'
+          },
           {
-            propertyName: 'hs_timestamp',
-            direction: 'ASCENDING'
+            propertyName: 'hubspot_owner_id',
+            operator: 'EQ',
+            value: ownerId
           }
         ]
-      })
-    }
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_timestamp',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken,
+    300 // Initial delay before starting this call
   );
 
-  if (!ownerResponse.ok) {
-    const errorText = await ownerResponse.text();
-    console.error(`HubSpot owner tasks API error: ${ownerResponse.status} - ${errorText}`);
-    throw new Error(`HubSpot owner tasks API error: ${ownerResponse.status} - ${errorText}`);
-  }
-
-  const ownerData = await ownerResponse.json();
-  console.log('Owner tasks fetched:', ownerData.results?.length || 0);
-  
-  return ownerData.results || [];
+  console.log('Owner tasks fetched:', results.length);
+  return results;
 }
 
 async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching completed tasks for today for owner:', ownerId);
-  
-  // Add delay before this API call
-  await delay(300);
   
   // Get today's date in UTC (start and end of day)
   const today = new Date();
@@ -188,79 +213,67 @@ async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): 
   
   console.log('Fetching completed tasks between:', startOfDay.toISOString(), 'and', endOfDay.toISOString());
 
-  const completedResponse = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/tasks/search`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        filterGroups: [
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
           {
-            filters: [
-              {
-                propertyName: 'hs_task_status',
-                operator: 'EQ',
-                value: 'COMPLETED'
-              },
-              {
-                propertyName: 'hubspot_owner_id',
-                operator: 'EQ',
-                value: ownerId
-              },
-              {
-                propertyName: 'hs_task_completion_date',
-                operator: 'GTE',
-                value: startTimestamp.toString()
-              },
-              {
-                propertyName: 'hs_task_completion_date',
-                operator: 'LT',
-                value: endTimestamp.toString()
-              }
-            ]
-          }
-        ],
-        properties: [
-          'hs_task_subject',
-          'hs_body_preview',
-          'hs_task_status',
-          'hs_task_priority',
-          'hs_task_type',
-          'hs_timestamp',
-          'hubspot_owner_id',
-          'hs_queue_membership_ids',
-          'hs_lastmodifieddate',
-          'hs_task_completion_date'
-        ],
-        limit: 200,
-        sorts: [
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'COMPLETED'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'EQ',
+            value: ownerId
+          },
           {
             propertyName: 'hs_task_completion_date',
-            direction: 'DESCENDING'
+            operator: 'GTE',
+            value: startTimestamp.toString()
+          },
+          {
+            propertyName: 'hs_task_completion_date',
+            operator: 'LT',
+            value: endTimestamp.toString()
           }
         ]
-      })
-    }
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_task_completion_date',
+        direction: 'DESCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken,
+    300 // Initial delay before starting this call
   );
 
-  if (!completedResponse.ok) {
-    const errorText = await completedResponse.text();
-    console.error(`HubSpot completed tasks API error: ${completedResponse.status} - ${errorText}`);
-    throw new Error(`HubSpot completed tasks API error: ${completedResponse.status} - ${errorText}`);
-  }
-
-  const completedData = await completedResponse.json();
-  console.log('Completed tasks fetched:', completedData.results?.length || 0);
-  
-  return completedData.results || [];
+  console.log('Completed tasks fetched:', results.length);
+  return results;
 }
 
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
   console.log('Owner filter:', ownerId);
-  console.log('Starting API calls with delays to avoid rate limiting...');
+  console.log('Starting API calls with delays and pagination to retrieve all tasks...');
 
   // Always fetch unassigned "New" tasks first
   const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
@@ -269,9 +282,9 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
   let completedTasks: HubSpotTask[] = [];
   
   if (ownerId) {
-    // Fetch owner tasks with delay
+    // Fetch owner tasks with delay and pagination
     ownerTasks = await fetchOwnerTasks(ownerId, hubspotToken);
-    // Fetch completed tasks with delay
+    // Fetch completed tasks with delay and pagination
     completedTasks = await fetchCompletedTasksToday(ownerId, hubspotToken);
   }
 
@@ -306,35 +319,53 @@ async function fetchTaskAssociations(taskIds: string[], hubspotToken: string) {
     // Add delay before associations call
     await delay(300);
     
-    const associationsResponse = await fetch(
-      `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${hubspotToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: taskIds.map(id => ({ id }))
-        })
-      }
-    )
+    // Process associations in batches to handle large numbers of tasks
+    const batchSize = 100;
+    console.log(`Fetching task associations for ${taskIds.length} tasks in batches of ${batchSize}...`);
 
-    if (associationsResponse.ok) {
-      const associationsData = await associationsResponse.json()
-      console.log('Task associations fetched successfully')
+    for (let i = 0; i < taskIds.length; i += batchSize) {
+      const batch = taskIds.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(taskIds.length / batchSize);
       
-      associationsData.results?.forEach((result: any) => {
-        if (result.to && result.to.length > 0) {
-          taskContactMap[result.from.id] = result.to[0].toObjectId
+      console.log(`Fetching associations batch ${batchNumber}/${totalBatches} (${batch.length} tasks)...`);
+
+      if (i > 0) {
+        await delay(200); // Delay between batches
+      }
+
+      const associationsResponse = await fetch(
+        `https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batch.map(id => ({ id }))
+          })
         }
-      })
-    } else {
-      console.error('Failed to fetch associations:', await associationsResponse.text())
+      );
+
+      if (associationsResponse.ok) {
+        const associationsData = await associationsResponse.json();
+        console.log(`Associations batch ${batchNumber} fetched successfully`);
+        
+        associationsData.results?.forEach((result: any) => {
+          if (result.to && result.to.length > 0) {
+            taskContactMap[result.from.id] = result.to[0].toObjectId
+          }
+        });
+      } else {
+        console.error(`Failed to fetch associations batch ${batchNumber}:`, await associationsResponse.text());
+      }
     }
+
+    console.log(`Total task-contact associations fetched: ${Object.keys(taskContactMap).length}`);
   }
 
-  return taskContactMap
+  return taskContactMap;
 }
 
 async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string) {
@@ -350,6 +381,10 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
     
     for (let i = 0; i < contactIdsArray.length; i += batchSize) {
       const batch = contactIdsArray.slice(i, i + batchSize)
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(contactIdsArray.length / batchSize);
+      
+      console.log(`Fetching contacts batch ${batchNumber}/${totalBatches} (${batch.length} contacts)...`);
       
       // Add delay between batches
       if (i > 0) {
@@ -380,8 +415,9 @@ async function fetchContactDetails(contactIds: Set<string>, hubspotToken: string
         }, {}) || {}
         
         contacts = { ...contacts, ...batchContacts }
+        console.log(`Contacts batch ${batchNumber} fetched: ${Object.keys(batchContacts).length} contacts`);
       } else {
-        console.error(`Failed to fetch contact batch ${Math.floor(i/batchSize) + 1}:`, await contactsResponse.text())
+        console.error(`Failed to fetch contact batch ${batchNumber}:`, await contactsResponse.text())
       }
     }
     
@@ -577,7 +613,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting HubSpot tasks fetch with staggered API calls...')
+    console.log('Starting HubSpot tasks fetch with pagination and staggered API calls...')
     
     const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
     
@@ -594,11 +630,11 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    // Fetch tasks from HubSpot (with delays between calls)
+    // Fetch tasks from HubSpot (with delays and pagination)
     const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
-    // Get task associations (with delay)
+    // Get task associations (with delay and batching)
     const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
     // Filter tasks: completed tasks don't need contact associations, but not started tasks do
@@ -621,7 +657,7 @@ serve(async (req) => {
 
     console.log(`Filtered tasks: ${filteredTasks.length} out of ${tasks.length} total tasks`)
 
-    // Get unique contact IDs and fetch contact details (with delay)
+    // Get unique contact IDs and fetch contact details (with delay and batching)
     const contactIds = new Set(Object.values(taskContactMap))
     const contacts = await fetchContactDetails(contactIds, hubspotToken)
 
@@ -652,7 +688,7 @@ serve(async (req) => {
     });
 
     console.log('Final transformed and sorted tasks:', sortedTasks.length);
-    console.log('API calls completed with staggered delays to avoid rate limiting');
+    console.log('API calls completed with pagination and staggered delays to avoid rate limiting');
 
     return new Response(
       JSON.stringify({ 
