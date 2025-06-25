@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
@@ -60,20 +59,27 @@ async function fetchAllPages(url: string, requestBody: any, hubspotToken: string
   let after = undefined;
   let hasMore = true;
   let pageCount = 0;
+  const maxPages = 50; // Safety limit to prevent infinite loops
+
+  console.log(`🔍 SEARCH CRITERIA DEBUG:`);
+  console.log(`URL: ${url}`);
+  console.log(`Request Body:`, JSON.stringify(requestBody, null, 2));
 
   if (initialDelay > 0) {
     await delay(initialDelay);
   }
 
-  while (hasMore) {
+  while (hasMore && pageCount < maxPages) {
     pageCount++;
-    console.log(`Fetching page ${pageCount}...`);
+    console.log(`📄 Fetching page ${pageCount}...`);
 
     const paginatedBody = {
       ...requestBody,
-      limit: 100,
+      limit: 100, // HubSpot max limit
       ...(after && { after })
     };
+
+    console.log(`📋 Page ${pageCount} request body:`, JSON.stringify(paginatedBody, null, 2));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -86,7 +92,7 @@ async function fetchAllPages(url: string, requestBody: any, hubspotToken: string
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`HubSpot API error on page ${pageCount}: ${response.status} - ${errorText}`);
+      console.error(`❌ HubSpot API error on page ${pageCount}: ${response.status} - ${errorText}`);
       throw new Error(`HubSpot API error: ${response.status} - ${errorText}`);
     }
 
@@ -97,14 +103,19 @@ async function fetchAllPages(url: string, requestBody: any, hubspotToken: string
     hasMore = data.paging && data.paging.next && data.paging.next.after;
     after = hasMore ? data.paging.next.after : undefined;
 
-    console.log(`Page ${pageCount} fetched: ${results.length} results. Total so far: ${allResults.length}`);
+    console.log(`✅ Page ${pageCount} fetched: ${results.length} results. Total so far: ${allResults.length}`);
+    console.log(`🔄 Has more pages: ${hasMore}, After token: ${after || 'none'}`);
 
     if (hasMore) {
-      await delay(300);
+      await delay(300); // Rate limiting
     }
   }
 
-  console.log(`Completed pagination: ${pageCount} pages, ${allResults.length} total results`);
+  if (pageCount >= maxPages) {
+    console.warn(`⚠️ Reached maximum page limit (${maxPages}). Results may be incomplete.`);
+  }
+
+  console.log(`🎯 Pagination completed: ${pageCount} pages, ${allResults.length} total results`);
   return allResults;
 }
 
@@ -150,7 +161,9 @@ async function updateGlobalSyncMetadata(supabase: any, ownerIds: string[], succe
 }
 
 async function fetchAllNotStartedTasksForAllOwners(ownerIds: string[], hubspotToken: string, lastSyncTimestamp: string): Promise<HubSpotTask[]> {
-  console.log(`Fetching ALL not_started tasks for ${ownerIds.length} owners since timestamp: ${lastSyncTimestamp}`);
+  console.log(`🔍 FETCH ALL NOT_STARTED TASKS DEBUG:`);
+  console.log(`Owner IDs (${ownerIds.length}): ${ownerIds.join(', ')}`);
+  console.log(`Last sync timestamp: ${lastSyncTimestamp}`);
   
   const filters = [
     {
@@ -172,9 +185,9 @@ async function fetchAllNotStartedTasksForAllOwners(ownerIds: string[], hubspotTo
       operator: 'GT',
       value: lastSyncTimestamp
     });
-    console.log(`Using incremental sync with timestamp filter: > ${lastSyncTimestamp}`);
+    console.log(`📅 Using incremental sync with timestamp filter: > ${lastSyncTimestamp}`);
   } else {
-    console.log('Initial sync - fetching ALL not_started tasks for all owners');
+    console.log(`🔄 Initial sync - fetching ALL not_started tasks for all owners`);
   }
 
   const requestBody = {
@@ -199,18 +212,23 @@ async function fetchAllNotStartedTasksForAllOwners(ownerIds: string[], hubspotTo
     ]
   };
 
+  console.log(`🎯 NOT_STARTED TASKS SEARCH CRITERIA:`);
+  console.log(`- Status: NOT_STARTED`);
+  console.log(`- Owners: ${ownerIds.length} owners`);
+  console.log(`- Timestamp filter: ${lastSyncTimestamp !== '0' ? `> ${lastSyncTimestamp}` : 'NONE (initial sync)'}`);
+
   const results = await fetchAllPages(
     'https://api.hubapi.com/crm/v3/objects/tasks/search',
     requestBody,
     hubspotToken
   );
 
-  console.log(`All not_started tasks sync fetched: ${results.length} tasks`);
+  console.log(`✅ All not_started tasks sync completed: ${results.length} tasks`);
   return results;
 }
 
 async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTask[]> {
-  console.log('Fetching unassigned New tasks...');
+  console.log(`🔍 FETCH UNASSIGNED NEW TASKS DEBUG:`);
   
   const requestBody = {
     filterGroups: [
@@ -224,7 +242,7 @@ async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTas
           {
             propertyName: 'hs_queue_membership_ids',
             operator: 'CONTAINS_TOKEN',
-            value: '22859489'
+            value: '22859489' // New queue ID
           },
           {
             propertyName: 'hubspot_owner_id',
@@ -253,25 +271,31 @@ async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTas
     ]
   };
 
+  console.log(`🎯 UNASSIGNED NEW TASKS SEARCH CRITERIA:`);
+  console.log(`- Status: NOT_STARTED`);
+  console.log(`- Queue: 22859489 (New)`);
+  console.log(`- Owner: Unassigned (NOT_HAS_PROPERTY)`);
+
   const results = await fetchAllPages(
     'https://api.hubapi.com/crm/v3/objects/tasks/search',
     requestBody,
     hubspotToken
   );
 
-  console.log('Unassigned New tasks fetched:', results.length);
+  console.log(`✅ Unassigned New tasks completed: ${results.length} tasks`);
   return results;
 }
 
 async function fetchCompletedTasksFromTodayForAllOwners(ownerIds: string[], hubspotToken: string): Promise<HubSpotTask[]> {
-  console.log(`Fetching completed tasks from today for ${ownerIds.length} owners`);
+  console.log(`🔍 FETCH COMPLETED TASKS FROM TODAY DEBUG:`);
+  console.log(`Owner IDs (${ownerIds.length}): ${ownerIds.join(', ')}`);
   
   // Get today's date in Paris timezone at 00:00:00
   const todayParis = getCurrentParisTime();
   todayParis.setHours(0, 0, 0, 0);
   const todayStartTimestamp = todayParis.getTime().toString();
   
-  console.log(`Fetching completed tasks since: ${todayParis.toISOString()} (${todayStartTimestamp})`);
+  console.log(`📅 Fetching completed tasks since: ${todayParis.toISOString()} (${todayStartTimestamp})`);
   
   const requestBody = {
     filterGroups: [
@@ -315,6 +339,11 @@ async function fetchCompletedTasksFromTodayForAllOwners(ownerIds: string[], hubs
     ]
   };
 
+  console.log(`🎯 COMPLETED TASKS TODAY SEARCH CRITERIA:`);
+  console.log(`- Status: COMPLETED`);
+  console.log(`- Owners: ${ownerIds.length} owners`);
+  console.log(`- Completion date: >= ${todayStartTimestamp} (today 00:00:00 Paris)`);
+
   const results = await fetchAllPages(
     'https://api.hubapi.com/crm/v3/objects/tasks/search',
     requestBody,
@@ -322,7 +351,7 @@ async function fetchCompletedTasksFromTodayForAllOwners(ownerIds: string[], hubs
     300
   );
 
-  console.log('Completed tasks from today fetched for all owners:', results.length);
+  console.log(`✅ Completed tasks from today completed: ${results.length} tasks`);
   return results;
 }
 
@@ -497,7 +526,18 @@ async function fetchValidOwners(hubspotToken: string) {
 }
 
 function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
-  console.log(`Transforming ${tasks.length} tasks...`);
+  console.log(`🔄 Transforming ${tasks.length} tasks...`);
+  console.log(`📊 COMPLETION DATE DEBUG - Sample raw data:`);
+  
+  // Debug first few completion dates
+  tasks.slice(0, 5).forEach((task, index) => {
+    if (task.properties.hs_task_completion_date) {
+      console.log(`Task ${index + 1} (${task.id}):`);
+      console.log(`  - Raw completion date: "${task.properties.hs_task_completion_date}"`);
+      console.log(`  - Type: ${typeof task.properties.hs_task_completion_date}`);
+      console.log(`  - Status: ${task.properties.hs_task_status}`);
+    }
+  });
 
   return tasks.map((task: HubSpotTask) => {
     const props = task.properties;
@@ -569,15 +609,55 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     const isCompleted = props.hs_task_status === 'COMPLETED';
     const status = isCompleted ? 'completed' : 'not_started';
 
-    // Fix completion date handling - convert timestamp to proper Date
+    // FIXED: Proper completion date handling with extensive debugging
     let completionDate = null;
     if (props.hs_task_completion_date) {
-      // HubSpot completion date is in milliseconds timestamp
-      const completionTimestamp = parseInt(props.hs_task_completion_date);
-      if (!isNaN(completionTimestamp) && completionTimestamp > 0) {
-        // Convert to Paris timezone
-        completionDate = getParisTimeFromUTC(completionTimestamp);
-        console.log(`Task ${task.id} completion date: ${props.hs_task_completion_date} -> ${completionDate.toISOString()}`);
+      console.log(`🐛 COMPLETION DATE DEBUG for task ${task.id}:`);
+      console.log(`  - Raw value: "${props.hs_task_completion_date}"`);
+      console.log(`  - Type: ${typeof props.hs_task_completion_date}`);
+      
+      try {
+        // HubSpot completion date can be in different formats
+        let timestamp: number;
+        
+        if (typeof props.hs_task_completion_date === 'string') {
+          // Try parsing as number first (timestamp in milliseconds)
+          const parsedNumber = parseInt(props.hs_task_completion_date, 10);
+          if (!isNaN(parsedNumber) && parsedNumber > 0) {
+            timestamp = parsedNumber;
+            console.log(`  - Parsed as timestamp: ${timestamp}`);
+          } else {
+            // Try parsing as ISO date string
+            const parsedDate = new Date(props.hs_task_completion_date);
+            if (!isNaN(parsedDate.getTime())) {
+              timestamp = parsedDate.getTime();
+              console.log(`  - Parsed as ISO date: ${timestamp}`);
+            } else {
+              throw new Error(`Invalid date format: ${props.hs_task_completion_date}`);
+            }
+          }
+        } else if (typeof props.hs_task_completion_date === 'number') {
+          timestamp = props.hs_task_completion_date;
+          console.log(`  - Already a number: ${timestamp}`);
+        } else {
+          throw new Error(`Unexpected type: ${typeof props.hs_task_completion_date}`);
+        }
+        
+        // Validate timestamp is reasonable (after year 2000, before year 2100)
+        const minTimestamp = new Date('2000-01-01').getTime();
+        const maxTimestamp = new Date('2100-01-01').getTime();
+        
+        if (timestamp < minTimestamp || timestamp > maxTimestamp) {
+          console.error(`  - ❌ Invalid timestamp range: ${timestamp} (${new Date(timestamp).toISOString()})`);
+          completionDate = null;
+        } else {
+          // Convert to Paris timezone
+          completionDate = getParisTimeFromUTC(timestamp);
+          console.log(`  - ✅ Final completion date: ${completionDate.toISOString()}`);
+        }
+      } catch (error) {
+        console.error(`  - ❌ Error parsing completion date: ${error.message}`);
+        completionDate = null;
       }
     }
 
@@ -697,12 +777,17 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found ${ownerIdsArray.length} valid owners for sync`);
+    console.log(`🎯 Found ${ownerIdsArray.length} valid owners for sync: ${ownerIdsArray.join(', ')}`);
 
     // Get the last sync timestamp across all owners
     const lastSyncTimestamp = await getGlobalLastSyncTimestamp(supabase);
 
     try {
+      console.log(`🔄 STARTING MULTI-PHASE SYNC:`);
+      console.log(`  Phase 1: All not_started tasks for the 6 users`);
+      console.log(`  Phase 2: Unassigned new tasks`);
+      console.log(`  Phase 3: Completed tasks from today`);
+      
       // Fetch tasks according to user requirements:
       // 1. All not_started tasks for the 6 users
       // 2. Completed tasks only if completed today  
@@ -712,12 +797,19 @@ serve(async (req) => {
       const completedTasksToday = await fetchCompletedTasksFromTodayForAllOwners(ownerIdsArray, hubspotToken);
       
       // Combine all tasks and remove duplicates
+      console.log(`🔄 COMBINING RESULTS:`);
+      console.log(`  - Not started tasks: ${notStartedTasks.length}`);
+      console.log(`  - Unassigned tasks: ${unassignedTasks.length}`);
+      console.log(`  - Completed today: ${completedTasksToday.length}`);
+      
       const allTasks = [...notStartedTasks, ...unassignedTasks, ...completedTasksToday];
+      console.log(`  - Combined total: ${allTasks.length}`);
+      
       const uniqueTasks = allTasks.filter((task, index, arr) => 
         arr.findIndex(t => t.id === task.id) === index
       );
       
-      console.log(`Combined unique tasks: ${uniqueTasks.length} (${notStartedTasks.length} not_started + ${unassignedTasks.length} unassigned + ${completedTasksToday.length} completed today)`);
+      console.log(`✅ UNIQUE TASKS: ${uniqueTasks.length} (removed ${allTasks.length - uniqueTasks.length} duplicates)`);
       
       if (uniqueTasks.length > 0) {
         // Process tasks (associations, contacts, validation)
