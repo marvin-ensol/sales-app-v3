@@ -569,6 +569,18 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     const isCompleted = props.hs_task_status === 'COMPLETED';
     const status = isCompleted ? 'completed' : 'not_started';
 
+    // Fix completion date handling - convert timestamp to proper Date
+    let completionDate = null;
+    if (props.hs_task_completion_date) {
+      // HubSpot completion date is in milliseconds timestamp
+      const completionTimestamp = parseInt(props.hs_task_completion_date);
+      if (!isNaN(completionTimestamp) && completionTimestamp > 0) {
+        // Convert to Paris timezone
+        completionDate = getParisTimeFromUTC(completionTimestamp);
+        console.log(`Task ${task.id} completion date: ${props.hs_task_completion_date} -> ${completionDate.toISOString()}`);
+      }
+    }
+
     return {
       id: task.id,
       title: props.hs_task_subject || 'Untitled Task',
@@ -585,7 +597,7 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       queue: queue,
       queueIds: queueIds,
       isUnassigned: !taskOwnerId,
-      completionDate: props.hs_task_completion_date ? new Date(parseInt(props.hs_task_completion_date)) : null,
+      completionDate: completionDate,
       hs_lastmodifieddate: props.hs_lastmodifieddate ? new Date(props.hs_lastmodifieddate) : new Date(),
       hs_timestamp_raw: props.hs_timestamp // Store the raw timestamp for database
     };
