@@ -64,7 +64,11 @@ const VerticalKanbanColumn = ({
             </Badge>
             <Badge 
               variant="secondary" 
-              className="flex items-center gap-1 px-2 py-1 bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              className={`flex items-center gap-1 px-2 py-1 ${
+                completedCount > 0 
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              }`}
             >
               <Check className="w-3 h-3" />
               <span className="text-xs font-medium">{completedCount}</span>
