@@ -1,9 +1,10 @@
-
 // HubSpot Queue IDs
 export const HUBSPOT_QUEUES = {
   RAPPELS_RDV: '22933271',
   NEW: '22859489',
-  ATTEMPTED: '22859490'
+  ATTEMPTED: '22859490',
+  SIMULATIONS: '22934016',
+  COMMUNICATIONS: '22934015'
 } as const;
 
 // HubSpot Team IDs (allowed teams)
@@ -46,6 +47,8 @@ export const PRIORITY_MAP = {
 export const KANBAN_COLUMNS = [
   { id: "rappels", title: "Rappels & RDV", color: "border-l-4 border-l-purple-400" },
   { id: "new", title: "New", color: "border-l-4 border-l-blue-400" },
+  { id: "simulations", title: "Simulations", color: "border-l-4 border-l-green-400" },
+  { id: "communications", title: "Communications", color: "border-l-4 border-l-yellow-400" },
   { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400" },
   { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400" }
 ] as const;

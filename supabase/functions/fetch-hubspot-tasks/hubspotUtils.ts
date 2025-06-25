@@ -211,6 +211,10 @@ export function getTaskQueue(queueIds: string[]): string {
     return 'rappels';
   } else if (queueIds.includes(HUBSPOT_QUEUES.NEW)) {
     return 'new';
+  } else if (queueIds.includes(HUBSPOT_QUEUES.SIMULATIONS)) {
+    return 'simulations';
+  } else if (queueIds.includes(HUBSPOT_QUEUES.COMMUNICATIONS)) {
+    return 'communications';
   } else if (queueIds.includes(HUBSPOT_QUEUES.ATTEMPTED)) {
     return 'attempted';
   }

@@ -1,9 +1,10 @@
-
 // HubSpot Queue IDs
 export const HUBSPOT_QUEUES = {
   RAPPELS_RDV: '22933271',
   NEW: '22859489',
-  ATTEMPTED: '22859490'
+  ATTEMPTED: '22859490',
+  SIMULATIONS: '22934016',
+  COMMUNICATIONS: '22934015'
 } as const;
 
 // HubSpot Team IDs (allowed teams)
