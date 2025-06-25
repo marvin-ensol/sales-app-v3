@@ -24,17 +24,24 @@ export const useOverdueCounter = (dueDate: string) => {
       const [day, month] = datePart.split('/');
       const [hours, minutes] = timePart.split(':');
       
-      // Assume current year for simplicity
+      // Create due date in Paris timezone
       const currentYear = new Date().getFullYear();
-      const dueDateObj = new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
       
-      const now = new Date();
-      const diff = now.getTime() - dueDateObj.getTime();
+      // First create the date in Paris timezone
+      const parisDateString = `${currentYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
+      const dueDateParis = new Date(parisDateString);
+      
+      // Get current time in Paris timezone
+      const nowUTC = new Date();
+      const nowParisString = nowUTC.toLocaleString("en-CA", { timeZone: "Europe/Paris" });
+      const nowParis = new Date(nowParisString);
+      
+      const diff = nowParis.getTime() - dueDateParis.getTime();
       
       // Debug logging
       console.log(`Task due: ${dueDate}`);
-      console.log(`Parsed date: ${dueDateObj}`);
-      console.log(`Current time: ${now}`);
+      console.log(`Parsed Paris date: ${dueDateParis.toISOString()}`);
+      console.log(`Current Paris time: ${nowParis.toISOString()}`);
       console.log(`Diff (ms): ${diff}`);
       
       if (diff > 0) {

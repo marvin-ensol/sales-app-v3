@@ -34,6 +34,19 @@ interface HubSpotOwner {
   teams?: Array<{ id: string }>;
 }
 
+// Helper function to get Paris time from UTC timestamp
+function getParisTimeFromUTC(utcTimestamp: number): Date {
+  const utcDate = new Date(utcTimestamp);
+  // Convert to Paris time (UTC+1 in winter, UTC+2 in summer)
+  // JavaScript automatically handles DST for Europe/Paris
+  return new Date(utcDate.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+}
+
+// Helper function to get current time in Paris
+function getCurrentParisTime(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+}
+
 // Helper function to add delays between API calls
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -203,15 +216,17 @@ async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<H
 async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching completed tasks for today for owner:', ownerId);
   
-  // Get today's date in UTC (start and end of day)
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  // Get today's date in Paris timezone
+  const nowParis = getCurrentParisTime();
+  const startOfDayParis = new Date(nowParis.getFullYear(), nowParis.getMonth(), nowParis.getDate());
+  const endOfDayParis = new Date(nowParis.getFullYear(), nowParis.getMonth(), nowParis.getDate() + 1);
   
-  const startTimestamp = startOfDay.getTime();
-  const endTimestamp = endOfDay.getTime();
+  // Convert Paris times to UTC timestamps for HubSpot API
+  const startTimestamp = new Date(startOfDayParis.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+  const endTimestamp = new Date(endOfDayParis.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
   
-  console.log('Fetching completed tasks between:', startOfDay.toISOString(), 'and', endOfDay.toISOString());
+  console.log('Fetching completed tasks between (Paris time):', startOfDayParis.toISOString(), 'and', endOfDayParis.toISOString());
+  console.log('Using UTC timestamps:', startTimestamp, 'to', endTimestamp);
 
   const requestBody = {
     filterGroups: [
@@ -274,12 +289,17 @@ async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): 
 async function fetchRappelsRdvTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
   console.log('Fetching Rappels & RDV tasks for owner:', ownerId);
   
-  // Calculate timestamp for 60 minutes from now
-  const now = new Date();
-  const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000));
-  const oneHourFromNowTimestamp = oneHourFromNow.getTime();
+  // Get current Paris time and add 60 minutes
+  const nowParis = getCurrentParisTime();
+  const oneHourFromNowParis = new Date(nowParis.getTime() + (60 * 60 * 1000));
   
-  console.log('Fetching Rappels & RDV tasks due within 60 minutes from now:', oneHourFromNow.toISOString());
+  // Convert Paris time to UTC timestamp for HubSpot API
+  const oneHourFromNowUTC = new Date(oneHourFromNowParis.toLocaleString("en-US", { timeZone: "UTC" }));
+  const oneHourFromNowTimestamp = oneHourFromNowUTC.getTime();
+  
+  console.log('Current Paris time:', nowParis.toISOString());
+  console.log('60 minutes from now (Paris time):', oneHourFromNowParis.toISOString());
+  console.log('Using UTC timestamp for filter:', oneHourFromNowTimestamp);
 
   const requestBody = {
     filterGroups: [
@@ -584,7 +604,7 @@ function filterTasksByValidOwners(tasks: HubSpotTask[], validOwnerIds: Set<strin
 }
 
 function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: string }, contacts: any, ownersMap: any) {
-  const currentDate = new Date()
+  const currentParisTime = getCurrentParisTime();
 
   return tasks.map((task: HubSpotTask) => {
     const props = task.properties;
@@ -620,14 +640,14 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     let dueDate = '';
     let taskDueDate = null;
     if (props.hs_timestamp) {
-      const date = new Date(props.hs_timestamp);
-      taskDueDate = date;
+      // HubSpot timestamps are in UTC - convert to Paris time for display
+      const utcDate = new Date(props.hs_timestamp);
+      taskDueDate = getParisTimeFromUTC(utcDate.getTime());
 
-      const parisDate = new Date(date.getTime() + (2 * 60 * 60 * 1000));
-      const day = parisDate.getUTCDate().toString().padStart(2, '0');
-      const month = (parisDate.getUTCMonth() + 1).toString().padStart(2, '0');
-      const hours = parisDate.getUTCHours().toString().padStart(2, '0');
-      const minutes = parisDate.getUTCMinutes().toString().padStart(2, '0');
+      const day = taskDueDate.getDate().toString().padStart(2, '0');
+      const month = (taskDueDate.getMonth() + 1).toString().padStart(2, '0');
+      const hours = taskDueDate.getHours().toString().padStart(2, '0');
+      const minutes = taskDueDate.getMinutes().toString().padStart(2, '0');
       dueDate = `${day}/${month} à ${hours}:${minutes}`;
     }
 
@@ -681,14 +701,14 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       return true;
     }
     
-    // For rappels & rdv tasks, show them when they're within 60 minutes
+    // For rappels & rdv tasks, they are already filtered by the API call
     if (task.queue === 'rappels') {
-      return true; // Already filtered in the API call
+      return true;
     }
     
-    // For not started tasks, apply the overdue filter
+    // For not started tasks, apply the overdue filter using Paris time
     if (!task.taskDueDate) return false;
-    const isOverdue = task.taskDueDate < currentDate;
+    const isOverdue = task.taskDueDate < currentParisTime;
     return isOverdue;
   });
 }
