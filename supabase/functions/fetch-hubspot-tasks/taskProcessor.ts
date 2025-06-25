@@ -63,12 +63,9 @@ export class TaskProcessor {
       let dueDate = '';
       let taskDueDate = null;
       if (props.hs_timestamp) {
-        // Convert HubSpot UTC timestamp to Paris time
-        const timestampMs = parseInt(props.hs_timestamp);
-        taskDueDate = getParisTimeFromUTC(timestampMs);
-        dueDate = formatTaskDate(timestampMs);
-        
-        console.log(`Task ${task.id} - HubSpot UTC timestamp: ${props.hs_timestamp}, Paris date: ${taskDueDate?.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}, formatted: ${dueDate}`);
+        const utcDate = new Date(props.hs_timestamp);
+        taskDueDate = getParisTimeFromUTC(utcDate.getTime());
+        dueDate = formatTaskDate(props.hs_timestamp);
       }
 
       const taskOwnerId = props.hubspot_owner_id;
