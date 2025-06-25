@@ -26,8 +26,8 @@ const VerticalKanbanColumn = ({
   isLocked = false,
   hasContent = false
 }: VerticalKanbanColumnProps) => {
-  // Column can be expanded if it has content and is not locked
-  const canExpand = hasContent && !isLocked;
+  // Column can be expanded if it has content (locked or not)
+  const canExpand = hasContent;
   
   const handleToggle = () => {
     console.log(`Column ${title}: canExpand=${canExpand}, isLocked=${isLocked}, hasContent=${hasContent}, count=${count}`);
@@ -86,7 +86,7 @@ const VerticalKanbanColumn = ({
         </div>
       </div>
       
-      {isExpanded && hasContent && canExpand && (
+      {isExpanded && hasContent && (
         <div className="px-1 pb-3">
           <div className="space-y-2">
             {children}
