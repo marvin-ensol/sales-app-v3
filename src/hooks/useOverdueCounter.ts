@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { parseTaskDate, getCurrentParisTime } from '@/lib/dateUtils';
 
 export const useOverdueCounter = (dueDate: string) => {
   const [counter, setCounter] = useState('');
@@ -14,48 +15,15 @@ export const useOverdueCounter = (dueDate: string) => {
 
     const updateCounter = () => {
       try {
-        // Parse the due date (format: "13/06 à 15:00")
-        const [datePart, timePart] = dueDate.split(' à ');
-        if (!datePart || !timePart) {
-          console.log('Invalid date format:', dueDate);
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-
-        const [day, month] = datePart.split('/');
-        const [hours, minutes] = timePart.split(':');
+        // Parse the task date using our Paris-aware function
+        const taskDueDate = parseTaskDate(dueDate);
+        const currentParisTime = getCurrentParisTime();
         
-        // Validate date components
-        if (!day || !month || !hours || !minutes) {
-          console.log('Missing date components:', { day, month, hours, minutes });
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-
-        const currentYear = new Date().getFullYear();
-        
-        // Create due date - this should be in local time already since the formatted date comes from our formatTaskDate function
-        const dueDateTime = new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-        
-        // Check if the date is valid
-        if (isNaN(dueDateTime.getTime())) {
-          console.log('Invalid date created for:', dueDate);
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-        
-        // Get current time
-        const now = new Date();
-        
-        const diff = now.getTime() - dueDateTime.getTime();
-        
-        // Debug logging
         console.log(`Task due: ${dueDate}`);
-        console.log(`Parsed due date: ${dueDateTime.toLocaleString("fr-FR")}`);
-        console.log(`Current time: ${now.toLocaleString("fr-FR")}`);
+        console.log(`Parsed due date (Paris): ${taskDueDate.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
+        console.log(`Current time (Paris): ${currentParisTime.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
+        
+        const diff = currentParisTime.getTime() - taskDueDate.getTime();
         console.log(`Diff (ms): ${diff}`);
         
         if (diff > 0) {

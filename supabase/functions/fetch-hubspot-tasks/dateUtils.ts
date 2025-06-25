@@ -5,23 +5,16 @@ import { TIME_CONFIG } from './constants.ts';
  * Get Paris time from UTC timestamp
  */
 export function getParisTimeFromUTC(utcTimestamp: number): Date {
-  // Create date from UTC timestamp and convert to Paris timezone
+  // Create date from UTC timestamp
   const utcDate = new Date(utcTimestamp);
   
-  // Use Intl.DateTimeFormat to properly convert to Paris timezone
-  const parisTimeString = utcDate.toLocaleString("en-CA", { 
-    timeZone: TIME_CONFIG.TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
+  // Convert to Paris timezone using proper timezone handling
+  const parisTimeString = utcDate.toLocaleString("sv-SE", { 
+    timeZone: TIME_CONFIG.TIMEZONE
   });
   
-  // Parse the properly formatted Paris time string
-  const parisDate = new Date(parisTimeString.replace(',', ''));
+  // Parse the ISO-like string to create a proper Date object
+  const parisDate = new Date(parisTimeString);
   
   console.log(`UTC timestamp: ${utcTimestamp}, UTC date: ${utcDate.toISOString()}, Paris date: ${parisDate.toLocaleString("fr-FR", { timeZone: TIME_CONFIG.TIMEZONE })}`);
   
@@ -34,19 +27,12 @@ export function getParisTimeFromUTC(utcTimestamp: number): Date {
 export function getCurrentParisTime(): Date {
   const now = new Date();
   
-  // Use Intl.DateTimeFormat to get proper Paris time
-  const parisTimeString = now.toLocaleString("en-CA", { 
-    timeZone: TIME_CONFIG.TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
+  // Get current time in Paris timezone
+  const parisTimeString = now.toLocaleString("sv-SE", { 
+    timeZone: TIME_CONFIG.TIMEZONE
   });
   
-  return new Date(parisTimeString.replace(',', ''));
+  return new Date(parisTimeString);
 }
 
 /**
@@ -62,7 +48,7 @@ export function formatTaskDate(timestamp: string | number): string {
     date = getParisTimeFromUTC(timestamp);
   }
 
-  // Format in Paris timezone
+  // Format in Paris timezone - use the date object directly since it's already in Paris time
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const hours = date.getHours().toString().padStart(2, '0');
