@@ -14,7 +14,7 @@ interface HubSpotTask {
   id: string;
   properties: {
     hs_task_subject?: string;
-    hs_task_body?: string;
+    hs_body_preview?: string;
     hs_task_status?: string;
     hs_task_priority?: string;
     hs_task_type?: string;
@@ -90,7 +90,7 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
         filterGroups: filterGroups,
         properties: [
           'hs_task_subject',
-          'hs_task_body',
+          'hs_body_preview',
           'hs_task_status',
           'hs_task_priority',
           'hs_task_type',
@@ -348,7 +348,7 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     return {
       id: task.id,
       title: props.hs_task_subject || 'Untitled Task',
-      description: props.hs_task_body || undefined,
+      description: props.hs_body_preview || undefined,
       contact: contactName,
       contactId: contactId || null,
       contactPhone: contactPhone,
@@ -399,14 +399,13 @@ serve(async (req) => {
     // Get task associations
     const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
-    // Filter out tasks that don't have contact associations (except for unassigned tasks in "New" queue)
+    // Filter out tasks that don't have contact associations (for assigned tasks only)
     const tasksWithContactsOrUnassigned = tasks.filter((task: HubSpotTask) => {
       const isUnassigned = !task.properties?.hubspot_owner_id;
-      const isInNewQueue = task.properties?.hs_queue_membership_ids?.includes('22859489');
       const hasContact = taskContactMap[task.id];
       
-      // Keep unassigned tasks in "New" queue even without contacts
-      if (isUnassigned && isInNewQueue) {
+      // Keep all unassigned tasks (they will always have contact associations)
+      if (isUnassigned) {
         return true;
       }
       

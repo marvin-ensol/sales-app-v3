@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit, User, Phone } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 
@@ -80,18 +80,22 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     }
   };
 
+  const handleUnassignedContactClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Add functionality for clicking on unassigned task names
+    console.log('Unassigned task contact clicked:', task.contact);
+  };
+
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
   const weekday = getFrenchWeekday(task.dueDate);
   
-  // Add visual indicator for unassigned tasks
-  const unassignedStyles = task.isUnassigned ? "opacity-75 border-dashed" : "";
   const cursorStyle = task.isUnassigned ? "cursor-default" : "cursor-pointer";
 
   return (
     <div
       className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
         task.priority
-      )} ${unassignedStyles} p-3 m-2 hover:shadow-md transition-shadow ${cursorStyle} relative max-w-full`}
+      )} p-3 m-2 hover:shadow-md transition-shadow ${cursorStyle} relative max-w-full`}
       onClick={handleCardClick}
     >
       {/* Edit icon in top right corner - hidden for unassigned tasks */}
@@ -119,23 +123,37 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
           </div>
         )}
         
-        {/* Contact name in bold with hover badge - disabled for unassigned tasks */}
+        {/* Contact name in bold with hover effects */}
         <div className="relative group">
-          <div 
-            className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
-              task.contactPhone && !task.isUnassigned
-                ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer' 
-                : ''
-            }`}
-            onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
-          >
-            <span className="inline-flex items-center gap-1">
-              {task.contact}
-              {task.contactPhone && !task.isUnassigned && (
-                <Phone className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-              )}
-            </span>
-          </div>
+          {task.isUnassigned && task.queue === 'new' ? (
+            // Green hover effect for unassigned "New" tasks
+            <div 
+              className="font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 group-hover:bg-green-100 group-hover:text-green-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer"
+              onClick={handleUnassignedContactClick}
+            >
+              <span className="inline-flex items-center gap-1">
+                {task.contact}
+                <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+              </span>
+            </div>
+          ) : (
+            // Blue hover effect for assigned tasks with phone numbers
+            <div 
+              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
+                task.contactPhone && !task.isUnassigned
+                  ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer' 
+                  : ''
+              }`}
+              onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
+            >
+              <span className="inline-flex items-center gap-1">
+                {task.contact}
+                {task.contactPhone && !task.isUnassigned && (
+                  <Phone className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Task name */}
