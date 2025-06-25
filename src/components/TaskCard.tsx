@@ -3,17 +3,21 @@ import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface TaskCardProps {
   task: Task;
   onMove: (taskId: string, newStatus: TaskStatus) => void;
   onFrameUrlChange: (url: string) => void;
   showOwner?: boolean;
+  onTaskAssigned?: () => void;
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -80,10 +84,74 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
     }
   };
 
-  const handleUnassignedContactClick = (e: React.MouseEvent) => {
+  const handleUnassignedContactClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: Add functionality for clicking on unassigned task names
-    console.log('Unassigned task contact clicked:', task.contact);
+    
+    if (isAssigning) return;
+    
+    setIsAssigning(true);
+    
+    try {
+      console.log('Assigning unassigned task:', task.id);
+      
+      const { data, error } = await supabase.functions.invoke('assign-task', {
+        body: { 
+          taskId: task.hubspotId,
+          contactId: task.contactId
+        }
+      });
+      
+      if (error) {
+        console.error('Error assigning task:', error);
+        toast({
+          title: "Erreur",
+          description: "Une erreur s'est produite lors de l'attribution de la tâche",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (data?.error) {
+        console.error('API error:', data.error);
+        if (data.error.includes('already assigned')) {
+          toast({
+            title: "Lead déjà attribué",
+            description: "Le lead a déjà été attribué",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erreur",
+            description: data.error,
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+      
+      if (data?.success) {
+        console.log('Task assigned successfully');
+        toast({
+          title: "Succès",
+          description: "La tâche a été attribuée avec succès",
+        });
+        
+        // Call the refresh callback
+        if (onTaskAssigned) {
+          onTaskAssigned();
+        }
+      }
+      
+    } catch (err) {
+      console.error('Error assigning task:', err);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'attribution de la tâche",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAssigning(false);
+    }
   };
 
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
@@ -128,7 +196,9 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
           {task.isUnassigned && task.queue === 'new' ? (
             // Green hover effect for unassigned "New" tasks
             <div 
-              className="font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 group-hover:bg-green-100 group-hover:text-green-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer"
+              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 group-hover:bg-green-100 group-hover:text-green-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer ${
+                isAssigning ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
               onClick={handleUnassignedContactClick}
             >
               <span className="inline-flex items-center gap-1">
@@ -156,10 +226,12 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner }: TaskCardProps) 
           )}
         </div>
 
-        {/* Task name */}
-        <h4 className="font-medium text-gray-700 text-xs leading-relaxed break-words">
-          {task.title}
-        </h4>
+        {/* Task name - hidden for unassigned tasks */}
+        {!task.isUnassigned && (
+          <h4 className="font-medium text-gray-700 text-xs leading-relaxed break-words">
+            {task.title}
+          </h4>
+        )}
 
         {/* Due date with weekday */}
         {task.dueDate && (

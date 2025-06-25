@@ -25,13 +25,62 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     getSelectedOwnerName 
   } = useOwnerSelection(owners);
   
-  // Remove the undefined check since selectedOwnerId is now always a string due to owner selection being required
   const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId);
 
-  const filteredTasks = tasks.filter(task => 
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.contact.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter tasks based on the new requirements
+  const filteredTasks = tasks.filter(task => {
+    // Apply search filter
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.contact.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // For unassigned "New" tasks, apply special filtering logic
+    if (task.isUnassigned && task.queue === 'new') {
+      // Check if the user has any assigned "New" tasks
+      const userHasAssignedNewTasks = tasks.some(t => 
+        !t.isUnassigned && 
+        t.queue === 'new' && 
+        t.owner === getSelectedOwnerName()
+      );
+      
+      // If user has assigned "New" tasks, hide unassigned ones
+      if (userHasAssignedNewTasks) {
+        return false;
+      }
+      
+      // Only show the oldest unassigned "New" task
+      const unassignedNewTasks = tasks.filter(t => 
+        t.isUnassigned && 
+        t.queue === 'new' &&
+        (t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         t.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      
+      if (unassignedNewTasks.length > 1) {
+        // Sort by creation date (oldest first) and only return the first one
+        unassignedNewTasks.sort((a, b) => {
+          // Parse the dates - assuming format is "DD/MM à HH:MM"
+          const parseDate = (dateStr: string) => {
+            const [datePart, timePart] = dateStr.split(' à ');
+            const [day, month] = datePart.split('/');
+            const [hours, minutes] = timePart.split(':');
+            const currentYear = new Date().getFullYear();
+            return new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+          };
+          
+          const dateA = parseDate(a.dueDate);
+          const dateB = parseDate(b.dueDate);
+          return dateA.getTime() - dateB.getTime();
+        });
+        
+        // Only show this task if it's the oldest one
+        return task.id === unassignedNewTasks[0].id;
+      }
+    }
+    
+    return true;
+  });
 
   const handleTaskMove = (taskId: string, newQueue: TaskQueue) => {
     console.log(`Moving task ${taskId} to ${newQueue} queue`);
@@ -44,6 +93,11 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
 
   const handleColumnToggle = (columnId: string) => {
     setExpandedColumn(expandedColumn === columnId ? "" : columnId);
+  };
+
+  const handleTaskAssigned = () => {
+    console.log('Task assigned, refreshing...');
+    refetch();
   };
 
   // Show loading state while owners are being fetched
@@ -96,6 +150,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         setExpandedColumn={setExpandedColumn}
         tasksLoading={tasksLoading}
         ownerSelectionInitialized={ownerSelectionInitialized}
+        onTaskAssigned={handleTaskAssigned}
       />
     </div>
   );
