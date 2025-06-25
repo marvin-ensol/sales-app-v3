@@ -17,14 +17,22 @@ export function getCurrentParisTime(): Date {
 }
 
 /**
- * Format date for display (DD/MM à HH:MM)
+ * Format date for display (DD/MM à HH:MM) - converts UTC to Paris time
  */
 export function formatTaskDate(timestamp: string | number): string {
   if (!timestamp) return '';
   
-  const date = typeof timestamp === 'string' ? 
-    new Date(timestamp) : 
-    getParisTimeFromUTC(timestamp);
+  let date: Date;
+  
+  if (typeof timestamp === 'string') {
+    // HubSpot returns ISO strings like "2025-06-25T06:00:00.000Z"
+    const utcDate = new Date(timestamp);
+    // Convert UTC to Paris time
+    date = new Date(utcDate.toLocaleString("en-US", { timeZone: TIME_CONFIG.TIMEZONE }));
+  } else {
+    // Handle numeric timestamps
+    date = getParisTimeFromUTC(timestamp);
+  }
 
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -52,7 +60,7 @@ export function getFrenchWeekday(dateString: string): string {
 }
 
 /**
- * Parse date string to Date object (handles "DD/MM à HH:MM" format)
+ * Parse date string to Date object (handles "DD/MM à HH:MM" format) - creates date in Paris time
  */
 export function parseTaskDate(dateString: string): Date {
   const [datePart, timePart] = dateString.split(' à ');
@@ -60,6 +68,7 @@ export function parseTaskDate(dateString: string): Date {
   const [hours, minutes] = timePart.split(':');
   const currentYear = new Date().getFullYear();
   
+  // Create date directly in Paris time (no timezone conversion needed)
   return new Date(
     currentYear, 
     parseInt(month) - 1, 

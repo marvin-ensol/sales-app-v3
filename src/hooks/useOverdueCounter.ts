@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { parseTaskDate, getCurrentParisTime } from '@/lib/dateUtils';
 
 export const useOverdueCounter = (dueDate: string) => {
   const [counter, setCounter] = useState('');
@@ -14,60 +15,11 @@ export const useOverdueCounter = (dueDate: string) => {
 
     const updateCounter = () => {
       try {
-        // Parse the due date (format: "13/06 à 15:00")
-        const [datePart, timePart] = dueDate.split(' à ');
-        if (!datePart || !timePart) {
-          console.log('Invalid date format:', dueDate);
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-
-        const [day, month] = datePart.split('/');
-        const [hours, minutes] = timePart.split(':');
+        // Parse the due date using our fixed parseTaskDate function
+        const taskDate = parseTaskDate(dueDate);
+        const currentParisTime = getCurrentParisTime();
         
-        // Validate date components
-        if (!day || !month || !hours || !minutes) {
-          console.log('Missing date components:', { day, month, hours, minutes });
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-
-        const currentYear = new Date().getFullYear();
-        
-        // Create due date in Paris timezone
-        const parisDateString = `${currentYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
-        const dueDateParis = new Date(parisDateString);
-        
-        // Check if the date is valid
-        if (isNaN(dueDateParis.getTime())) {
-          console.log('Invalid date created:', parisDateString);
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-        
-        // Get current time in Paris timezone
-        const nowUTC = new Date();
-        const nowParisString = nowUTC.toLocaleString("en-CA", { timeZone: "Europe/Paris" });
-        const nowParis = new Date(nowParisString);
-        
-        // Check if current time is valid
-        if (isNaN(nowParis.getTime())) {
-          console.log('Invalid current time created');
-          setCounter('');
-          setIsOverdue(false);
-          return;
-        }
-        
-        const diff = nowParis.getTime() - dueDateParis.getTime();
-        
-        // Debug logging
-        console.log(`Task due: ${dueDate}`);
-        console.log(`Parsed Paris date: ${dueDateParis.toISOString()}`);
-        console.log(`Current Paris time: ${nowParis.toISOString()}`);
-        console.log(`Diff (ms): ${diff}`);
+        const diff = currentParisTime.getTime() - taskDate.getTime();
         
         if (diff > 0) {
           // Task is overdue
@@ -79,7 +31,6 @@ export const useOverdueCounter = (dueDate: string) => {
           const seconds = totalSeconds % 60;
           
           const counterText = `+${hours}h ${minutes}m ${seconds}s`;
-          console.log(`Counter: ${counterText}`);
           setCounter(counterText);
         } else {
           setIsOverdue(false);
