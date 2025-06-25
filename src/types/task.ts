@@ -1,5 +1,5 @@
 
-export type TaskQueue = "new" | "attempted" | "other";
+export type TaskQueue = "rappels" | "new" | "attempted" | "other";
 
 export type TaskStatus = "not_started" | "completed";
 

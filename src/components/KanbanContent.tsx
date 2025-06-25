@@ -4,8 +4,9 @@ import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
 
-// Define columns based on task queues
+// Define columns based on task queues - Rappels & RDV comes first
 const columns = [
+  { id: "rappels", title: "Rappels & RDV", color: "border-l-4 border-l-purple-400" },
   { id: "new", title: "New", color: "border-l-4 border-l-blue-400" },
   { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400" },
   { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400" }

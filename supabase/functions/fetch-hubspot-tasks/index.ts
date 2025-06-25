@@ -271,6 +271,74 @@ async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): 
   return results;
 }
 
+async function fetchRappelsRdvTasks(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching Rappels & RDV tasks for owner:', ownerId);
+  
+  // Calculate timestamp for 60 minutes from now
+  const now = new Date();
+  const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000));
+  const oneHourFromNowTimestamp = oneHourFromNow.getTime();
+  
+  console.log('Fetching Rappels & RDV tasks due within 60 minutes from now:', oneHourFromNow.toISOString());
+
+  const requestBody = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: 'hs_task_status',
+            operator: 'EQ',
+            value: 'NOT_STARTED'
+          },
+          {
+            propertyName: 'hs_queue_membership_ids',
+            operator: 'CONTAINS_TOKEN',
+            value: '22933271'
+          },
+          {
+            propertyName: 'hubspot_owner_id',
+            operator: 'EQ',
+            value: ownerId
+          },
+          {
+            propertyName: 'hs_timestamp',
+            operator: 'LTE',
+            value: oneHourFromNowTimestamp.toString()
+          }
+        ]
+      }
+    ],
+    properties: [
+      'hs_task_subject',
+      'hs_body_preview',
+      'hs_task_status',
+      'hs_task_priority',
+      'hs_task_type',
+      'hs_timestamp',
+      'hubspot_owner_id',
+      'hs_queue_membership_ids',
+      'hs_lastmodifieddate',
+      'hs_task_completion_date'
+    ],
+    sorts: [
+      {
+        propertyName: 'hs_timestamp',
+        direction: 'ASCENDING'
+      }
+    ]
+  };
+
+  const results = await fetchAllPages(
+    'https://api.hubapi.com/crm/v3/objects/tasks/search',
+    requestBody,
+    hubspotToken,
+    600 // Initial delay before starting this call
+  );
+
+  console.log('Rappels & RDV tasks fetched:', results.length);
+  return results;
+}
+
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
   console.log('Owner filter:', ownerId);
   console.log('Starting API calls with delays and pagination to retrieve all tasks...');
@@ -280,21 +348,32 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
   
   let ownerTasks: HubSpotTask[] = [];
   let completedTasks: HubSpotTask[] = [];
+  let rappelsRdvTasks: HubSpotTask[] = [];
   
   if (ownerId) {
     // Fetch owner tasks with delay and pagination
     ownerTasks = await fetchOwnerTasks(ownerId, hubspotToken);
     // Fetch completed tasks with delay and pagination
     completedTasks = await fetchCompletedTasksToday(ownerId, hubspotToken);
+    // Fetch Rappels & RDV tasks with delay and pagination
+    rappelsRdvTasks = await fetchRappelsRdvTasks(ownerId, hubspotToken);
   }
 
   // Combine all tasks, removing any duplicates by ID
-  const allTasks = [...unassignedTasks, ...completedTasks];
+  const allTasks = [...unassignedTasks, ...completedTasks, ...rappelsRdvTasks];
   const taskIds = new Set(unassignedTasks.map(task => task.id));
   
   // Add completed tasks (they shouldn't overlap with unassigned)
   completedTasks.forEach(task => {
     if (!taskIds.has(task.id)) {
+      taskIds.add(task.id);
+    }
+  });
+  
+  // Add rappels & rdv tasks
+  rappelsRdvTasks.forEach(task => {
+    if (!taskIds.has(task.id)) {
+      allTasks.push(task);
       taskIds.add(task.id);
     }
   });
@@ -307,7 +386,7 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
     }
   });
 
-  console.log(`Combined tasks: ${allTasks.length} (${unassignedTasks.length} unassigned + ${ownerTasks.length} owner tasks + ${completedTasks.length} completed today)`);
+  console.log(`Combined tasks: ${allTasks.length} (${unassignedTasks.length} unassigned + ${ownerTasks.length} owner tasks + ${completedTasks.length} completed today + ${rappelsRdvTasks.length} rappels & rdv)`);
   
   return allTasks;
 }
@@ -567,7 +646,9 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     let queue = 'other';
     const queueIds = props.hs_queue_membership_ids ? props.hs_queue_membership_ids.split(';') : [];
 
-    if (queueIds.includes('22859489')) {
+    if (queueIds.includes('22933271')) {
+      queue = 'rappels';
+    } else if (queueIds.includes('22859489')) {
       queue = 'new';
     } else if (queueIds.includes('22859490')) {
       queue = 'attempted';
@@ -598,6 +679,11 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
     // For completed tasks, we don't need the overdue filter
     if (task.status === 'completed') {
       return true;
+    }
+    
+    // For rappels & rdv tasks, show them when they're within 60 minutes
+    if (task.queue === 'rappels') {
+      return true; // Already filtered in the API call
     }
     
     // For not started tasks, apply the overdue filter
