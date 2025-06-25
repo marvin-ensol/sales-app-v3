@@ -51,11 +51,21 @@ const VerticalKanbanColumn = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
+            <Badge 
+              variant="secondary" 
+              className={`flex items-center gap-1 px-2 py-1 ${
+                count > 0 
+                  ? 'bg-red-100 text-red-800 hover:bg-red-200' 
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              }`}
+            >
               <Clock className="w-3 h-3" />
               <span className="text-xs font-medium">{count}</span>
             </Badge>
-            <Badge className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 hover:bg-green-200">
+            <Badge 
+              variant="secondary" 
+              className="flex items-center gap-1 px-2 py-1 bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            >
               <Check className="w-3 h-3" />
               <span className="text-xs font-medium">{completedCount}</span>
             </Badge>
