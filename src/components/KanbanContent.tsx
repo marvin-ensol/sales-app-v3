@@ -22,6 +22,7 @@ interface KanbanContentProps {
   tasksLoading: boolean;
   ownerSelectionInitialized: boolean;
   onTaskAssigned?: () => void;
+  selectedOwnerId: string;
 }
 
 const KanbanContent = ({
@@ -34,7 +35,8 @@ const KanbanContent = ({
   setExpandedColumn,
   tasksLoading,
   ownerSelectionInitialized,
-  onTaskAssigned
+  onTaskAssigned,
+  selectedOwnerId
 }: KanbanContentProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
     return filteredTasks.filter(task => task.queue === queue);
@@ -74,6 +76,7 @@ const KanbanContent = ({
               onFrameUrlChange={onFrameUrlChange}
               showOwner={false}
               onTaskAssigned={onTaskAssigned}
+              selectedOwnerId={selectedOwnerId}
             />
           ))}
           {getTasksByQueue(column.id as TaskQueue).length === 0 && !tasksLoading && ownerSelectionInitialized && (

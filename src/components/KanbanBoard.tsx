@@ -151,6 +151,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         tasksLoading={tasksLoading}
         ownerSelectionInitialized={ownerSelectionInitialized}
         onTaskAssigned={handleTaskAssigned}
+        selectedOwnerId={selectedOwnerId}
       />
     </div>
   );

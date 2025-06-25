@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
@@ -12,9 +11,10 @@ interface TaskCardProps {
   onFrameUrlChange: (url: string) => void;
   showOwner?: boolean;
   onTaskAssigned?: () => void;
+  selectedOwnerId?: string;
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
@@ -89,15 +89,25 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned }:
     
     if (isAssigning) return;
     
+    if (!selectedOwnerId) {
+      toast({
+        title: "Erreur",
+        description: "Aucun propriétaire sélectionné",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsAssigning(true);
     
     try {
-      console.log('Assigning unassigned task:', task.id);
+      console.log('Assigning unassigned task:', task.id, 'to owner:', selectedOwnerId);
       
       const { data, error } = await supabase.functions.invoke('assign-task', {
         body: { 
           taskId: task.hubspotId,
-          contactId: task.contactId
+          contactId: task.contactId,
+          ownerId: selectedOwnerId
         }
       });
       

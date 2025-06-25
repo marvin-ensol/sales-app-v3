@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -9,6 +8,7 @@ const corsHeaders = {
 interface AssignTaskRequest {
   taskId: string;
   contactId: string;
+  ownerId: string;
 }
 
 async function getCurrentUser() {
@@ -150,13 +150,13 @@ serve(async (req) => {
     }
 
     const body: AssignTaskRequest = await req.json()
-    const { taskId, contactId } = body
+    const { taskId, contactId, ownerId } = body
 
-    if (!taskId || !contactId) {
-      throw new Error('Missing required parameters: taskId and contactId')
+    if (!taskId || !contactId || !ownerId) {
+      throw new Error('Missing required parameters: taskId, contactId, and ownerId')
     }
 
-    console.log('Assigning task:', taskId, 'for contact:', contactId)
+    console.log('Assigning task:', taskId, 'for contact:', contactId, 'to owner:', ownerId)
 
     // Get current user (in a real app, this would come from authentication)
     const currentUser = await getCurrentUser()
@@ -180,11 +180,11 @@ serve(async (req) => {
       )
     }
 
-    // Assign contact to current user
-    await assignContactToOwner(contactId, currentUser.hubspotOwnerId, hubspotToken)
+    // Assign contact to specified owner
+    await assignContactToOwner(contactId, ownerId, hubspotToken)
     
-    // Assign task to current user
-    await assignTaskToOwner(taskId, currentUser.hubspotOwnerId, hubspotToken)
+    // Assign task to specified owner
+    await assignTaskToOwner(taskId, ownerId, hubspotToken)
 
     console.log('Task and contact assignment completed successfully')
 
