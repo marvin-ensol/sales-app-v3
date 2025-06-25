@@ -1,7 +1,7 @@
 
-export type TaskStatus = "not_started" | "in_progress" | "waiting" | "completed" | "deferred";
-
 export type TaskQueue = "new" | "attempted" | "other";
+
+export type TaskStatus = "not_started" | "completed";
 
 export interface Task {
   id: string;
@@ -14,8 +14,9 @@ export interface Task {
   dueDate: string;
   priority: "high" | "medium" | "low";
   owner: string;
-  hubspotId?: string;
+  hubspotId: string;
   queue: TaskQueue;
-  queueIds?: string[];
+  queueIds: string[];
   isUnassigned?: boolean;
+  completionDate?: Date | null;
 }

@@ -1,11 +1,13 @@
 
 import { ReactNode } from "react";
 import { ChevronDown, ChevronRight, Lock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface VerticalKanbanColumnProps {
   title: string;
   color: string;
   count: number;
+  completedCount: number;
   children: ReactNode;
   isExpanded: boolean;
   onToggle: () => void;
@@ -16,6 +18,7 @@ const VerticalKanbanColumn = ({
   title, 
   color, 
   count, 
+  completedCount,
   children, 
   isExpanded,
   onToggle,
@@ -27,11 +30,11 @@ const VerticalKanbanColumn = ({
   return (
     <div className="border-b border-gray-200">
       <div 
-        className={`p-4 transition-colors ${color} ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
+        className={`p-3 transition-colors ${color} ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
         onClick={canExpand ? onToggle : undefined}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {canExpand && (
               isExpanded ? (
                 <ChevronDown className="h-4 w-4 text-gray-600" />
@@ -47,15 +50,28 @@ const VerticalKanbanColumn = ({
               {title}
             </h3>
           </div>
-          <span className={`px-2 py-1 rounded-full text-sm font-medium ${isLocked ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-600'}`}>
-            {count}
-          </span>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-xs font-medium">{count}</span>
+            </Badge>
+            {completedCount > 0 && (
+              <Badge className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 hover:bg-green-200">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-xs font-medium">{completedCount}</span>
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
       
       {isExpanded && hasContent && !isLocked && (
-        <div className="px-4 pb-4">
-          <div className="space-y-3">
+        <div className="px-2 pb-3">
+          <div className="space-y-2">
             {children}
           </div>
         </div>

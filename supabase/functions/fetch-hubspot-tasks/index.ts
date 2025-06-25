@@ -22,6 +22,7 @@ interface HubSpotTask {
     hubspot_owner_id?: string;
     hs_queue_membership_ids?: string;
     hs_lastmodifieddate?: string;
+    hs_task_completion_date?: string;
   };
 }
 
@@ -74,7 +75,8 @@ async function fetchUnassignedNewTasks(hubspotToken: string): Promise<HubSpotTas
           'hs_timestamp',
           'hubspot_owner_id',
           'hs_queue_membership_ids',
-          'hs_lastmodifieddate'
+          'hs_lastmodifieddate',
+          'hs_task_completion_date'
         ],
         limit: 100,
         sorts: [
@@ -136,7 +138,8 @@ async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<H
           'hs_timestamp',
           'hubspot_owner_id',
           'hs_queue_membership_ids',
-          'hs_lastmodifieddate'
+          'hs_lastmodifieddate',
+          'hs_task_completion_date'
         ],
         limit: 200,
         sorts: [
@@ -161,6 +164,89 @@ async function fetchOwnerTasks(ownerId: string, hubspotToken: string): Promise<H
   return ownerData.results || [];
 }
 
+async function fetchCompletedTasksToday(ownerId: string, hubspotToken: string): Promise<HubSpotTask[]> {
+  console.log('Fetching completed tasks for today for owner:', ownerId);
+  
+  // Get today's date in UTC (start and end of day)
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  
+  const startTimestamp = startOfDay.getTime();
+  const endTimestamp = endOfDay.getTime();
+  
+  console.log('Fetching completed tasks between:', startOfDay.toISOString(), 'and', endOfDay.toISOString());
+
+  const completedResponse = await fetch(
+    `https://api.hubapi.com/crm/v3/objects/tasks/search`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${hubspotToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filterGroups: [
+          {
+            filters: [
+              {
+                propertyName: 'hs_task_status',
+                operator: 'EQ',
+                value: 'COMPLETED'
+              },
+              {
+                propertyName: 'hubspot_owner_id',
+                operator: 'EQ',
+                value: ownerId
+              },
+              {
+                propertyName: 'hs_task_completion_date',
+                operator: 'GTE',
+                value: startTimestamp.toString()
+              },
+              {
+                propertyName: 'hs_task_completion_date',
+                operator: 'LT',
+                value: endTimestamp.toString()
+              }
+            ]
+          }
+        ],
+        properties: [
+          'hs_task_subject',
+          'hs_body_preview',
+          'hs_task_status',
+          'hs_task_priority',
+          'hs_task_type',
+          'hs_timestamp',
+          'hubspot_owner_id',
+          'hs_queue_membership_ids',
+          'hs_lastmodifieddate',
+          'hs_task_completion_date'
+        ],
+        limit: 200,
+        sorts: [
+          {
+            propertyName: 'hs_task_completion_date',
+            direction: 'DESCENDING'
+          }
+        ]
+      })
+    }
+  );
+
+  if (!completedResponse.ok) {
+    const errorText = await completedResponse.text();
+    console.error(`HubSpot completed tasks API error: ${completedResponse.status} - ${errorText}`);
+    throw new Error(`HubSpot completed tasks API error: ${completedResponse.status} - ${errorText}`);
+  }
+
+  const completedData = await completedResponse.json();
+  console.log('Completed tasks fetched:', completedData.results?.length || 0);
+  
+  return completedData.results || [];
+}
+
 async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams) {
   console.log('Owner filter:', ownerId);
 
@@ -168,21 +254,33 @@ async function fetchTasksFromHubSpot({ ownerId, hubspotToken }: TaskFilterParams
   const unassignedTasks = await fetchUnassignedNewTasks(hubspotToken);
   
   let ownerTasks: HubSpotTask[] = [];
+  let completedTasks: HubSpotTask[] = [];
+  
   if (ownerId) {
     ownerTasks = await fetchOwnerTasks(ownerId, hubspotToken);
+    completedTasks = await fetchCompletedTasksToday(ownerId, hubspotToken);
   }
 
-  // Combine both sets of tasks, removing any duplicates by ID
-  const allTasks = [...unassignedTasks];
+  // Combine all tasks, removing any duplicates by ID
+  const allTasks = [...unassignedTasks, ...completedTasks];
   const taskIds = new Set(unassignedTasks.map(task => task.id));
   
+  // Add completed tasks (they shouldn't overlap with unassigned)
+  completedTasks.forEach(task => {
+    if (!taskIds.has(task.id)) {
+      taskIds.add(task.id);
+    }
+  });
+  
+  // Add owner tasks
   ownerTasks.forEach(task => {
     if (!taskIds.has(task.id)) {
       allTasks.push(task);
+      taskIds.add(task.id);
     }
   });
 
-  console.log(`Combined tasks: ${allTasks.length} (${unassignedTasks.length} unassigned + ${ownerTasks.length} owner tasks)`);
+  console.log(`Combined tasks: ${allTasks.length} (${unassignedTasks.length} unassigned + ${ownerTasks.length} owner tasks + ${completedTasks.length} completed today)`);
   
   return allTasks;
 }
@@ -410,6 +508,9 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       queue = 'attempted';
     }
 
+    const isCompleted = props.hs_task_status === 'COMPLETED';
+    const status = isCompleted ? 'completed' : 'not_started';
+
     return {
       id: task.id,
       title: props.hs_task_subject || 'Untitled Task',
@@ -417,7 +518,7 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       contact: contactName,
       contactId: contactId || null,
       contactPhone: contactPhone,
-      status: 'not_started',
+      status: status,
       dueDate,
       taskDueDate,
       priority: priorityMap[props.hs_task_priority] || 'medium',
@@ -425,9 +526,16 @@ function transformTasks(tasks: HubSpotTask[], taskContactMap: { [key: string]: s
       hubspotId: task.id,
       queue: queue,
       queueIds: queueIds,
-      isUnassigned: !taskOwnerId
+      isUnassigned: !taskOwnerId,
+      completionDate: props.hs_task_completion_date ? new Date(parseInt(props.hs_task_completion_date)) : null
     };
   }).filter((task: any) => {
+    // For completed tasks, we don't need the overdue filter
+    if (task.status === 'completed') {
+      return true;
+    }
+    
+    // For not started tasks, apply the overdue filter
     if (!task.taskDueDate) return false;
     const isOverdue = task.taskDueDate < currentDate;
     return isOverdue;
@@ -457,23 +565,32 @@ serve(async (req) => {
       // No body or invalid JSON, continue without owner filter
     }
 
-    // Fetch tasks from HubSpot (unassigned "New" tasks + selected owner's tasks)
+    // Fetch tasks from HubSpot (unassigned "New" tasks + selected owner's tasks + completed tasks today)
     const tasks = await fetchTasksFromHubSpot({ ownerId, hubspotToken })
     const taskIds = tasks.map((task: HubSpotTask) => task.id)
 
-    // Get task associations
+    // Get task associations - but allow tasks without contacts for completed tasks
     const taskContactMap = await fetchTaskAssociations(taskIds, hubspotToken)
 
-    // All tasks should have contact associations (as per user requirement)
-    const tasksWithContacts = tasks.filter((task: HubSpotTask) => {
+    // Filter tasks: completed tasks don't need contact associations, but not started tasks do
+    const filteredTasks = tasks.filter((task: HubSpotTask) => {
+      const isCompleted = task.properties?.hs_task_status === 'COMPLETED';
       const hasContact = taskContactMap[task.id];
-      if (!hasContact) {
-        console.log(`❌ DROPPED: Task ${task.id} has no contact association`);
+      
+      if (isCompleted) {
+        // Allow completed tasks regardless of contact association
+        return true;
+      } else {
+        // Not started tasks must have contact associations
+        if (!hasContact) {
+          console.log(`❌ DROPPED: Task ${task.id} has no contact association`);
+          return false;
+        }
+        return true;
       }
-      return hasContact;
     })
 
-    console.log(`Filtered tasks with contacts: ${tasksWithContacts.length} out of ${tasks.length} total tasks`)
+    console.log(`Filtered tasks: ${filteredTasks.length} out of ${tasks.length} total tasks`)
 
     // Get unique contact IDs and fetch contact details
     const contactIds = new Set(Object.values(taskContactMap))
@@ -483,18 +600,25 @@ serve(async (req) => {
     const { validOwnerIds, ownersMap } = await fetchValidOwners(hubspotToken)
 
     // Filter tasks by allowed team owners (but allow unassigned tasks)
-    const tasksWithAllowedOwners = filterTasksByValidOwners(tasksWithContacts, validOwnerIds)
+    const tasksWithAllowedOwners = filterTasksByValidOwners(filteredTasks, validOwnerIds)
 
     // Transform and filter tasks
     const transformedTasks = transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap)
 
-    // Sort tasks: unassigned "New" tasks first, then assigned tasks
+    // Sort tasks: unassigned "New" tasks first, then assigned tasks, then completed tasks
     const sortedTasks = transformedTasks.sort((a, b) => {
-      // If both are in "new" queue, prioritize unassigned tasks
-      if (a.queue === 'new' && b.queue === 'new') {
-        if (a.isUnassigned && !b.isUnassigned) return -1;
-        if (!a.isUnassigned && b.isUnassigned) return 1;
+      // Completed tasks go to the end
+      if (a.status === 'completed' && b.status !== 'completed') return 1;
+      if (a.status !== 'completed' && b.status === 'completed') return -1;
+      
+      // For not started tasks, prioritize as before
+      if (a.status !== 'completed' && b.status !== 'completed') {
+        if (a.queue === 'new' && b.queue === 'new') {
+          if (a.isUnassigned && !b.isUnassigned) return -1;
+          if (!a.isUnassigned && b.isUnassigned) return 1;
+        }
       }
+      
       return 0; // Keep original order for other cases
     });
 

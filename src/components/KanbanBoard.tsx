@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,12 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   
   const { tasks, loading: tasksLoading, error, refetch } = useHubSpotTasks(selectedOwnerId);
 
-  // Check if there are any tasks in the "new" queue to determine locking
-  const newQueueTasks = tasks.filter(task => task.queue === 'new');
+  // Separate not started and completed tasks
+  const notStartedTasks = tasks.filter(task => task.status === 'not_started');
+  const completedTasks = tasks.filter(task => task.status === 'completed');
+
+  // Check if there are any not started tasks in the "new" queue to determine locking
+  const newQueueTasks = notStartedTasks.filter(task => task.queue === 'new');
   const hasNewTasks = newQueueTasks.length > 0;
   
   // Define which columns are locked
@@ -47,8 +52,8 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     }
   }, [hasNewTasks, lockedColumns.length]);
 
-  // Filter tasks based on the new requirements and locking logic
-  const filteredTasks = tasks.filter(task => {
+  // Filter not started tasks based on the existing requirements and locking logic
+  const filteredTasks = notStartedTasks.filter(task => {
     // First check if the task is in a locked column and we have a search term
     if (searchTerm && lockedColumns.includes(task.queue)) {
       return false; // Don't show tasks from locked columns in search results
@@ -63,7 +68,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     // For unassigned "New" tasks, apply special filtering logic
     if (task.isUnassigned && task.queue === 'new') {
       // Check if the user has any assigned "New" tasks
-      const userHasAssignedNewTasks = tasks.some(t => 
+      const userHasAssignedNewTasks = notStartedTasks.some(t => 
         !t.isUnassigned && 
         t.queue === 'new' && 
         t.owner === getSelectedOwnerName()
@@ -75,7 +80,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
       }
       
       // Only show the oldest unassigned "New" task
-      const unassignedNewTasks = tasks.filter(t => 
+      const unassignedNewTasks = notStartedTasks.filter(t => 
         t.isUnassigned && 
         t.queue === 'new' &&
         (t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -171,6 +176,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
 
       <KanbanContent
         filteredTasks={filteredTasks}
+        allTasks={tasks}
         expandedColumn={expandedColumn}
         onColumnToggle={handleColumnToggle}
         onTaskMove={handleTaskMove}

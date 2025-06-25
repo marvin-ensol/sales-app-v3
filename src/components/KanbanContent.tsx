@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
@@ -12,6 +13,7 @@ const columns = [
 
 interface KanbanContentProps {
   filteredTasks: Task[];
+  allTasks: Task[];
   expandedColumn: string;
   onColumnToggle: (columnId: string) => void;
   onTaskMove: (taskId: string, newQueue: TaskQueue) => void;
@@ -27,6 +29,7 @@ interface KanbanContentProps {
 
 const KanbanContent = ({
   filteredTasks,
+  allTasks,
   expandedColumn,
   onColumnToggle,
   onTaskMove,
@@ -40,7 +43,11 @@ const KanbanContent = ({
   lockedColumns
 }: KanbanContentProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
-    return filteredTasks.filter(task => task.queue === queue);
+    return filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
+  };
+
+  const getCompletedTasksByQueue = (queue: TaskQueue) => {
+    return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
   };
 
   // Auto-expand columns with search matches, but only if they're not locked
@@ -60,13 +67,14 @@ const KanbanContent = ({
   }, [searchTerm, filteredTasks, setExpandedColumn, lockedColumns]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-2">
+    <div className="flex-1 overflow-y-auto px-1">
       {columns.map((column) => (
         <VerticalKanbanColumn
           key={column.id}
           title={column.title}
           color={column.color}
           count={getTasksByQueue(column.id as TaskQueue).length}
+          completedCount={getCompletedTasksByQueue(column.id as TaskQueue)}
           isExpanded={expandedColumn === column.id}
           onToggle={() => onColumnToggle(column.id)}
           isLocked={lockedColumns.includes(column.id)}
