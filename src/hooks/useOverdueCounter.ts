@@ -15,13 +15,13 @@ export const useOverdueCounter = (dueDate: string) => {
 
     const updateCounter = () => {
       try {
-        // Parse the task date using our Paris-aware function
+        // Parse the task date (already in Paris time format)
         const taskDueDate = parseTaskDate(dueDate);
         const currentParisTime = getCurrentParisTime();
         
         console.log(`Task due: ${dueDate}`);
-        console.log(`Parsed due date (Paris): ${taskDueDate.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
-        console.log(`Current time (Paris): ${currentParisTime.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`);
+        console.log(`Parsed due date (Paris): ${taskDueDate.toLocaleString("fr-FR")}`);
+        console.log(`Current time (Paris): ${currentParisTime.toLocaleString("fr-FR")}`);
         
         const diff = currentParisTime.getTime() - taskDueDate.getTime();
         console.log(`Diff (ms): ${diff}`);

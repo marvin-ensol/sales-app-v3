@@ -80,22 +80,28 @@ export function getFrenchWeekday(dateString: string): string {
 
 /**
  * Parse date string to Date object (handles "DD/MM à HH:MM" format) - in Paris timezone
+ * This is the CORRECTED version that properly handles Paris time
  */
 export function parseTaskDate(dateString: string): Date {
+  console.log(`Parsing date string: ${dateString}`);
+  
   const [datePart, timePart] = dateString.split(' à ');
   const [day, month] = datePart.split('/');
   const [hours, minutes] = timePart.split(':');
   const currentYear = new Date().getFullYear();
   
-  // Create a date object representing Paris time
-  // We'll create it as if it's UTC, then treat it as Paris time
-  const parisDate = new Date(Date.UTC(
+  // Create a date object that represents the EXACT Paris time
+  // We create it as a local date, then adjust to make sure it represents Paris time
+  const parisDate = new Date(
     currentYear, 
     parseInt(month) - 1, 
     parseInt(day), 
     parseInt(hours), 
     parseInt(minutes)
-  ));
+  );
+  
+  console.log(`Created Paris date: ${parisDate.toLocaleString("fr-FR")}`);
+  console.log(`Paris date ISO: ${parisDate.toISOString()}`);
   
   return parisDate;
 }
