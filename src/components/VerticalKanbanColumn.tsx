@@ -12,6 +12,7 @@ interface VerticalKanbanColumnProps {
   isExpanded: boolean;
   onToggle: () => void;
   isLocked?: boolean;
+  hasContent?: boolean;
 }
 
 const VerticalKanbanColumn = ({ 
@@ -22,16 +23,24 @@ const VerticalKanbanColumn = ({
   children, 
   isExpanded,
   onToggle,
-  isLocked = false
+  isLocked = false,
+  hasContent = false
 }: VerticalKanbanColumnProps) => {
-  const hasContent = count > 0;
+  // Column can be expanded if it has content and is not locked
   const canExpand = hasContent && !isLocked;
+  
+  const handleToggle = () => {
+    console.log(`Column ${title}: canExpand=${canExpand}, isLocked=${isLocked}, hasContent=${hasContent}`);
+    if (canExpand) {
+      onToggle();
+    }
+  };
   
   return (
     <div className="border-b border-gray-200">
       <div 
         className={`p-3 transition-colors ${color} ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
-        onClick={canExpand ? onToggle : undefined}
+        onClick={handleToggle}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -44,7 +44,13 @@ const KanbanContent = ({
   lockedColumns
 }: KanbanContentProps) => {
   const getTasksByQueue = (queue: TaskQueue) => {
-    return filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
+    const tasks = filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
+    // Ensure unique tasks by ID to prevent duplicate key errors
+    const uniqueTasks = tasks.filter((task, index, arr) => 
+      arr.findIndex(t => t.id === task.id) === index
+    );
+    console.log(`Queue ${queue}: ${tasks.length} tasks (${uniqueTasks.length} unique)`);
+    return uniqueTasks;
   };
 
   const getCompletedTasksByQueue = (queue: TaskQueue) => {
@@ -69,35 +75,42 @@ const KanbanContent = ({
 
   return (
     <div className="flex-1 overflow-y-auto px-1">
-      {columns.map((column) => (
-        <VerticalKanbanColumn
-          key={column.id}
-          title={column.title}
-          color={column.color}
-          count={getTasksByQueue(column.id as TaskQueue).length}
-          completedCount={getCompletedTasksByQueue(column.id as TaskQueue)}
-          isExpanded={expandedColumn === column.id}
-          onToggle={() => onColumnToggle(column.id)}
-          isLocked={lockedColumns.includes(column.id)}
-        >
-          {getTasksByQueue(column.id as TaskQueue).map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
-              onFrameUrlChange={onFrameUrlChange}
-              showOwner={false}
-              onTaskAssigned={onTaskAssigned}
-              selectedOwnerId={selectedOwnerId}
-            />
-          ))}
-          {getTasksByQueue(column.id as TaskQueue).length === 0 && !tasksLoading && ownerSelectionInitialized && (
-            <div className="text-center text-gray-500 py-8">
-              No tasks
-            </div>
-          )}
-        </VerticalKanbanColumn>
-      ))}
+      {columns.map((column) => {
+        const columnTasks = getTasksByQueue(column.id as TaskQueue);
+        const isLocked = lockedColumns.includes(column.id);
+        const hasContent = columnTasks.length > 0;
+        
+        return (
+          <VerticalKanbanColumn
+            key={column.id}
+            title={column.title}
+            color={column.color}
+            count={columnTasks.length}
+            completedCount={getCompletedTasksByQueue(column.id as TaskQueue)}
+            isExpanded={expandedColumn === column.id}
+            onToggle={() => onColumnToggle(column.id)}
+            isLocked={isLocked}
+            hasContent={hasContent}
+          >
+            {columnTasks.map((task) => (
+              <TaskCard
+                key={`${task.id}-${task.queue}`}
+                task={task}
+                onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
+                onFrameUrlChange={onFrameUrlChange}
+                showOwner={false}
+                onTaskAssigned={onTaskAssigned}
+                selectedOwnerId={selectedOwnerId}
+              />
+            ))}
+            {columnTasks.length === 0 && !tasksLoading && ownerSelectionInitialized && (
+              <div className="text-center text-gray-500 py-8">
+                No tasks
+              </div>
+            )}
+          </VerticalKanbanColumn>
+        );
+      })}
     </div>
   );
 };
