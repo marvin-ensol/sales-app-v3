@@ -1,9 +1,10 @@
 
+import { useState } from "react";
 import { RefreshCw, Search, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import OwnerSelector from "./OwnerSelector";
-import { HubSpotOwner } from "@/types/task";
+import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
 
 interface KanbanHeaderProps {
   owners: HubSpotOwner[];
@@ -15,7 +16,7 @@ interface KanbanHeaderProps {
   onSearchChange: (search: string) => void;
   onRefresh: () => void;
   isLoading: boolean;
-  onDebugTotalCounts?: () => void; // Add debug function prop
+  onDebugTotalCounts?: () => void;
 }
 
 const KanbanHeader = ({
@@ -30,6 +31,8 @@ const KanbanHeader = ({
   isLoading,
   onDebugTotalCounts
 }: KanbanHeaderProps) => {
+  const [isOwnerSelectorOpen, setIsOwnerSelectorOpen] = useState(false);
+
   return (
     <div className="bg-white border-b border-gray-200 p-4">
       <div className="flex items-center justify-between gap-4">
@@ -38,6 +41,8 @@ const KanbanHeader = ({
             owners={owners}
             selectedOwnerId={selectedOwnerId}
             onOwnerChange={onOwnerChange}
+            isOpen={isOwnerSelectorOpen}
+            onOpenChange={setIsOwnerSelectorOpen}
             ownerSelectionInitialized={ownerSelectionInitialized}
             getSelectedOwnerName={getSelectedOwnerName}
           />
