@@ -2,6 +2,8 @@
 import KanbanBoard from "@/components/KanbanBoard";
 
 const Index = () => {
+  console.log('=== INDEX PAGE RENDERING ===');
+  
   const handleFrameUrlChange = (url: string) => {
     console.log('Opening HubSpot URL in new tab:', url);
     window.open(url, '_blank');
