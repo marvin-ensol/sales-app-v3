@@ -8,6 +8,7 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isVisibleRef = useRef(true);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track page visibility
   useEffect(() => {
@@ -75,6 +76,19 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     }
   };
 
+  // Debounced fetch function to prevent realtime update storms
+  const debouncedFetch = (ownerId: string) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      if (isVisibleRef.current) {
+        fetchTasks(ownerId);
+      }
+    }, 500); // 500ms debounce
+  };
+
   // Set up realtime subscriptions for instant updates from background sync
   useEffect(() => {
     if (!selectedOwnerId) return;
@@ -93,16 +107,17 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
         (payload) => {
           console.log('Realtime task update:', payload);
           
-          // Refetch tasks when database changes (from background sync)
-          if (isVisibleRef.current) {
-            fetchTasks(selectedOwnerId);
-          }
+          // Use debounced fetch to prevent storms
+          debouncedFetch(selectedOwnerId);
         }
       )
       .subscribe();
 
     return () => {
       console.log('Cleaning up realtime subscription');
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
       supabase.removeChannel(channel);
     };
   }, [selectedOwnerId]);
@@ -156,6 +171,15 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
         
         console.log('Queue breakdown:', queueBreakdown);
         
+        // Break down by owner for not_started tasks
+        const ownerBreakdown = notStarted.reduce((acc, task) => {
+          const owner = task.owner || 'unassigned';
+          acc[owner] = (acc[owner] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        console.log('Not started tasks by owner:', ownerBreakdown);
+        
         // Check for tasks with contacts
         const tasksWithContacts = dbTasks?.filter(t => t.contact_id) || [];
         const tasksWithoutContacts = dbTasks?.filter(t => !t.contact_id) || [];
@@ -186,6 +210,6 @@ export const useHubSpotTasks = (selectedOwnerId: string) => {
     loading,
     error,
     refetch,
-    debugTotalCounts // Add debug function to the return
+    debugTotalCounts
   };
 };

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0'
 
@@ -10,11 +9,41 @@ const corsHeaders = {
 async function getTasksFromDatabase(supabase: any, ownerId?: string) {
   console.log(`Fetching tasks from database${ownerId ? ` for owner ${ownerId}` : ''}...`);
 
+  // First, let's get more debugging info about what's in the database
+  const { data: allTasks, error: allError } = await supabase
+    .from('tasks')
+    .select('*');
+
+  if (allError) {
+    console.error('Error fetching all tasks for debugging:', allError);
+  } else {
+    console.log(`DEBUG: Total tasks in database: ${allTasks?.length || 0}`);
+    
+    // Check owner distribution
+    const ownerBreakdown = allTasks?.reduce((acc, task) => {
+      const owner = task.owner || 'unassigned';
+      acc[owner] = (acc[owner] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+    
+    console.log('DEBUG: Owner breakdown:', ownerBreakdown);
+    
+    // Check status distribution
+    const statusBreakdown = allTasks?.reduce((acc, task) => {
+      acc[task.status] = (acc[task.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+    
+    console.log('DEBUG: Status breakdown:', statusBreakdown);
+  }
+
   let query = supabase.from('tasks').select('*');
   
   if (ownerId) {
-    // Get tasks that are either assigned to this owner or unassigned new tasks
-    query = query.or(`owner.eq.${ownerId},and(queue.eq.new,is_unassigned.eq.true)`);
+    // More permissive filtering - let's see what we get
+    // Get tasks for this owner OR unassigned new tasks OR tasks from key queues
+    query = query.or(`owner.eq.${ownerId},and(queue.eq.new,is_unassigned.eq.true),queue.eq.rappels,queue.eq.attempted`);
+    console.log(`DEBUG: Applied owner filter for ${ownerId} with permissive queue filtering`);
   }
 
   const { data, error } = await query;
@@ -25,6 +54,28 @@ async function getTasksFromDatabase(supabase: any, ownerId?: string) {
   }
 
   console.log(`Fetched ${data?.length || 0} tasks from database`);
+  
+  // Debug the filtered results
+  if (data && data.length > 0) {
+    const filteredOwnerBreakdown = data.reduce((acc, task) => {
+      const owner = task.owner || 'unassigned';
+      acc[owner] = (acc[owner] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const filteredQueueBreakdown = data.reduce((acc, task) => {
+      acc[task.queue] = (acc[task.queue] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    console.log('DEBUG: Filtered results - Owner breakdown:', filteredOwnerBreakdown);
+    console.log('DEBUG: Filtered results - Queue breakdown:', filteredQueueBreakdown);
+    console.log('DEBUG: Filtered results - Status breakdown:', data.reduce((acc, task) => {
+      acc[task.status] = (acc[task.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>));
+  }
+  
   return data || [];
 }
 
@@ -70,8 +121,10 @@ serve(async (req) => {
       const body = await req.json()
       ownerId = body?.ownerId
       forceFullSync = body?.forceFullSync || false
+      console.log(`DEBUG: Request params - ownerId: ${ownerId}, forceFullSync: ${forceFullSync}`);
     } catch (e) {
       // No body or invalid JSON, continue without owner filter
+      console.log('DEBUG: No request body or invalid JSON');
     }
 
     // If force refresh is requested, trigger background sync first
@@ -106,6 +159,8 @@ serve(async (req) => {
       isUnassigned: task.is_unassigned,
       completionDate: task.completion_date ? new Date(task.completion_date) : null
     }));
+
+    console.log(`DEBUG: Returning ${responseTasks.length} tasks to frontend`);
 
     return new Response(
       JSON.stringify({ 
