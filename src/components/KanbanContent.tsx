@@ -46,9 +46,26 @@ const KanbanContent = ({
     return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
   };
 
+  // Sort columns: first those with tasks, then those without, maintaining original order within each group
+  const sortedColumns = [...KANBAN_COLUMNS].sort((a, b) => {
+    const aTaskCount = getTasksByQueue(a.id as TaskQueue).length;
+    const bTaskCount = getTasksByQueue(b.id as TaskQueue).length;
+    
+    // If both have tasks or both are empty, maintain original order
+    if ((aTaskCount > 0 && bTaskCount > 0) || (aTaskCount === 0 && bTaskCount === 0)) {
+      return KANBAN_COLUMNS.findIndex(col => col.id === a.id) - KANBAN_COLUMNS.findIndex(col => col.id === b.id);
+    }
+    
+    // Columns with tasks come first
+    if (aTaskCount > 0 && bTaskCount === 0) return -1;
+    if (aTaskCount === 0 && bTaskCount > 0) return 1;
+    
+    return 0;
+  });
+
   return (
     <div className="flex-1 overflow-y-auto px-1">
-      {KANBAN_COLUMNS.map((column) => {
+      {sortedColumns.map((column) => {
         const columnTasks = getTasksByQueue(column.id as TaskQueue);
         const isLocked = lockedColumns.includes(column.id);
         const hasContent = columnTasks.length > 0;
