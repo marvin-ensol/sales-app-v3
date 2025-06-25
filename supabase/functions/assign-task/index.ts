@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -20,11 +21,11 @@ async function getCurrentUser() {
   };
 }
 
-async function checkContactOwnership(contactId: string, hubspotToken: string) {
-  console.log('Checking contact ownership for:', contactId);
+async function checkTaskOwnership(taskId: string, hubspotToken: string) {
+  console.log('Checking task ownership for:', taskId);
   
   const response = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}?properties=hubspot_owner_id`,
+    `https://api.hubapi.com/crm/v3/objects/tasks/${taskId}?properties=hubspot_owner_id`,
     {
       method: 'GET',
       headers: {
@@ -36,14 +37,14 @@ async function checkContactOwnership(contactId: string, hubspotToken: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Failed to check contact ownership: ${response.status} - ${errorText}`);
-    throw new Error(`Failed to check contact ownership: ${response.status}`);
+    console.error(`Failed to check task ownership: ${response.status} - ${errorText}`);
+    throw new Error(`Failed to check task ownership: ${response.status}`);
   }
 
-  const contactData = await response.json();
-  const ownerId = contactData.properties?.hubspot_owner_id;
+  const taskData = await response.json();
+  const ownerId = taskData.properties?.hubspot_owner_id;
   
-  console.log('Contact owner ID:', ownerId);
+  console.log('Task owner ID:', ownerId);
   return ownerId;
 }
 
@@ -161,14 +162,14 @@ serve(async (req) => {
     // Get current user (in a real app, this would come from authentication)
     const currentUser = await getCurrentUser()
     
-    // Check if contact is still unassigned
-    const currentContactOwner = await checkContactOwnership(contactId, hubspotToken)
+    // Check if task is still unassigned
+    const currentTaskOwner = await checkTaskOwnership(taskId, hubspotToken)
     
-    if (currentContactOwner && currentContactOwner !== null && currentContactOwner !== '') {
-      console.log('Contact already assigned to owner:', currentContactOwner)
+    if (currentTaskOwner && currentTaskOwner !== null && currentTaskOwner !== '') {
+      console.log('Task already assigned to owner:', currentTaskOwner)
       return new Response(
         JSON.stringify({ 
-          error: 'Contact is already assigned to another owner',
+          error: 'Task is already assigned to another owner',
           success: false
         }),
         { 
@@ -180,11 +181,11 @@ serve(async (req) => {
       )
     }
 
-    // Assign contact to specified owner
-    await assignContactToOwner(contactId, ownerId, hubspotToken)
-    
-    // Assign task to specified owner
+    // Assign task to specified owner first
     await assignTaskToOwner(taskId, ownerId, hubspotToken)
+    
+    // Then assign contact to specified owner (this can overwrite existing contact owner)
+    await assignContactToOwner(contactId, ownerId, hubspotToken)
 
     console.log('Task and contact assignment completed successfully')
 
