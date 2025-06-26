@@ -12,6 +12,7 @@ interface VerticalKanbanColumnProps {
   isExpanded: boolean;
   onToggle: () => void;
   isLocked?: boolean;
+  isLockedFromExpansion?: boolean; // New prop for expansion locking
   hasContent?: boolean;
 }
 
@@ -24,15 +25,17 @@ const VerticalKanbanColumn = ({
   isExpanded,
   onToggle,
   isLocked = false,
+  isLockedFromExpansion = false,
   hasContent = false
 }: VerticalKanbanColumnProps) => {
-  // Column can be expanded if it has content (locked or not)
-  const canExpand = hasContent;
+  // Column can be expanded if it has content and is not locked from expansion
+  const canExpand = hasContent && !isLockedFromExpansion;
   
   const handleToggle = () => {
     console.log(`=== TOGGLE DEBUG FOR ${title} ===`);
     console.log(`canExpand: ${canExpand}`);
     console.log(`isLocked: ${isLocked}`);
+    console.log(`isLockedFromExpansion: ${isLockedFromExpansion}`);
     console.log(`hasContent: ${hasContent}`);
     console.log(`count: ${count}`);
     console.log(`isExpanded before toggle: ${isExpanded}`);
@@ -47,7 +50,7 @@ const VerticalKanbanColumn = ({
   };
   
   console.log(`=== RENDER ${title} ===`);
-  console.log(`isExpanded: ${isExpanded}, hasContent: ${hasContent}, canExpand: ${canExpand}`);
+  console.log(`isExpanded: ${isExpanded}, hasContent: ${hasContent}, canExpand: ${canExpand}, isLockedFromExpansion: ${isLockedFromExpansion}`);
   
   return (
     <div className="border-b border-gray-200">
@@ -64,11 +67,14 @@ const VerticalKanbanColumn = ({
                 <ChevronRight className="h-4 w-4 text-gray-600" />
               )
             )}
-            {isLocked && hasContent && (
+            {isLockedFromExpansion && hasContent && (
               <Lock className="h-4 w-4 text-gray-500" />
             )}
-            {!canExpand && !isLocked && <div className="w-4 h-4" />}
-            <h3 className={`font-semibold ${isLocked ? 'text-gray-500' : 'text-gray-900'}`}>
+            {isLocked && hasContent && !isLockedFromExpansion && (
+              <Lock className="h-4 w-4 text-gray-500" />
+            )}
+            {!canExpand && !isLocked && !isLockedFromExpansion && <div className="w-4 h-4" />}
+            <h3 className={`font-semibold ${isLocked || isLockedFromExpansion ? 'text-gray-500' : 'text-gray-900'}`}>
               {title}
             </h3>
           </div>

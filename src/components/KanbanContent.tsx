@@ -21,6 +21,7 @@ interface KanbanContentProps {
   onTaskAssigned?: () => void;
   selectedOwnerId: string;
   lockedColumns: string[];
+  lockedExpandableColumns?: string[]; // New prop for expansion locking
 }
 
 const KanbanContent = ({
@@ -34,7 +35,8 @@ const KanbanContent = ({
   ownerSelectionInitialized,
   onTaskAssigned,
   selectedOwnerId,
-  lockedColumns
+  lockedColumns,
+  lockedExpandableColumns = []
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
 
@@ -89,6 +91,7 @@ const KanbanContent = ({
       {sortedColumns.map((column) => {
         const columnTasks = getTasksByQueue(column.id as TaskQueue);
         const isLocked = lockedColumns.includes(column.id);
+        const isLockedFromExpansion = lockedExpandableColumns.includes(column.id);
         const hasContent = columnTasks.length > 0;
         
         return (
@@ -101,6 +104,7 @@ const KanbanContent = ({
             isExpanded={expandedColumn === column.id}
             onToggle={() => onColumnToggle(column.id)}
             isLocked={isLocked}
+            isLockedFromExpansion={isLockedFromExpansion}
             hasContent={hasContent}
           >
             {columnTasks.map((task) => (

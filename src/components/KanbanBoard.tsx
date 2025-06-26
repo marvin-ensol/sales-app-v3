@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { TaskQueue } from "@/types/task";
 import KanbanHeader from "./KanbanHeader";
@@ -43,12 +42,12 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   console.log('Task filtering result:', { notStartedTasks: notStartedTasks?.length, hasNewTasks, filteredTasks: filteredTasks?.length });
   
   // Column state management
-  const { expandedColumn, handleColumnToggle } = useColumnState({
+  const { expandedColumn, handleColumnToggle, lockedExpandableColumns } = useColumnState({
     notStartedTasks,
     hasNewTasks,
     lockedColumns
   });
-  console.log('Column state result:', { expandedColumn });
+  console.log('Column state result:', { expandedColumn, lockedExpandableColumns });
   
   // Task assignment
   const { assignTask } = useTaskAssignment();
@@ -133,6 +132,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onTaskAssigned={handleTaskAssigned}
         selectedOwnerId={selectedOwnerId}
         lockedColumns={lockedColumns}
+        lockedExpandableColumns={lockedExpandableColumns}
       />
     </div>
   );
