@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
 import OwnerSelector from "./OwnerSelector";
-import ThemeToggle from "./ThemeToggle";
 
 interface KanbanHeaderProps {
   owners: HubSpotOwner[];
@@ -37,8 +36,8 @@ const KanbanHeader = ({
   };
 
   return (
-    <div className="p-3 border-b border-gray-200 space-y-3 bg-white dark:bg-background dark:border-border">
-      {/* Owner Selection, Refresh Button, and Theme Toggle */}
+    <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
+      {/* Owner Selection and Refresh Button */}
       <div className="flex items-center gap-2">
         <OwnerSelector
           owners={owners}
@@ -59,8 +58,6 @@ const KanbanHeader = ({
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
         </Button>
-
-        <ThemeToggle />
       </div>
 
       {/* Search */}

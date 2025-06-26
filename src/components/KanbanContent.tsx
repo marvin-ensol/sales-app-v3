@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
@@ -86,7 +87,7 @@ const KanbanContent = ({
   });
 
   return (
-    <div className="flex-1 overflow-y-auto px-1 bg-gray-50 dark:bg-background">
+    <div className="flex-1 overflow-y-auto px-1">
       {sortedColumns.map((column) => {
         const columnTasks = getTasksByQueue(column.id as TaskQueue);
         const isLocked = lockedColumns.includes(column.id);
@@ -118,7 +119,7 @@ const KanbanContent = ({
               />
             ))}
             {columnTasks.length === 0 && !tasksLoading && ownerSelectionInitialized && (
-              <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+              <div className="text-center text-gray-500 py-8">
                 No tasks
               </div>
             )}
@@ -132,7 +133,7 @@ const KanbanContent = ({
             variant="ghost"
             size="sm"
             onClick={() => setShowEmptyCategories(!showEmptyCategories)}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="text-gray-500 hover:text-gray-700 bg-transparent hover:bg-gray-50"
           >
             {showEmptyCategories ? (
               <>
