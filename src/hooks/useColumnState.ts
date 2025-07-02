@@ -59,7 +59,7 @@ export const useColumnState = ({
   const getLockedExpandableColumns = () => {
     if (hasNewTasks) {
       // When there are new tasks, lock all columns except "new" and "rappels"
-      return ["attempted", "autres", "simulations", "communications"];
+      return ["attempted", "other", "simulations", "communications"];
     }
     return [];
   };
