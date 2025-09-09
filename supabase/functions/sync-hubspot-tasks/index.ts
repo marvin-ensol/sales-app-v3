@@ -325,6 +325,10 @@ serve(async (req) => {
             const taskDealMap: { [taskId: string]: string } = {};
             const finalTaskContactMap = { ...taskContactMap };
             
+            // 🔍 DEBUG: Focus on task 285193363680
+            const debugTaskId = "285193363680";
+            console.log(`🎯 [DEBUG] Starting task-deal association process for target task ${debugTaskId}`);
+            
             if (allTasks.length > 0) {
               sendOperationUpdate('task-deal-associations', 'running', `Fetching task-deal associations for ${allTasks.length} tasks...`);
               
@@ -348,9 +352,28 @@ serve(async (req) => {
                     }),
                   });
 
+                  // 🔍 DEBUG: Log the API request for our target task
+                  if (batchTaskIds.includes(debugTaskId)) {
+                    console.log(`🎯 [DEBUG] API request for task-deal associations includes target task ${debugTaskId}`);
+                    console.log(`🎯 [DEBUG] API request body:`, JSON.stringify({
+                      inputs: batchTaskIds.map(id => ({ id }))
+                    }));
+                  }
+
                   if (taskDealResponse.ok) {
                     const taskDealData = await taskDealResponse.json();
+                    
+                    // 🔍 DEBUG: Log the API response for our target task
+                    if (batchTaskIds.includes(debugTaskId)) {
+                      console.log(`🎯 [DEBUG] Task-deal API response for batch including ${debugTaskId}:`, JSON.stringify(taskDealData, null, 2));
+                    }
+                    
                     for (const result of taskDealData.results) {
+                      // 🔍 DEBUG: Log processing for our target task
+                      if (result.from.id === debugTaskId) {
+                        console.log(`🎯 [DEBUG] Processing task-deal result for ${debugTaskId}:`, JSON.stringify(result, null, 2));
+                      }
+                      
                       if (result.to && result.to.length > 0) {
                         const dealId = result.to[0].id;
                         // Validate deal ID before storing
@@ -360,8 +383,23 @@ serve(async (req) => {
                             console.log(`📝 Task ${result.from.id} has ${result.to.length} associated deals, selecting oldest...`);
                           }
                           taskDealMap[result.from.id] = dealId;
+                          
+                          // 🔍 DEBUG: Log deal mapping for our target task
+                          if (result.from.id === debugTaskId) {
+                            console.log(`🎯 [DEBUG] Successfully mapped task ${debugTaskId} to deal ${dealId}`);
+                          }
                         } else {
                           console.warn(`⚠️ Invalid deal ID for task ${result.from.id}:`, dealId);
+                          
+                          // 🔍 DEBUG: Log invalid deal for our target task
+                          if (result.from.id === debugTaskId) {
+                            console.log(`🎯 [DEBUG] FAILED - Invalid deal ID for target task ${debugTaskId}:`, dealId);
+                          }
+                        }
+                      } else {
+                        // 🔍 DEBUG: Log no deals found for our target task
+                        if (result.from.id === debugTaskId) {
+                          console.log(`🎯 [DEBUG] No deals found for target task ${debugTaskId}`);
                         }
                       }
                     }
@@ -377,6 +415,14 @@ serve(async (req) => {
               
               console.log(`🔗 Found ${Object.keys(taskDealMap).length} task-deal associations`);
               
+              // 🔍 DEBUG: Check if our target task has a deal mapping
+              if (taskDealMap[debugTaskId]) {
+                console.log(`🎯 [DEBUG] Target task ${debugTaskId} is mapped to deal: ${taskDealMap[debugTaskId]}`);
+              } else {
+                console.log(`🎯 [DEBUG] PROBLEM - Target task ${debugTaskId} has NO deal mapping in taskDealMap`);
+                console.log(`🎯 [DEBUG] Full taskDealMap:`, taskDealMap);
+              }
+              
               // Identify tasks without direct contact associations to enhance via deal chains
               const tasksWithoutContacts = allTasks.filter(task => !taskContactMap[task.id]);
               console.log(`🔍 Found ${tasksWithoutContacts.length} tasks without direct contact associations, attempting to resolve via deals...`);
@@ -388,10 +434,23 @@ serve(async (req) => {
                 const uniqueDealIds = [...new Set(Object.values(taskDealMap))].filter(id => id && String(id).trim());
                 const dealContactMap: { [dealId: string]: string } = {};
                 
+                // 🔍 DEBUG: Check if our expected deal is in the unique deals list
+                const expectedDealId = "302135751893";
+                if (uniqueDealIds.includes(expectedDealId)) {
+                  console.log(`🎯 [DEBUG] Expected deal ${expectedDealId} found in uniqueDealIds list`);
+                } else {
+                  console.log(`🎯 [DEBUG] PROBLEM - Expected deal ${expectedDealId} NOT found in uniqueDealIds:`, uniqueDealIds);
+                }
+                
                 // Batch fetch deal-contact associations
                 for (let i = 0; i < uniqueDealIds.length; i += taskDealBatchSize) {
                   const batchDealIds = uniqueDealIds.slice(i, i + taskDealBatchSize);
                   console.log(`🔗 Fetching deal-contact associations batch ${Math.floor(i / taskDealBatchSize) + 1}/${Math.ceil(uniqueDealIds.length / taskDealBatchSize)} (${batchDealIds.length} deals)...`);
+                  
+                  // 🔍 DEBUG: Log if our expected deal is in this batch
+                  if (batchDealIds.includes(expectedDealId)) {
+                    console.log(`🎯 [DEBUG] Expected deal ${expectedDealId} is in this batch`);
+                  }
 
                   try {
                     const dealContactResponse = await fetch('https://api.hubapi.com/crm/v4/associations/deals/contacts/batch/read', {
@@ -407,13 +466,34 @@ serve(async (req) => {
 
                     if (dealContactResponse.ok) {
                       const dealContactData = await dealContactResponse.json();
+                      
+                      // 🔍 DEBUG: Log the API response if our expected deal is in this batch
+                      if (batchDealIds.includes(expectedDealId)) {
+                        console.log(`🎯 [DEBUG] Deal-contact API response for batch including deal ${expectedDealId}:`, JSON.stringify(dealContactData, null, 2));
+                      }
+                      
                       for (const result of dealContactData.results) {
+                        // 🔍 DEBUG: Log processing for our expected deal
+                        if (result.from.id === expectedDealId) {
+                          console.log(`🎯 [DEBUG] Processing deal-contact result for deal ${expectedDealId}:`, JSON.stringify(result, null, 2));
+                        }
+                        
                         if (result.to && result.to.length > 0) {
                           // If multiple contacts, select the oldest one
                           if (result.to.length > 1) {
                             console.log(`📝 Deal ${result.from.id} has ${result.to.length} associated contacts, selecting oldest...`);
                           }
                           dealContactMap[result.from.id] = result.to[0].id; // For now, take first - we'll sort by createdate later
+                          
+                          // 🔍 DEBUG: Log contact mapping for our expected deal
+                          if (result.from.id === expectedDealId) {
+                            console.log(`🎯 [DEBUG] Successfully mapped deal ${expectedDealId} to contact ${result.to[0].id}`);
+                          }
+                        } else {
+                          // 🔍 DEBUG: Log no contacts found for our expected deal
+                          if (result.from.id === expectedDealId) {
+                            console.log(`🎯 [DEBUG] No contacts found for deal ${expectedDealId}`);
+                          }
                         }
                       }
                     } else {
@@ -436,6 +516,9 @@ serve(async (req) => {
                 
                 console.log(`🔗 Found ${Object.keys(dealContactMap).length} deal-contact associations`);
                 
+                // 🔍 DEBUG: Log the dealContactMap state
+                console.log(`🎯 [DEBUG] dealContactMap:`, dealContactMap);
+                
                 // Now resolve the full task -> deal -> contact chain ONLY for tasks without direct contact associations
                 let resolvedTaskContacts = 0;
                 for (const [taskId, dealId] of Object.entries(taskDealMap)) {
@@ -445,8 +528,30 @@ serve(async (req) => {
                     if (contactId) {
                       finalTaskContactMap[taskId] = contactId;
                       resolvedTaskContacts++;
+                      
+                      // 🔍 DEBUG: Log resolution for our target task
+                      if (taskId === debugTaskId) {
+                        console.log(`🎯 [DEBUG] Successfully resolved contact for task ${debugTaskId}: ${contactId} via deal ${dealId}`);
+                      }
+                    } else {
+                      // 🔍 DEBUG: Log failed resolution for our target task
+                      if (taskId === debugTaskId) {
+                        console.log(`🎯 [DEBUG] FAILED to resolve contact for task ${debugTaskId}: dealContactMap[${dealId}] = ${dealContactMap[dealId]}`);
+                      }
+                    }
+                  } else {
+                    // 🔍 DEBUG: Log that task already has direct contact
+                    if (taskId === debugTaskId) {
+                      console.log(`🎯 [DEBUG] Task ${debugTaskId} already has direct contact association: ${taskContactMap[taskId]}`);
                     }
                   }
+                }
+                
+                // 🔍 DEBUG: Final state for our target task
+                if (finalTaskContactMap[debugTaskId]) {
+                  console.log(`🎯 [DEBUG] Final contact resolution for task ${debugTaskId}: ${finalTaskContactMap[debugTaskId]}`);
+                } else {
+                  console.log(`🎯 [DEBUG] FINAL FAILURE - Task ${debugTaskId} has NO contact in finalTaskContactMap`);
                 }
                 
                 console.log(`✅ Resolved ${resolvedTaskContacts} additional task-contact relationships via deals`);
