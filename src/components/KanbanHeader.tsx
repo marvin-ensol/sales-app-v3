@@ -40,7 +40,7 @@ const KanbanHeader = ({
 
   return (
     <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
-      {/* Owner Selection and Refresh Button */}
+      {/* Owner Selection and Status */}
       <div className="flex items-center gap-2">
         <OwnerSelector
           owners={owners}

@@ -1,221 +1,124 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-
+const HUBSPOT_API_TOKEN = Deno.env.get('HUBSPOT_API_TOKEN');
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-interface AssignTaskRequest {
-  taskId: string;
-  contactId: string;
-  ownerId: string;
-}
-
-async function getCurrentUser() {
-  // For now, we'll use a hardcoded user ID since we don't have authentication
-  // In a real scenario, this would come from the authenticated user
-  return {
-    id: "29270912", // This should be replaced with actual user authentication
-    hubspotOwnerId: "29270912"
-  };
-}
-
-async function checkTaskOwnership(taskId: string, hubspotToken: string) {
-  console.log('Checking task ownership for:', taskId);
-  
-  const response = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/tasks/${taskId}?properties=hubspot_owner_id`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
-      }
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Failed to check task ownership: ${response.status} - ${errorText}`);
-    throw new Error(`Failed to check task ownership: ${response.status}`);
-  }
-
-  const taskData = await response.json();
-  const ownerId = taskData.properties?.hubspot_owner_id;
-  
-  console.log('Task owner ID:', ownerId);
-  return ownerId;
-}
-
-async function assignContactToOwner(contactId: string, ownerId: string, hubspotToken: string) {
-  console.log('Assigning contact', contactId, 'to owner', ownerId);
-  
-  const response = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: {
-          hubspot_owner_id: ownerId
-        }
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Failed to assign contact: ${response.status} - ${errorText}`);
-    
-    // Check for specific HubSpot scope error
-    if (response.status === 403) {
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData.category === 'MISSING_SCOPES') {
-          throw new Error('HubSpot access token missing required permissions to modify contacts. Please contact your HubSpot administrator to grant contact write permissions.');
-        }
-      } catch (parseError) {
-        // If we can't parse the error, fall back to generic message
-      }
-    }
-    
-    throw new Error(`Failed to assign contact: ${response.status}`);
-  }
-
-  const result = await response.json();
-  console.log('Contact assigned successfully');
-  return result;
-}
-
-async function assignTaskToOwner(taskId: string, ownerId: string, hubspotToken: string) {
-  console.log('Assigning task', taskId, 'to owner', ownerId);
-  
-  const response = await fetch(
-    `https://api.hubapi.com/crm/v3/objects/tasks/${taskId}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: {
-          hubspot_owner_id: ownerId
-        }
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Failed to assign task: ${response.status} - ${errorText}`);
-    
-    // Check for specific HubSpot scope error
-    if (response.status === 403) {
-      try {
-        const errorData = JSON.parse(errorText);
-        if (errorData.category === 'MISSING_SCOPES') {
-          throw new Error('HubSpot access token missing required permissions to modify tasks. Please contact your HubSpot administrator to grant task write permissions.');
-        }
-      } catch (parseError) {
-        // If we can't parse the error, fall back to generic message
-      }
-    }
-    
-    throw new Error(`Failed to assign task: ${response.status}`);
-  }
-
-  const result = await response.json();
-  console.log('Task assigned successfully');
-  return result;
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Starting task assignment...')
+    const { taskId, ownerId } = await req.json();
     
-    const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN')
-    
-    if (!hubspotToken) {
-      console.error('HubSpot access token not found in environment variables')
-      throw new Error('HubSpot access token not configured')
-    }
-
-    const body: AssignTaskRequest = await req.json()
-    const { taskId, contactId, ownerId } = body
-
-    if (!taskId || !contactId || !ownerId) {
-      throw new Error('Missing required parameters: taskId, contactId, and ownerId')
-    }
-
-    console.log('Assigning task:', taskId, 'for contact:', contactId, 'to owner:', ownerId)
-
-    // Get current user (in a real app, this would come from authentication)
-    const currentUser = await getCurrentUser()
-    
-    // Check if task is still unassigned
-    const currentTaskOwner = await checkTaskOwnership(taskId, hubspotToken)
-    
-    if (currentTaskOwner && currentTaskOwner !== null && currentTaskOwner !== '') {
-      console.log('Task already assigned to owner:', currentTaskOwner)
+    if (!taskId || !ownerId) {
+      console.error('Task ID and Owner ID are required');
       return new Response(
-        JSON.stringify({ 
-          error: 'Task is already assigned to another owner',
-          success: false
-        }),
+        JSON.stringify({ error: 'Task ID and Owner ID are required', success: false }),
         { 
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json' 
-          } 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      )
+      );
     }
 
-    // Assign task to specified owner first
-    await assignTaskToOwner(taskId, ownerId, hubspotToken)
-    
-    // Then assign contact to specified owner (this can overwrite existing contact owner)
-    await assignContactToOwner(contactId, ownerId, hubspotToken)
+    console.log(`🎯 [ASSIGNMENT] Assigning task ${taskId} to owner ${ownerId}`);
 
-    console.log('Task and contact assignment completed successfully')
+    // Step 1: Update task in HubSpot
+    const hubspotResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${HUBSPOT_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        properties: {
+          hubspot_owner_id: ownerId,
+          hubspot_owner_assigneddate: new Date().toISOString()
+        }
+      }),
+    });
+
+    if (!hubspotResponse.ok) {
+      const errorText = await hubspotResponse.text();
+      console.error('❌ [ASSIGNMENT] HubSpot API error:', errorText);
+      throw new Error(`HubSpot API error: ${hubspotResponse.status} ${errorText}`);
+    }
+
+    console.log('✅ [ASSIGNMENT] Task successfully assigned in HubSpot');
+
+    // Step 2: Update local database for immediate UI feedback
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get owner details for local update
+    const { data: ownerData } = await supabase
+      .from('hs_users')
+      .select('full_name')
+      .eq('owner_id', ownerId)
+      .single();
+
+    // Update local database
+    const { error: updateError } = await supabase
+      .from('hs_tasks')
+      .update({ 
+        hubspot_owner_id: ownerId,
+        hubspot_owner_assigneddate: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('hs_object_id', taskId);
+
+    if (updateError) {
+      console.warn('⚠️ [ASSIGNMENT] Failed to update local database:', updateError);
+      // Don't fail the request since HubSpot update succeeded
+    } else {
+      console.log('✅ [ASSIGNMENT] Local database updated successfully');
+    }
+
+    // Step 3: Record assignment metadata
+    const { error: metadataError } = await supabase
+      .from('sync_metadata')
+      .upsert({
+        owner_id: ownerId,
+        last_sync_timestamp: new Date().toISOString(),
+        last_sync_success: true
+      });
+
+    if (metadataError) {
+      console.warn('⚠️ [ASSIGNMENT] Failed to update sync metadata:', metadataError);
+    }
 
     return new Response(
       JSON.stringify({ 
-        success: true,
-        message: 'Task and contact assigned successfully'
+        success: true, 
+        message: 'Task assigned successfully',
+        taskId,
+        ownerId,
+        ownerName: ownerData?.full_name || 'Unknown',
+        timestamp: new Date().toISOString()
       }),
       { 
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in assign-task function:', error)
+    console.error('❌ [ASSIGNMENT] Assignment error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
-        success: false
+        error: `Assignment failed: ${error.message}`, 
+        success: false 
       }),
       { 
         status: 500, 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
-    )
+    );
   }
-})
+});

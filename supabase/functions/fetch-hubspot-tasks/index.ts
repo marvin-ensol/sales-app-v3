@@ -1,116 +1,104 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { CORS_HEADERS, TASK_STATUS } from './constants.ts';
-import { HubSpotApiClient } from './apiClient.ts';
-import { TaskFetcher } from './taskFetcher.ts';
-import { DataEnricher } from './dataEnricher.ts';
-import { OwnerManager } from './ownerManager.ts';
-import { TaskProcessor } from './taskProcessor.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-interface TaskFilterParams {
-  ownerId?: string;
-  hubspotToken: string;
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Starting HubSpot tasks fetch with pagination and staggered API calls...');
+    const { ownerId } = await req.json();
     
-    const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
-    
-    if (!hubspotToken) {
-      console.error('HubSpot access token not found in environment variables');
-      throw new Error('HubSpot access token not configured. Please check your environment variables.');
-    }
-
-    let ownerId = null;
-    try {
-      const body = await req.json();
-      ownerId = body?.ownerId;
-    } catch (e) {
-      // No body or invalid JSON, continue without owner filter
-    }
-
-    // Initialize service classes
-    const apiClient = new HubSpotApiClient(hubspotToken);
-    const taskFetcher = new TaskFetcher(apiClient);
-    const dataEnricher = new DataEnricher(apiClient);
-    const ownerManager = new OwnerManager(apiClient);
-    const taskProcessor = new TaskProcessor();
-
-    // Fetch all tasks
-    const tasks = await taskFetcher.fetchAllTasks(ownerId);
-    const taskIds = tasks.map(task => task.id);
-
-    // Fetch task associations
-    const taskContactMap = await dataEnricher.fetchTaskAssociations(taskIds);
-
-    // Filter tasks with contact associations
-    const filteredTasks = tasks.filter(task => {
-      const isCompleted = task.properties?.hs_task_status === TASK_STATUS.COMPLETED;
-      const hasContact = taskContactMap[task.id];
-      
-      if (isCompleted) {
-        return true;
-      } else {
-        if (!hasContact) {
-          console.log(`❌ DROPPED: Task ${task.id} has no contact association`);
-          return false;
+    if (!ownerId) {
+      console.error('Owner ID is required');
+      return new Response(
+        JSON.stringify({ error: 'Owner ID is required', success: false }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-        return true;
-      }
+      );
+    }
+
+    console.log(`🔄 [DATABASE] Fetching tasks for owner ${ownerId} from local database...`);
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Call the database function to get enriched tasks
+    const { data: tasks, error: dbError } = await supabase.rpc('get_owner_tasks', {
+      owner_id_param: ownerId
     });
 
-    console.log(`Filtered tasks: ${filteredTasks.length} out of ${tasks.length} total tasks`);
+    if (dbError) {
+      console.error('Database query error:', dbError);
+      return new Response(
+        JSON.stringify({ 
+          error: `Database query failed: ${dbError.message}`, 
+          success: false 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
-    // Fetch contact details
-    const contactIds = new Set(Object.values(taskContactMap));
-    const contacts = await dataEnricher.fetchContactDetails(contactIds);
+    console.log(`✅ [DATABASE] Successfully fetched ${tasks?.length || 0} tasks from database`);
 
-    // Fetch and filter owners
-    const { validOwnerIds, ownersMap } = await ownerManager.fetchValidOwners();
+    // Transform database result to match expected API format
+    const transformedTasks = (tasks || []).map(task => ({
+      id: task.id,
+      title: task.title || 'Untitled Task',
+      description: task.description,
+      contact: task.contact,
+      contactId: task.contact_id,
+      contactPhone: task.contact_phone,
+      status: task.status,
+      dueDate: task.due_date,
+      priority: task.priority,
+      owner: task.owner,
+      hubspotId: task.hubspot_id,
+      queue: task.queue,
+      queueIds: task.queue_ids || [],
+      isUnassigned: task.is_unassigned,
+      completionDate: task.completion_date
+    }));
 
-    // Process tasks
-    const tasksWithAllowedOwners = taskProcessor.filterTasksByValidOwners(filteredTasks, validOwnerIds);
-    const transformedTasks = taskProcessor.transformTasks(tasksWithAllowedOwners, taskContactMap, contacts, ownersMap);
-    const sortedTasks = taskProcessor.sortTasks(transformedTasks);
-
-    console.log('Final transformed and sorted tasks:', sortedTasks.length);
-    console.log('API calls completed with pagination and staggered delays to avoid rate limiting');
+    // Log performance metrics
+    console.log(`📊 [PERFORMANCE] Database query completed - ${tasks?.length || 0} tasks processed`);
 
     return new Response(
       JSON.stringify({ 
-        tasks: sortedTasks.map(({ taskDueDate, ...task }) => task),
-        total: sortedTasks.length,
-        success: true
+        success: true, 
+        tasks: transformedTasks,
+        source: 'database',
+        timestamp: new Date().toISOString()
       }),
       { 
-        headers: { 
-          ...CORS_HEADERS,
-          'Content-Type': 'application/json' 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
 
   } catch (error) {
-    console.error('Error in fetch-hubspot-tasks function:', error);
+    console.error('❌ [ERROR] Edge function error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
-        tasks: [],
-        total: 0,
-        success: false
+        error: `Edge function failed: ${error.message}`, 
+        success: false 
       }),
       { 
         status: 500, 
-        headers: { 
-          ...CORS_HEADERS, 
-          'Content-Type': 'application/json' 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
