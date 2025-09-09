@@ -17,28 +17,28 @@ export type Database = {
       hs_contacts: {
         Row: {
           created_at: string
+          createdate: string | null
           firstname: string | null
-          hs_createdate: string | null
-          hs_lastmodifieddate: string | null
           hs_object_id: string
+          lastmodifieddate: string | null
           lastname: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          createdate?: string | null
           firstname?: string | null
-          hs_createdate?: string | null
-          hs_lastmodifieddate?: string | null
           hs_object_id: string
+          lastmodifieddate?: string | null
           lastname?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          createdate?: string | null
           firstname?: string | null
-          hs_createdate?: string | null
-          hs_lastmodifieddate?: string | null
           hs_object_id?: string
+          lastmodifieddate?: string | null
           lastname?: string | null
           updated_at?: string
         }
