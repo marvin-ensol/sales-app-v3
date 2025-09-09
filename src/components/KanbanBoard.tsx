@@ -116,6 +116,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onSearchChange={handleSearchChange}
         onRefresh={handleRefresh}
         isLoading={tasksLoading || ownersLoading}
+        taskCount={tasks.length}
       />
       
       <KanbanContent

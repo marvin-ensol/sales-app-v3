@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Search, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
+import { HubSpotOwner } from "@/hooks/useUsers";
 import OwnerSelector from "./OwnerSelector";
+import { PerformanceIndicator } from "./PerformanceIndicator";
 
 interface KanbanHeaderProps {
   owners: HubSpotOwner[];
@@ -16,6 +17,7 @@ interface KanbanHeaderProps {
   onSearchChange: (term: string) => void;
   onRefresh: () => void;
   isLoading: boolean;
+  taskCount?: number;
 }
 
 const KanbanHeader = ({
@@ -27,7 +29,8 @@ const KanbanHeader = ({
   searchTerm,
   onSearchChange,
   onRefresh,
-  isLoading
+  isLoading,
+  taskCount = 0
 }: KanbanHeaderProps) => {
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
 
@@ -47,6 +50,12 @@ const KanbanHeader = ({
           onOpenChange={setOwnerComboboxOpen}
           ownerSelectionInitialized={ownerSelectionInitialized}
           getSelectedOwnerName={getSelectedOwnerName}
+        />
+
+        <PerformanceIndicator 
+          loading={isLoading}
+          taskCount={taskCount}
+          mode="database"
         />
 
         <Button 

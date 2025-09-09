@@ -2,29 +2,27 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskQueue } from '@/types/task';
 
-export const useLocalTasks = (selectedOwnerId: string) => {
+export const useAllTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<any>(null);
 
-  const fetchTasks = async (ownerId: string) => {
+  const fetchTasks = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching tasks from database for owner:', ownerId);
+      console.log('Fetching all tasks from database');
       
-      const { data, error: functionError } = await supabase.rpc('get_owner_tasks', {
-        owner_id_param: ownerId
-      });
+      const { data, error: functionError } = await supabase.rpc('get_all_tasks');
       
       if (functionError) {
         console.error('Database function error:', functionError);
         throw new Error(`Database query failed: ${functionError.message}`);
       }
       
-      console.log('Tasks fetched successfully from database:', data?.length || 0);
+      console.log('All tasks fetched successfully from database:', data?.length || 0);
       
       // Transform database result to match Task interface
       const transformedTasks: Task[] = (data || []).map(task => ({
@@ -48,7 +46,7 @@ export const useLocalTasks = (selectedOwnerId: string) => {
       setTasks(transformedTasks);
       
     } catch (err) {
-      console.error('Error fetching tasks from database:', err);
+      console.error('Error fetching all tasks from database:', err);
       let errorMessage = 'Failed to fetch tasks from database';
       
       if (err instanceof Error) {
@@ -64,67 +62,53 @@ export const useLocalTasks = (selectedOwnerId: string) => {
 
   // Set up real-time subscription for task updates
   useEffect(() => {
-    if (selectedOwnerId) {
-      console.log('Setting up real-time subscription for owner:', selectedOwnerId);
-      
-      // Initial fetch
-      fetchTasks(selectedOwnerId);
-      
-      // Set up real-time subscription
-      channelRef.current = supabase
-        .channel('hs_tasks_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'hs_tasks'
-          },
-          (payload) => {
-            console.log('Real-time task change detected:', payload);
-            // Refetch tasks when any task changes
-            fetchTasks(selectedOwnerId);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'hs_contacts'
-          },
-          (payload) => {
-            console.log('Real-time contact change detected:', payload);
-            // Refetch tasks when contact data changes
-            fetchTasks(selectedOwnerId);
-          }
-        )
-        .subscribe();
-      
-      return () => {
-        if (channelRef.current) {
-          console.log('Cleaning up real-time subscription');
-          supabase.removeChannel(channelRef.current);
-          channelRef.current = null;
+    console.log('Setting up real-time subscription for all tasks');
+    
+    // Initial fetch
+    fetchTasks();
+    
+    // Set up real-time subscription
+    channelRef.current = supabase
+      .channel('all_tasks_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hs_tasks'
+        },
+        (payload) => {
+          console.log('Real-time task change detected:', payload);
+          // Refetch all tasks when any task changes
+          fetchTasks();
         }
-      };
-    } else {
-      console.log('No owner selected, clearing tasks');
-      setTasks([]);
-      setLoading(false);
-      setError(null);
-      
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hs_contacts'
+        },
+        (payload) => {
+          console.log('Real-time contact change detected:', payload);
+          // Refetch all tasks when contact data changes
+          fetchTasks();
+        }
+      )
+      .subscribe();
+    
+    return () => {
       if (channelRef.current) {
+        console.log('Cleaning up real-time subscription for all tasks');
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
-    }
-  }, [selectedOwnerId]);
+    };
+  }, []);
 
   const refetch = () => {
-    if (selectedOwnerId) {
-      fetchTasks(selectedOwnerId);
-    }
+    fetchTasks();
   };
 
   return {
