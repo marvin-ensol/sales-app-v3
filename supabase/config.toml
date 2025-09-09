@@ -23,6 +23,9 @@ port = 54323
 [functions.sync-hubspot-tasks]
 verify_jwt = false
 
+[functions.sync-hubspot-owners]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324
