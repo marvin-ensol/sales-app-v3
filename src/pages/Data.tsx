@@ -5,7 +5,7 @@ import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle, Re
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CacheControlPanel } from "@/components/CacheControlPanel";
+
 
 interface SyncOperation {
   id: string;
@@ -231,8 +231,6 @@ const Data = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Cache Control Panel */}
-          <CacheControlPanel onFullSyncTrigger={handleSyncData} />
 
           <Card>
             <CardHeader>
