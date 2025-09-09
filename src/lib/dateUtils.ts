@@ -63,9 +63,22 @@ export function getFrenchWeekday(dateString: string): string {
  * Parse date string to Date object (handles "DD/MM à HH:MM" format) - creates date in Paris time
  */
 export function parseTaskDate(dateString: string): Date {
+  if (!dateString || typeof dateString !== 'string') {
+    throw new Error('Invalid date string provided');
+  }
+  
   const [datePart, timePart] = dateString.split(' à ');
+  if (!datePart || !timePart) {
+    throw new Error('Invalid date format - expected "DD/MM à HH:MM"');
+  }
+  
   const [day, month] = datePart.split('/');
   const [hours, minutes] = timePart.split(':');
+  
+  if (!day || !month || !hours || !minutes) {
+    throw new Error('Invalid date components');
+  }
+  
   const currentYear = new Date().getFullYear();
   
   // Create date directly in Paris time (no timezone conversion needed)
