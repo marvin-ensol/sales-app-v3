@@ -39,7 +39,9 @@ const KanbanContent = ({
   lockedExpandableColumns = []
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
-  const { categories: kanbanColumns, loading: categoriesLoading } = useTaskCategories();
+  const { categories: kanbanColumns, loading: categoriesLoading, error: categoriesError } = useTaskCategories();
+  
+  console.log('KanbanContent render - Categories:', kanbanColumns.length, 'Loading:', categoriesLoading, 'Error:', categoriesError);
 
   const getTasksByQueue = (queue: TaskQueue) => {
     const tasks = filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
@@ -65,10 +67,14 @@ const KanbanContent = ({
   const hasEmptyCategories = kanbanColumns.some(column => isColumnCompletelyEmpty(column.id));
 
   // Filter columns based on the toggle state
+  // Filter and sort columns
   const visibleColumns = kanbanColumns.filter(column => {
     if (showEmptyCategories) return true;
-    return !isColumnCompletelyEmpty(column.id);
+    return !isColumnCompletelyEmpty(column.id as TaskQueue);
   });
+  
+  console.log('All columns:', kanbanColumns.map(c => ({ id: c.id, title: c.title })));
+  console.log('Visible columns:', visibleColumns.map(c => ({ id: c.id, title: c.title })));
 
   // Sort columns: first those with tasks, then those without, maintaining original order within each group
   const sortedColumns = [...visibleColumns].sort((a, b) => {
@@ -87,8 +93,14 @@ const KanbanContent = ({
     return 0;
   });
 
+  console.log('Sorted columns:', sortedColumns.map(c => ({ id: c.id, title: c.title, tasks: getTasksByQueue(c.id as TaskQueue).length })));
+
   if (categoriesLoading) {
     return <div className="flex-1 flex items-center justify-center">Loading categories...</div>;
+  }
+
+  if (categoriesError && kanbanColumns.length === 0) {
+    return <div className="flex-1 flex items-center justify-center text-red-500">Error loading categories: {categoriesError}</div>;
   }
 
   return (
