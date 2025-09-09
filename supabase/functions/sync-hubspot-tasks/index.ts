@@ -375,7 +375,7 @@ serve(async (req) => {
                       }
                       
                       if (result.to && result.to.length > 0) {
-                        const dealId = result.to[0].id;
+                        const dealId = result.to[0].toObjectId;
                         // Validate deal ID before storing
                         if (dealId && String(dealId).trim()) {
                           // If multiple deals, select the oldest one based on createdate
