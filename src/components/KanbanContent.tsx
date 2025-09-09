@@ -3,7 +3,7 @@ import { useState } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
-import { KANBAN_COLUMNS } from "@/lib/constants";
+import { useTaskCategories } from "@/hooks/useTaskCategories";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -61,10 +61,10 @@ const KanbanContent = ({
   };
 
   // Check if we should show the toggle button (at least one completely empty category exists)
-  const hasEmptyCategories = KANBAN_COLUMNS.some(column => isColumnCompletelyEmpty(column.id));
+  const hasEmptyCategories = kanbanColumns.some(column => isColumnCompletelyEmpty(column.id));
 
   // Filter columns based on the toggle state
-  const visibleColumns = KANBAN_COLUMNS.filter(column => {
+  const visibleColumns = kanbanColumns.filter(column => {
     if (showEmptyCategories) return true;
     return !isColumnCompletelyEmpty(column.id);
   });
@@ -76,7 +76,7 @@ const KanbanContent = ({
     
     // If both have tasks or both are empty, maintain original order
     if ((aTaskCount > 0 && bTaskCount > 0) || (aTaskCount === 0 && bTaskCount === 0)) {
-      return KANBAN_COLUMNS.findIndex(col => col.id === a.id) - KANBAN_COLUMNS.findIndex(col => col.id === b.id);
+      return kanbanColumns.findIndex(col => col.id === a.id) - kanbanColumns.findIndex(col => col.id === b.id);
     }
     
     // Columns with tasks come first
