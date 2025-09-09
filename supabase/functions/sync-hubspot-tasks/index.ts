@@ -569,7 +569,7 @@ serve(async (req) => {
                           associationsToCreate.push({
                             types: [{
                               associationCategory: "HUBSPOT_DEFINED",
-                              associationTypeId: 3
+                              associationTypeId: 204 // Task to Contact association type
                             }],
                             from: { id: taskId },
                             to: { id: contactId }
