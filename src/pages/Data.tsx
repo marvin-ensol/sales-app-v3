@@ -29,34 +29,60 @@ const Data = () => {
     setIsRunning(true);
     setSyncProgress({
       phase: 'clearing',
-      progress: 10,
-      message: 'Clearing existing data...'
+      progress: 5,
+      message: 'Starting sync process...'
     });
 
     try {
-      // Call the sync edge function
-      const { data, error } = await supabase.functions.invoke('sync-hubspot-tasks', {
-        body: {}
+      // Call the sync edge function with streaming response
+      const response = await fetch(`https://zenlavaixlvabzsnvzro.supabase.co/functions/v1/sync-hubspot-tasks`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplbmxhdmFpeGx2YWJ6c252enJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4MjcwMDMsImV4cCI6MjA2NTQwMzAwM30.oCiIkxWRGGV1TTndh6gQV5X4zENe36E11iIPDbzqmh0`,
+          'apikey': `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplbmxhdmFpeGx2YWJ6c252enJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4MjcwMDMsImV4cCI6MjA2NTQwMzAwM30.oCiIkxWRGGV1TTndh6gQV5X4zENe36E11iIPDbzqmh0`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      if (data.success) {
-        setSyncProgress({
-          phase: 'complete',
-          progress: 100,
-          message: `Successfully synced ${data.totalRecords} records`,
-          totalRecords: data.totalRecords
-        });
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('Failed to get response reader');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
         
-        toast({
-          title: "Sync Complete",
-          description: `Successfully synced ${data.totalRecords} HubSpot tasks`,
-        });
-      } else {
-        throw new Error(data.error || 'Unknown error occurred');
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              setSyncProgress(data);
+              
+              if (data.phase === 'complete') {
+                toast({
+                  title: "Sync Complete",
+                  description: `Successfully synced ${data.totalRecords} HubSpot tasks`,
+                });
+              }
+            } catch (e) {
+              // Ignore parsing errors for incomplete chunks
+            }
+          }
+        }
       }
     } catch (error: any) {
       console.error('Sync error:', error);
