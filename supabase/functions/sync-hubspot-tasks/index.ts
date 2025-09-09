@@ -594,14 +594,13 @@ serve(async (req) => {
             const batchSize = 100;
             let insertedCount = 0;
 
-            // Filter allTasks to only include those with contact associations
-            const tasksWithContacts = allTasks.filter(task => finalTaskContactMap[task.id]);
-            console.log(`📊 Filtering: ${tasksWithContacts.length}/${allTasks.length} tasks have contact associations (${allTasks.length - tasksWithContacts.length} filtered out)`);
+            // Process all tasks (including those without direct contact associations but with deal associations)
+            console.log(`📊 Processing all ${allTasks.length} tasks (preserving deal associations and orphan tasks)`);
             
-            for (let i = 0; i < tasksWithContacts.length; i += batchSize) {
-              const batch = tasksWithContacts.slice(i, i + batchSize);
+            for (let i = 0; i < allTasks.length; i += batchSize) {
+              const batch = allTasks.slice(i, i + batchSize);
               
-              console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(tasksWithContacts.length / batchSize)} (${batch.length} records)...`);
+              console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allTasks.length / batchSize)} (${batch.length} records)...`);
               
               const transformedTasks = batch.map(task => ({
                 hs_object_id: task.id,
