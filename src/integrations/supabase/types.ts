@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           firstname: string | null
           hs_createdate: string | null
+          hs_lastmodifieddate: string | null
           hs_object_id: string
           lastname: string | null
           updated_at: string
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           firstname?: string | null
           hs_createdate?: string | null
+          hs_lastmodifieddate?: string | null
           hs_object_id: string
           lastname?: string | null
           updated_at?: string
@@ -35,6 +37,7 @@ export type Database = {
           created_at?: string
           firstname?: string | null
           hs_createdate?: string | null
+          hs_lastmodifieddate?: string | null
           hs_object_id?: string
           lastname?: string | null
           updated_at?: string

@@ -46,6 +46,7 @@ interface HubSpotContact {
     firstname?: string;
     lastname?: string;
     hs_createdate?: string;
+    hs_lastmodifieddate?: string;
     [key: string]: any;
   };
 }
@@ -314,7 +315,7 @@ serve(async (req) => {
                     },
                     body: JSON.stringify({
                       inputs: batchContactIds.map(id => ({ id })),
-                      properties: ['firstname', 'lastname', 'hs_createdate']
+                      properties: ['firstname', 'lastname', 'hs_createdate', 'hs_lastmodifieddate']
                     }),
                   });
 
@@ -374,6 +375,7 @@ serve(async (req) => {
                 firstname: contact.properties.firstname || null,
                 lastname: contact.properties.lastname || null,
                 hs_createdate: contact.properties.hs_createdate ? new Date(contact.properties.hs_createdate).toISOString() : null,
+                hs_lastmodifieddate: contact.properties.hs_lastmodifieddate ? new Date(contact.properties.hs_lastmodifieddate).toISOString() : null,
               }));
 
               const { error: contactInsertError } = await supabase
