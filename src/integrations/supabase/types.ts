@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      hs_owners: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string | null
+          full_name: string | null
+          id: string
+          last_name: string | null
+          owner_id: string
+          team_id: string | null
+          team_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string | null
+          owner_id: string
+          team_id?: string | null
+          team_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string | null
+          owner_id?: string
+          team_id?: string | null
+          team_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hs_tasks: {
         Row: {
           archived: boolean | null
