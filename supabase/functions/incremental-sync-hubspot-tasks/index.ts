@@ -254,7 +254,107 @@ serve(async (req) => {
           result.errors.push(`Failed to fetch associations: ${error.message}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 100)); // Faster for incremental
+      }
+    }
+
+    // ==== ENHANCED TASK-DEAL-CONTACT ASSOCIATION LOGIC ====
+    console.log('🔍 Fetching task-deal associations for enhanced contact resolution...');
+    
+    const taskDealMap: { [taskId: string]: string } = {};
+    const tasksNeedingDealAssoc = allTasks.filter(task => !taskContactMap[task.id]);
+    
+    if (tasksNeedingDealAssoc.length > 0) {
+      console.log(`📝 ${tasksNeedingDealAssoc.length} tasks need deal-based contact resolution`);
+      
+      // Fetch task-deal associations for tasks without direct contact associations
+      const taskDealBatchSize = 100;
+      const taskIdsNeedingDeals = tasksNeedingDealAssoc.map(t => t.id);
+      
+      for (let i = 0; i < taskIdsNeedingDeals.length; i += taskDealBatchSize) {
+        const batchTaskIds = taskIdsNeedingDeals.slice(i, i + taskDealBatchSize);
+        
+        try {
+          const taskDealResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/deals/batch/read', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${hubspotToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: batchTaskIds.map(id => ({ id }))
+            }),
+          });
+
+          if (taskDealResponse.ok) {
+            const taskDealData = await taskDealResponse.json();
+            
+            for (const result of taskDealData.results) {
+              if (result.to && result.to.length > 0) {
+                const dealId = result.to[0].toObjectId;
+                if (dealId && String(dealId).trim()) {
+                  taskDealMap[result.from.id] = dealId;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Error fetching task-deal associations:', error);
+          result.errors.push(`Failed to fetch task-deal associations: ${error.message}`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Fetch deal-contact associations for discovered deals
+      const dealIds = [...new Set(Object.values(taskDealMap))];
+      
+      if (dealIds.length > 0) {
+        console.log(`🔗 Fetching contact associations for ${dealIds.length} deals...`);
+        
+        const dealContactBatchSize = 100;
+        const dealContactMap: { [dealId: string]: string } = {};
+        
+        for (let i = 0; i < dealIds.length; i += dealContactBatchSize) {
+          const batchDealIds = dealIds.slice(i, i + dealContactBatchSize);
+          
+          try {
+            const dealContactResponse = await fetch('https://api.hubapi.com/crm/v4/associations/deals/contacts/batch/read', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${hubspotToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                inputs: batchDealIds.map(id => ({ id }))
+              }),
+            });
+
+            if (dealContactResponse.ok) {
+              const dealContactData = await dealContactResponse.json();
+              
+              for (const result of dealContactData.results) {
+                if (result.to && result.to.length > 0) {
+                  dealContactMap[result.from.id] = result.to[0].toObjectId;
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Error fetching deal-contact associations:', error);
+            result.errors.push(`Failed to fetch deal-contact associations: ${error.message}`);
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Map tasks to contacts through deals
+        for (const [taskId, dealId] of Object.entries(taskDealMap)) {
+          const contactId = dealContactMap[dealId];
+          if (contactId && !taskContactMap[taskId]) {
+            taskContactMap[taskId] = contactId;
+            console.log(`✅ Mapped task ${taskId} to contact ${contactId} via deal ${dealId}`);
+          }
+        }
       }
     }
 
@@ -331,6 +431,7 @@ serve(async (req) => {
           hs_updated_by_user_id: task.properties.hs_updated_by_user_id || null,
           hs_queue_membership_ids: task.properties.hs_queue_membership_ids || null,
           associated_contact_id: taskContactMap[task.id] || null,
+          associated_deal_id: taskDealMap[task.id] || null,
           archived: task.archived || false,
           updated_at: new Date()
         };
