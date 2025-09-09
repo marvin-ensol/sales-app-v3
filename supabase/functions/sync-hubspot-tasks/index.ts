@@ -168,9 +168,9 @@ serve(async (req) => {
                 {
                   filters: [
                     {
-                      propertyName: "hs_object_id",
-                      operator: "EQ",
-                      value: "285193363680"
+                      propertyName: "hs_task_status",
+                      operator: "NEQ",
+                      value: "COMPLETED"
                     }
                   ]
                 }
