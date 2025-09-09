@@ -315,7 +315,7 @@ serve(async (req) => {
                     },
                     body: JSON.stringify({
                       inputs: batchContactIds.map(id => ({ id })),
-                      properties: ['firstname', 'lastname', 'hs_createdate', 'hs_lastmodifieddate']
+                      properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate']
                     }),
                   });
 
@@ -374,8 +374,8 @@ serve(async (req) => {
                 hs_object_id: contact.id,
                 firstname: contact.properties.firstname || null,
                 lastname: contact.properties.lastname || null,
-                hs_createdate: contact.properties.hs_createdate ? new Date(contact.properties.hs_createdate).toISOString() : null,
-                hs_lastmodifieddate: contact.properties.hs_lastmodifieddate ? new Date(contact.properties.hs_lastmodifieddate).toISOString() : null,
+                hs_createdate: contact.properties.createdate ? new Date(contact.properties.createdate).toISOString() : null,
+                hs_lastmodifieddate: contact.properties.lastmodifieddate ? new Date(contact.properties.lastmodifieddate).toISOString() : null,
               }));
 
               const { error: contactInsertError } = await supabase
