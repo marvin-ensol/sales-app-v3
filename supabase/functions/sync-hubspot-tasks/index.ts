@@ -352,11 +352,17 @@ serve(async (req) => {
                     const taskDealData = await taskDealResponse.json();
                     for (const result of taskDealData.results) {
                       if (result.to && result.to.length > 0) {
-                        // If multiple deals, select the oldest one based on createdate
-                        if (result.to.length > 1) {
-                          console.log(`📝 Task ${result.from.id} has ${result.to.length} associated deals, selecting oldest...`);
+                        const dealId = result.to[0].id;
+                        // Validate deal ID before storing
+                        if (dealId && String(dealId).trim()) {
+                          // If multiple deals, select the oldest one based on createdate
+                          if (result.to.length > 1) {
+                            console.log(`📝 Task ${result.from.id} has ${result.to.length} associated deals, selecting oldest...`);
+                          }
+                          taskDealMap[result.from.id] = dealId;
+                        } else {
+                          console.warn(`⚠️ Invalid deal ID for task ${result.from.id}:`, dealId);
                         }
-                        taskDealMap[result.from.id] = result.to[0].id; // For now, take first - we'll sort by createdate later
                       }
                     }
                   } else {
@@ -379,7 +385,7 @@ serve(async (req) => {
               if (Object.keys(taskDealMap).length > 0) {
                 sendOperationUpdate('deal-contact-associations', 'running', `Fetching deal-contact associations for ${Object.keys(taskDealMap).length} deals...`);
                 
-                const uniqueDealIds = [...new Set(Object.values(taskDealMap))];
+                const uniqueDealIds = [...new Set(Object.values(taskDealMap))].filter(id => id && String(id).trim());
                 const dealContactMap: { [dealId: string]: string } = {};
                 
                 // Batch fetch deal-contact associations
