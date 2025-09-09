@@ -292,6 +292,53 @@ export type Database = {
           },
         ]
       }
+      hs_tasks_readable: {
+        Row: {
+          archived: boolean | null
+          associated_contact_id: string | null
+          associated_deal_id: string | null
+          category_color: string | null
+          category_label: string | null
+          created_at: string | null
+          hs_body_preview: string | null
+          hs_created_by_user_id: string | null
+          hs_createdate: string | null
+          hs_duration: string | null
+          hs_lastmodifieddate: string | null
+          hs_object_id: string | null
+          hs_queue_membership_ids: string | null
+          hs_task_body: string | null
+          hs_task_completion_count: number | null
+          hs_task_completion_date: string | null
+          hs_task_for_object_type: string | null
+          hs_task_is_all_day: boolean | null
+          hs_task_is_overdue: boolean | null
+          hs_task_last_contact_outreach: string | null
+          hs_task_priority: string | null
+          hs_task_status: string | null
+          hs_task_subject: string | null
+          hs_task_type: string | null
+          hs_timestamp: string | null
+          hs_updated_by_user_id: string | null
+          hubspot_owner_assigneddate: string | null
+          hubspot_owner_id: string | null
+          hubspot_team_id: string | null
+          owner_email: string | null
+          owner_first_name: string | null
+          owner_full_name: string | null
+          owner_last_name: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_hs_tasks_associated_contact"
+            columns: ["associated_contact_id"]
+            isOneToOne: false
+            referencedRelation: "hs_contacts"
+            referencedColumns: ["hs_object_id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_all_tasks: {
