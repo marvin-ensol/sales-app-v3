@@ -24,81 +24,60 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all owners that need syncing (those with recent activity or that haven't been synced recently)
-    const { data: owners, error: ownersError } = await supabase
-      .from('hs_users')
-      .select('owner_id')
-      .eq('archived', false);
-
-    if (ownersError) {
-      console.error('Error fetching owners:', ownersError);
-      throw new Error(`Failed to fetch owners: ${ownersError.message}`);
-    }
-
-    console.log(`🔄 Triggering incremental sync for ${owners?.length || 0} owners`);
-
-    // Trigger incremental sync for each owner
-    const results = [];
+    // Enhanced scheduling logic for 45-second intervals
+    const now = new Date();
+    const currentSeconds = now.getSeconds();
     
-    for (const owner of owners || []) {
-      try {
-        console.log(`🚀 Triggering incremental sync for owner ${owner.owner_id}`);
-        
-        const { data, error } = await supabase.functions.invoke('incremental-sync-hubspot-tasks', {
-          body: { ownerId: owner.owner_id }
-        });
-
-        if (error) {
-          console.error(`Error syncing owner ${owner.owner_id}:`, error);
-          results.push({ ownerId: owner.owner_id, success: false, error: error.message });
-        } else {
-          console.log(`✅ Successfully triggered sync for owner ${owner.owner_id}`);
-          results.push({ ownerId: owner.owner_id, success: true, data });
-        }
-
-        // Small delay between owner syncs to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-      } catch (error) {
-        console.error(`Exception syncing owner ${owner.owner_id}:`, error);
-        results.push({ ownerId: owner.owner_id, success: false, error: error.message });
-      }
-    }
-
-    // Also trigger a global sync for unassigned tasks
-    try {
-      console.log('🌐 Triggering global incremental sync for unassigned tasks');
+    // Only trigger at :00 and :45 seconds (45-second intervals)
+    if (currentSeconds < 5 || (currentSeconds >= 45 && currentSeconds < 50)) {
+      console.log(`🚀 Triggering incremental sync at ${now.toISOString()}`);
       
+      // Trigger the incremental sync for global data
       const { data, error } = await supabase.functions.invoke('incremental-sync-hubspot-tasks', {
-        body: { ownerId: null }
+        body: { 
+          ownerId: null, // Global sync
+          timestamp: now.toISOString(),
+          triggerSource: 'cron-45s'
+        }
       });
 
       if (error) {
-        console.error('Error in global sync:', error);
-        results.push({ ownerId: 'global', success: false, error: error.message });
-      } else {
-        console.log('✅ Successfully triggered global sync');
-        results.push({ ownerId: 'global', success: true, data });
+        console.error('Error invoking incremental sync:', error);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: error.message,
+          message: 'Failed to trigger incremental sync'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
-    } catch (error) {
-      console.error('Exception in global sync:', error);
-      results.push({ ownerId: 'global', success: false, error: error.message });
+
+      console.log('✅ Incremental sync triggered successfully');
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Incremental sync triggered successfully',
+        triggerTime: now.toISOString(),
+        nextTrigger: new Date(now.getTime() + 45000).toISOString(),
+        data
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      // Skip this execution - not the right time interval
+      console.log(`⏭️ Skipping sync - current time ${now.toISOString()} (seconds: ${currentSeconds}) not in trigger window`);
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Sync skipped - not in 45-second trigger window',
+        currentTime: now.toISOString(),
+        currentSeconds,
+        nextTriggerSeconds: currentSeconds < 45 ? 45 : 60 // Next trigger at :45 or next minute :00
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-
-    const successCount = results.filter(r => r.success).length;
-    const failureCount = results.filter(r => !r.success).length;
-
-    console.log(`=== SCHEDULED SYNC COMPLETE ===`);
-    console.log(`✅ Successful syncs: ${successCount}`);
-    console.log(`❌ Failed syncs: ${failureCount}`);
-
-    return new Response(JSON.stringify({ 
-      success: failureCount === 0,
-      message: `Scheduled incremental sync completed: ${successCount} successful, ${failureCount} failed`,
-      results
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Scheduled sync error:', error);
