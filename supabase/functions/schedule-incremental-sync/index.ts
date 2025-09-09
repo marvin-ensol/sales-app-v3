@@ -15,6 +15,16 @@ serve(async (req) => {
   try {
     console.log('=== SCHEDULED INCREMENTAL SYNC TRIGGER ===');
     
+    // TEMPORARY KILL SWITCH - Disable incremental sync
+    console.log('🚫 Incremental sync temporarily disabled');
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Incremental sync temporarily disabled',
+      timestamp: new Date().toISOString()
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
