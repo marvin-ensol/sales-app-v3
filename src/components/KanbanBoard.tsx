@@ -3,7 +3,7 @@ import { TaskQueue } from "@/types/task";
 import KanbanHeader from "./KanbanHeader";
 import KanbanContent from "./KanbanContent";
 import { useUsers } from "@/hooks/useUsers";
-import { useHubSpotTasks } from "@/hooks/useHubSpotTasks";
+import { useLocalTasks } from "@/hooks/useLocalTasks";
 import { useOwnerSelection } from "@/hooks/useOwnerSelection";
 import { useTaskFiltering } from "@/hooks/useTaskFiltering";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
@@ -29,7 +29,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   console.log('Owner selection hook result:', { selectedOwnerId, ownerSelectionInitialized });
   
   // Task management
-  const { tasks, loading: tasksLoading, error: tasksError, refetch } = useHubSpotTasks(selectedOwnerId);
+  const { tasks, loading: tasksLoading, error: tasksError, refetch } = useLocalTasks(selectedOwnerId);
   console.log('Tasks hook result:', { tasks: tasks?.length, tasksLoading, tasksError });
   
   // Task filtering
