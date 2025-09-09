@@ -546,16 +546,8 @@ serve(async (req) => {
               contactsById[contact.id] = contact;
             });
 
-            // Re-process task-contact associations to select oldest contact if multiple
-            console.log('🔍 Processing contact associations and selecting oldest contacts...');
-            const finalTaskContactMap: { [taskId: string]: string } = {};
-            
-            // Re-fetch associations to get all contacts per task and select oldest
-            for (const taskId of Object.keys(taskContactMap)) {
-              // For now, use the first contact - we would need to re-fetch to get all contacts per task
-              // and compare their hs_createdate values to select the oldest
-              finalTaskContactMap[taskId] = taskContactMap[taskId];
-            }
+            // Use the finalTaskContactMap that was already populated earlier with task-contact associations
+            console.log('🔍 Using task-contact associations (including those resolved via deals)...');
 
             // Insert contacts into database
             sendOperationUpdate('database', 'running', `Inserting ${allContacts.length} contacts into database...`);
