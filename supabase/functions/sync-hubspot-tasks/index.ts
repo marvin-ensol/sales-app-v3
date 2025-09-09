@@ -65,7 +65,7 @@ serve(async (req) => {
     console.log('=== HUBSPOT TASKS SYNC START ===');
     
     // Get environment variables
-    const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
+    const hubspotToken = Deno.env.get('HUBSPOT_API_TOKEN');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
