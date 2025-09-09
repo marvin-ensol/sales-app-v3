@@ -253,18 +253,54 @@ export type Database = {
         }
         Relationships: []
       }
-      tasks: {
+    }
+    Views: {
+      enriched_tasks: {
         Row: {
           completion_date: string | null
-          contact: string
+          contact: string | null
           contact_id: string | null
           contact_phone: string | null
-          created_at: string
+          created_at: string | null
           description: string | null
+          due_date: string | null
+          hs_task_completion_date: string | null
+          hubspot_id: string | null
+          hubspot_owner_id: string | null
+          id: string | null
+          is_unassigned: boolean | null
+          owner: string | null
+          priority: string | null
+          queue: string | null
+          queue_ids: string[] | null
+          raw_due_date: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_hs_tasks_associated_contact"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "hs_contacts"
+            referencedColumns: ["hs_object_id"]
+          },
+        ]
+      }
+    }
+    Functions: {
+      get_all_tasks: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          completion_date: string
+          contact: string
+          contact_id: string
+          contact_phone: string
+          description: string
           due_date: string
-          hs_lastmodifieddate: string
-          hs_task_id: string
-          hs_timestamp: string | null
+          hubspot_id: string
+          id: string
           is_unassigned: boolean
           owner: string
           priority: string
@@ -272,55 +308,28 @@ export type Database = {
           queue_ids: string[]
           status: string
           title: string
-          updated_at: string
-        }
-        Insert: {
-          completion_date?: string | null
+        }[]
+      }
+      get_owner_tasks: {
+        Args: { owner_id_param: string }
+        Returns: {
+          completion_date: string
           contact: string
-          contact_id?: string | null
-          contact_phone?: string | null
-          created_at?: string
-          description?: string | null
+          contact_id: string
+          contact_phone: string
+          description: string
           due_date: string
-          hs_lastmodifieddate: string
-          hs_task_id: string
-          hs_timestamp?: string | null
-          is_unassigned?: boolean
+          hubspot_id: string
+          id: string
+          is_unassigned: boolean
           owner: string
           priority: string
           queue: string
-          queue_ids?: string[]
+          queue_ids: string[]
           status: string
           title: string
-          updated_at?: string
-        }
-        Update: {
-          completion_date?: string | null
-          contact?: string
-          contact_id?: string | null
-          contact_phone?: string | null
-          created_at?: string
-          description?: string | null
-          due_date?: string
-          hs_lastmodifieddate?: string
-          hs_task_id?: string
-          hs_timestamp?: string | null
-          is_unassigned?: boolean
-          owner?: string
-          priority?: string
-          queue?: string
-          queue_ids?: string[]
-          status?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
+        }[]
       }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
       get_task_categories: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -330,6 +339,10 @@ export type Database = {
           label: string
           order_column: number
         }[]
+      }
+      get_valid_owner_ids: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
       }
     }
     Enums: {
