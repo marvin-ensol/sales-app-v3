@@ -214,6 +214,30 @@ export type Database = {
         }
         Relationships: []
       }
+      task_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          hs_queue_id: string | null
+          id: number
+          label: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          hs_queue_id?: string | null
+          id?: number
+          label?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          hs_queue_id?: string | null
+          id?: number
+          label?: string | null
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           completion_date: string | null
@@ -282,7 +306,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_task_categories: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          color: string
+          hs_queue_id: string
+          id: number
+          label: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

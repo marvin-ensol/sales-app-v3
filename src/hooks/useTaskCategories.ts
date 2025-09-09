@@ -26,7 +26,7 @@ export const useTaskCategories = () => {
       }
 
       // Transform data to match expected interface
-      const transformedCategories: TaskCategory[] = (data || []).map(category => ({
+      const transformedCategories: TaskCategory[] = (data || []).map((category: any) => ({
         id: getColumnIdFromQueueId(category.hs_queue_id),
         title: category.label || '',
         color: `border-l-4` + (category.color ? ` border-l-[${category.color}]` : ''),

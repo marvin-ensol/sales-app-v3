@@ -39,6 +39,7 @@ const KanbanContent = ({
   lockedExpandableColumns = []
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
+  const { categories: kanbanColumns, loading: categoriesLoading } = useTaskCategories();
 
   const getTasksByQueue = (queue: TaskQueue) => {
     const tasks = filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
@@ -85,6 +86,10 @@ const KanbanContent = ({
     
     return 0;
   });
+
+  if (categoriesLoading) {
+    return <div className="flex-1 flex items-center justify-center">Loading categories...</div>;
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-1">
