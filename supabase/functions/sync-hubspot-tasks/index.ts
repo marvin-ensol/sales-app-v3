@@ -641,11 +641,11 @@ serve(async (req) => {
               }
 
               insertedCount += batch.length;
-              console.log(`✅ Inserted batch successfully. Total inserted: ${insertedCount}/${tasksWithContacts.length}`);
+              console.log(`✅ Inserted batch successfully. Total inserted: ${insertedCount}/${allTasks.length}`);
               
               // Update progress during insertion (55% to 95%)
-              const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / tasksWithContacts.length) * 40));
-              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${tasksWithContacts.length} records...`);
+              const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / allTasks.length) * 40));
+              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${allTasks.length} records...`);
             }
 
             console.log(`🎉 Sync completed successfully! Total records: ${insertedCount}`);
