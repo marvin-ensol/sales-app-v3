@@ -18,28 +18,40 @@ export type Database = {
         Row: {
           created_at: string
           createdate: string | null
+          ensol_source_group: string | null
           firstname: string | null
+          hs_lead_status: string | null
           hs_object_id: string
           lastmodifieddate: string | null
           lastname: string | null
+          lifecyclestage: string | null
+          mobilephone: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           createdate?: string | null
+          ensol_source_group?: string | null
           firstname?: string | null
+          hs_lead_status?: string | null
           hs_object_id: string
           lastmodifieddate?: string | null
           lastname?: string | null
+          lifecyclestage?: string | null
+          mobilephone?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           createdate?: string | null
+          ensol_source_group?: string | null
           firstname?: string | null
+          hs_lead_status?: string | null
           hs_object_id?: string
           lastmodifieddate?: string | null
           lastname?: string | null
+          lifecyclestage?: string | null
+          mobilephone?: string | null
           updated_at?: string
         }
         Relationships: []

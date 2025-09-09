@@ -45,8 +45,12 @@ interface HubSpotContact {
   properties: {
     firstname?: string;
     lastname?: string;
-    hs_createdate?: string;
-    hs_lastmodifieddate?: string;
+    mobilephone?: string;
+    ensol_source_group?: string;
+    hs_lead_status?: string;
+    lifecyclestage?: string;
+    createdate?: string;
+    lastmodifieddate?: string;
     [key: string]: any;
   };
 }
@@ -388,8 +392,12 @@ serve(async (req) => {
                 hs_object_id: contact.id,
                 firstname: contact.properties.firstname || null,
                 lastname: contact.properties.lastname || null,
-                hs_createdate: contact.properties.createdate ? new Date(contact.properties.createdate).toISOString() : null,
-                hs_lastmodifieddate: contact.properties.lastmodifieddate ? new Date(contact.properties.lastmodifieddate).toISOString() : null,
+                mobilephone: contact.properties.mobilephone || null,
+                ensol_source_group: contact.properties.ensol_source_group || null,
+                hs_lead_status: contact.properties.hs_lead_status || null,
+                lifecyclestage: contact.properties.lifecyclestage || null,
+                createdate: contact.properties.createdate ? new Date(contact.properties.createdate).toISOString() : null,
+                lastmodifieddate: contact.properties.lastmodifieddate ? new Date(contact.properties.lastmodifieddate).toISOString() : null,
               }));
 
               const { error: contactInsertError } = await supabase

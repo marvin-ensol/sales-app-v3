@@ -153,7 +153,7 @@ export class HubSpotApiClient {
       'https://api.hubapi.com/crm/v3/objects/contacts/batch/read',
       {
         inputs: contactIds.map(id => ({ id })),
-        properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id', 'mobilephone']
+        properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
       }
     );
   }
