@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TaskQueue } from "@/types/task";
 import KanbanHeader from "./KanbanHeader";
 import KanbanContent from "./KanbanContent";
-import { useHubSpotOwners } from "@/hooks/useHubSpotOwners";
+import { useUsers } from "@/hooks/useUsers";
 import { useHubSpotTasks } from "@/hooks/useHubSpotTasks";
 import { useOwnerSelection } from "@/hooks/useOwnerSelection";
 import { useTaskFiltering } from "@/hooks/useTaskFiltering";
@@ -22,7 +22,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   console.log('Initializing hooks...');
   
   // Owner management
-  const { owners, loading: ownersLoading, error: ownersError, refetch: refetchOwners } = useHubSpotOwners();
+  const { owners, loading: ownersLoading, error: ownersError, refetch: refetchOwners } = useUsers();
   console.log('Owners hook result:', { owners: owners?.length, ownersLoading, ownersError });
   
   const { selectedOwnerId, ownerSelectionInitialized, handleOwnerChange, getSelectedOwnerName } = useOwnerSelection(owners);
