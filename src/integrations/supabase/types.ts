@@ -221,6 +221,7 @@ export type Database = {
           hs_queue_id: string | null
           id: number
           label: string | null
+          order_column: number
         }
         Insert: {
           color?: string | null
@@ -228,6 +229,7 @@ export type Database = {
           hs_queue_id?: string | null
           id?: number
           label?: string | null
+          order_column: number
         }
         Update: {
           color?: string | null
@@ -235,6 +237,7 @@ export type Database = {
           hs_queue_id?: string | null
           id?: number
           label?: string | null
+          order_column?: number
         }
         Relationships: []
       }
@@ -313,6 +316,7 @@ export type Database = {
           hs_queue_id: string
           id: number
           label: string
+          order_column: number
         }[]
       }
     }
