@@ -483,11 +483,11 @@ serve(async (req) => {
                           if (result.to.length > 1) {
                             console.log(`📝 Deal ${result.from.id} has ${result.to.length} associated contacts, selecting oldest...`);
                           }
-                          dealContactMap[result.from.id] = result.to[0].id; // For now, take first - we'll sort by createdate later
+                          dealContactMap[result.from.id] = result.to[0].toObjectId; // For now, take first - we'll sort by createdate later
                           
                           // 🔍 DEBUG: Log contact mapping for our expected deal
                           if (result.from.id === expectedDealId) {
-                            console.log(`🎯 [DEBUG] Successfully mapped deal ${expectedDealId} to contact ${result.to[0].id}`);
+                            console.log(`🎯 [DEBUG] Successfully mapped deal ${expectedDealId} to contact ${result.to[0].toObjectId}`);
                           }
                         } else {
                           // 🔍 DEBUG: Log no contacts found for our expected deal
