@@ -319,23 +319,22 @@ serve(async (req) => {
             
             // ==== ENHANCED TASK-DEAL-CONTACT ASSOCIATION LOGIC ====
             
-            // Identify tasks without direct contact associations
-            const tasksWithoutContacts = allTasks.filter(task => !taskContactMap[task.id]);
-            console.log(`🔍 Found ${tasksWithoutContacts.length} tasks without direct contact associations, attempting to resolve via deals...`);
+            // Fetch task-deal associations for ALL tasks (not just those without direct contact associations)
+            console.log(`🔍 Fetching task-deal associations for all ${allTasks.length} tasks...`);
             
             const taskDealMap: { [taskId: string]: string } = {};
             const finalTaskContactMap = { ...taskContactMap };
             
-            if (tasksWithoutContacts.length > 0) {
-              sendOperationUpdate('task-deal-associations', 'running', `Fetching task-deal associations for ${tasksWithoutContacts.length} tasks...`);
+            if (allTasks.length > 0) {
+              sendOperationUpdate('task-deal-associations', 'running', `Fetching task-deal associations for ${allTasks.length} tasks...`);
               
-              // Batch fetch task-deal associations
+              // Batch fetch task-deal associations for ALL tasks
               const taskDealBatchSize = 100;
-              const tasksWithoutContactIds = tasksWithoutContacts.map(t => t.id);
+              const allTaskIds = allTasks.map(t => t.id);
               
-              for (let i = 0; i < tasksWithoutContactIds.length; i += taskDealBatchSize) {
-                const batchTaskIds = tasksWithoutContactIds.slice(i, i + taskDealBatchSize);
-                console.log(`🔗 Fetching task-deal associations batch ${Math.floor(i / taskDealBatchSize) + 1}/${Math.ceil(tasksWithoutContactIds.length / taskDealBatchSize)} (${batchTaskIds.length} tasks)...`);
+              for (let i = 0; i < allTaskIds.length; i += taskDealBatchSize) {
+                const batchTaskIds = allTaskIds.slice(i, i + taskDealBatchSize);
+                console.log(`🔗 Fetching task-deal associations batch ${Math.floor(i / taskDealBatchSize) + 1}/${Math.ceil(allTaskIds.length / taskDealBatchSize)} (${batchTaskIds.length} tasks)...`);
 
                 try {
                   const taskDealResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/deals/batch/read', {
@@ -371,6 +370,10 @@ serve(async (req) => {
               }
               
               console.log(`🔗 Found ${Object.keys(taskDealMap).length} task-deal associations`);
+              
+              // Identify tasks without direct contact associations to enhance via deal chains
+              const tasksWithoutContacts = allTasks.filter(task => !taskContactMap[task.id]);
+              console.log(`🔍 Found ${tasksWithoutContacts.length} tasks without direct contact associations, attempting to resolve via deals...`);
               
               // If we found task-deal associations, now fetch deal-contact associations
               if (Object.keys(taskDealMap).length > 0) {
@@ -409,6 +412,14 @@ serve(async (req) => {
                       }
                     } else {
                       console.warn(`Failed to fetch deal-contact associations batch: ${dealContactResponse.status}`);
+                      // Log the error response body for debugging
+                      try {
+                        const errorBody = await dealContactResponse.text();
+                        console.warn(`Deal-contact association error body:`, errorBody);
+                        console.warn(`Request was for deal IDs:`, batchDealIds);
+                      } catch (e) {
+                        console.warn('Could not read error response body');
+                      }
                     }
                   } catch (error) {
                     console.warn('Error fetching deal-contact association batch:', error);
@@ -419,35 +430,41 @@ serve(async (req) => {
                 
                 console.log(`🔗 Found ${Object.keys(dealContactMap).length} deal-contact associations`);
                 
-                // Now resolve the full task -> deal -> contact chain
+                // Now resolve the full task -> deal -> contact chain ONLY for tasks without direct contact associations
                 let resolvedTaskContacts = 0;
                 for (const [taskId, dealId] of Object.entries(taskDealMap)) {
-                  const contactId = dealContactMap[dealId];
-                  if (contactId) {
-                    finalTaskContactMap[taskId] = contactId;
-                    resolvedTaskContacts++;
+                  // Only enhance contact associations for tasks that don't already have direct contact associations
+                  if (!taskContactMap[taskId]) {
+                    const contactId = dealContactMap[dealId];
+                    if (contactId) {
+                      finalTaskContactMap[taskId] = contactId;
+                      resolvedTaskContacts++;
+                    }
                   }
                 }
                 
                 console.log(`✅ Resolved ${resolvedTaskContacts} additional task-contact relationships via deals`);
                 
-                // Create missing task-contact associations in HubSpot
-                if (resolvedTaskContacts > 0) {
-                  sendOperationUpdate('creating-associations', 'running', `Creating ${resolvedTaskContacts} missing task-contact associations in HubSpot...`);
-                  
-                  const associationsToCreate = [];
-                  for (const [taskId, dealId] of Object.entries(taskDealMap)) {
-                    const contactId = dealContactMap[dealId];
-                    if (contactId) {
-                      associationsToCreate.push({
-                        types: [{
-                          associationCategory: "HUBSPOT_DEFINED",
-                          associationTypeId: 3
-                        }],
-                        from: { id: taskId },
-                        to: { id: contactId }
-                      });
-                    }
+                  // Create missing task-contact associations in HubSpot (only for tasks that don't already have direct contact associations)
+                  if (resolvedTaskContacts > 0) {
+                    sendOperationUpdate('creating-associations', 'running', `Creating ${resolvedTaskContacts} missing task-contact associations in HubSpot...`);
+                    
+                    const associationsToCreate = [];
+                    for (const [taskId, dealId] of Object.entries(taskDealMap)) {
+                      // Only create associations for tasks that don't already have direct contact associations
+                      if (!taskContactMap[taskId]) {
+                        const contactId = dealContactMap[dealId];
+                        if (contactId) {
+                          associationsToCreate.push({
+                            types: [{
+                              associationCategory: "HUBSPOT_DEFINED",
+                              associationTypeId: 3
+                            }],
+                            from: { id: taskId },
+                            to: { id: contactId }
+                          });
+                        }
+                      }
                   }
                   
                   // Create associations in batches of 100 (HubSpot limit)
