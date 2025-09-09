@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle } from "lucide-react";
+import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { CacheControlPanel } from "@/components/CacheControlPanel";
 
 interface SyncOperation {
   id: string;
@@ -230,6 +231,9 @@ const Data = () => {
         </div>
 
         <div className="space-y-6">
+          {/* Cache Control Panel */}
+          <CacheControlPanel onFullSyncTrigger={handleSyncData} />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
