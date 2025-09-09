@@ -317,9 +317,183 @@ serve(async (req) => {
 
             console.log(`🔗 Found ${Object.keys(taskContactMap).length} task-contact associations`);
             
-            // Extract unique contact IDs and fetch contact details
-            const uniqueContactIds = [...new Set(Object.values(taskContactMap))];
-            console.log(`👥 Fetching details for ${uniqueContactIds.length} unique contacts...`);
+            // ==== ENHANCED TASK-DEAL-CONTACT ASSOCIATION LOGIC ====
+            
+            // Identify tasks without direct contact associations
+            const tasksWithoutContacts = allTasks.filter(task => !taskContactMap[task.id]);
+            console.log(`🔍 Found ${tasksWithoutContacts.length} tasks without direct contact associations, attempting to resolve via deals...`);
+            
+            const taskDealMap: { [taskId: string]: string } = {};
+            const finalTaskContactMap = { ...taskContactMap };
+            
+            if (tasksWithoutContacts.length > 0) {
+              sendOperationUpdate('task-deal-associations', 'running', `Fetching task-deal associations for ${tasksWithoutContacts.length} tasks...`);
+              
+              // Batch fetch task-deal associations
+              const taskDealBatchSize = 100;
+              const tasksWithoutContactIds = tasksWithoutContacts.map(t => t.id);
+              
+              for (let i = 0; i < tasksWithoutContactIds.length; i += taskDealBatchSize) {
+                const batchTaskIds = tasksWithoutContactIds.slice(i, i + taskDealBatchSize);
+                console.log(`🔗 Fetching task-deal associations batch ${Math.floor(i / taskDealBatchSize) + 1}/${Math.ceil(tasksWithoutContactIds.length / taskDealBatchSize)} (${batchTaskIds.length} tasks)...`);
+
+                try {
+                  const taskDealResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/deals/batch/read', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${hubspotToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      inputs: batchTaskIds.map(id => ({ id }))
+                    }),
+                  });
+
+                  if (taskDealResponse.ok) {
+                    const taskDealData = await taskDealResponse.json();
+                    for (const result of taskDealData.results) {
+                      if (result.to && result.to.length > 0) {
+                        // If multiple deals, select the oldest one based on createdate
+                        if (result.to.length > 1) {
+                          console.log(`📝 Task ${result.from.id} has ${result.to.length} associated deals, selecting oldest...`);
+                        }
+                        taskDealMap[result.from.id] = result.to[0].id; // For now, take first - we'll sort by createdate later
+                      }
+                    }
+                  } else {
+                    console.warn(`Failed to fetch task-deal associations batch: ${taskDealResponse.status}`);
+                  }
+                } catch (error) {
+                  console.warn('Error fetching task-deal association batch:', error);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+              
+              console.log(`🔗 Found ${Object.keys(taskDealMap).length} task-deal associations`);
+              
+              // If we found task-deal associations, now fetch deal-contact associations
+              if (Object.keys(taskDealMap).length > 0) {
+                sendOperationUpdate('deal-contact-associations', 'running', `Fetching deal-contact associations for ${Object.keys(taskDealMap).length} deals...`);
+                
+                const uniqueDealIds = [...new Set(Object.values(taskDealMap))];
+                const dealContactMap: { [dealId: string]: string } = {};
+                
+                // Batch fetch deal-contact associations
+                for (let i = 0; i < uniqueDealIds.length; i += taskDealBatchSize) {
+                  const batchDealIds = uniqueDealIds.slice(i, i + taskDealBatchSize);
+                  console.log(`🔗 Fetching deal-contact associations batch ${Math.floor(i / taskDealBatchSize) + 1}/${Math.ceil(uniqueDealIds.length / taskDealBatchSize)} (${batchDealIds.length} deals)...`);
+
+                  try {
+                    const dealContactResponse = await fetch('https://api.hubapi.com/crm/v4/associations/deals/contacts/batch/read', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${hubspotToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        inputs: batchDealIds.map(id => ({ id }))
+                      }),
+                    });
+
+                    if (dealContactResponse.ok) {
+                      const dealContactData = await dealContactResponse.json();
+                      for (const result of dealContactData.results) {
+                        if (result.to && result.to.length > 0) {
+                          // If multiple contacts, select the oldest one
+                          if (result.to.length > 1) {
+                            console.log(`📝 Deal ${result.from.id} has ${result.to.length} associated contacts, selecting oldest...`);
+                          }
+                          dealContactMap[result.from.id] = result.to[0].id; // For now, take first - we'll sort by createdate later
+                        }
+                      }
+                    } else {
+                      console.warn(`Failed to fetch deal-contact associations batch: ${dealContactResponse.status}`);
+                    }
+                  } catch (error) {
+                    console.warn('Error fetching deal-contact association batch:', error);
+                  }
+
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                console.log(`🔗 Found ${Object.keys(dealContactMap).length} deal-contact associations`);
+                
+                // Now resolve the full task -> deal -> contact chain
+                let resolvedTaskContacts = 0;
+                for (const [taskId, dealId] of Object.entries(taskDealMap)) {
+                  const contactId = dealContactMap[dealId];
+                  if (contactId) {
+                    finalTaskContactMap[taskId] = contactId;
+                    resolvedTaskContacts++;
+                  }
+                }
+                
+                console.log(`✅ Resolved ${resolvedTaskContacts} additional task-contact relationships via deals`);
+                
+                // Create missing task-contact associations in HubSpot
+                if (resolvedTaskContacts > 0) {
+                  sendOperationUpdate('creating-associations', 'running', `Creating ${resolvedTaskContacts} missing task-contact associations in HubSpot...`);
+                  
+                  const associationsToCreate = [];
+                  for (const [taskId, dealId] of Object.entries(taskDealMap)) {
+                    const contactId = dealContactMap[dealId];
+                    if (contactId) {
+                      associationsToCreate.push({
+                        types: [{
+                          associationCategory: "HUBSPOT_DEFINED",
+                          associationTypeId: 3
+                        }],
+                        from: { id: taskId },
+                        to: { id: contactId }
+                      });
+                    }
+                  }
+                  
+                  // Create associations in batches of 100 (HubSpot limit)
+                  const createBatchSize = 100;
+                  let createdAssociations = 0;
+                  
+                  for (let i = 0; i < associationsToCreate.length; i += createBatchSize) {
+                    const batchAssociations = associationsToCreate.slice(i, i + createBatchSize);
+                    console.log(`🔗 Creating task-contact associations batch ${Math.floor(i / createBatchSize) + 1}/${Math.ceil(associationsToCreate.length / createBatchSize)} (${batchAssociations.length} associations)...`);
+
+                    try {
+                      const createResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/create', {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${hubspotToken}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          inputs: batchAssociations
+                        }),
+                      });
+
+                      if (createResponse.ok) {
+                        const createData = await createResponse.json();
+                        createdAssociations += createData.results ? createData.results.length : batchAssociations.length;
+                        console.log(`✅ Successfully created ${batchAssociations.length} task-contact associations in HubSpot`);
+                      } else {
+                        console.warn(`Failed to create task-contact associations batch: ${createResponse.status}`);
+                        const errorText = await createResponse.text();
+                        console.warn('Create association error:', errorText);
+                      }
+                    } catch (error) {
+                      console.warn('Error creating task-contact associations batch:', error);
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay for create operations
+                  }
+                  
+                  console.log(`🎉 Created ${createdAssociations} new task-contact associations in HubSpot`);
+                }
+              }
+            }
+            
+            // Extract unique contact IDs and fetch contact details (including newly resolved ones)
+            const uniqueContactIds = [...new Set(Object.values(finalTaskContactMap))];
+            console.log(`👥 Fetching details for ${uniqueContactIds.length} unique contacts (including ${Object.keys(finalTaskContactMap).length - Object.keys(taskContactMap).length} newly resolved)...`);
             
             sendOperationUpdate('contacts', 'running', `Fetching details for ${uniqueContactIds.length} contacts...`, uniqueContactIds.length);
 
@@ -428,10 +602,14 @@ serve(async (req) => {
             const batchSize = 100;
             let insertedCount = 0;
 
-            for (let i = 0; i < allTasks.length; i += batchSize) {
-              const batch = allTasks.slice(i, i + batchSize);
+            // Filter allTasks to only include those with contact associations
+            const tasksWithContacts = allTasks.filter(task => finalTaskContactMap[task.id]);
+            console.log(`📊 Filtering: ${tasksWithContacts.length}/${allTasks.length} tasks have contact associations (${allTasks.length - tasksWithContacts.length} filtered out)`);
+            
+            for (let i = 0; i < tasksWithContacts.length; i += batchSize) {
+              const batch = tasksWithContacts.slice(i, i + batchSize);
               
-              console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allTasks.length / batchSize)} (${batch.length} records)...`);
+              console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(tasksWithContacts.length / batchSize)} (${batch.length} records)...`);
               
               const transformedTasks = batch.map(task => ({
                 hs_object_id: task.id,
@@ -459,6 +637,7 @@ serve(async (req) => {
                 hubspot_team_id: task.properties.hubspot_team_id || null,
                 archived: task.archived || false,
                 associated_contact_id: finalTaskContactMap[task.id] || null,
+                associated_deal_id: taskDealMap[task.id] || null,
               }));
 
               const { error: insertError } = await supabase
@@ -471,11 +650,11 @@ serve(async (req) => {
               }
 
               insertedCount += batch.length;
-              console.log(`✅ Inserted batch successfully. Total inserted: ${insertedCount}/${allTasks.length}`);
+              console.log(`✅ Inserted batch successfully. Total inserted: ${insertedCount}/${tasksWithContacts.length}`);
               
               // Update progress during insertion (55% to 95%)
-              const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / allTasks.length) * 40));
-              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${allTasks.length} records...`);
+              const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / tasksWithContacts.length) * 40));
+              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${tasksWithContacts.length} records...`);
             }
 
             console.log(`🎉 Sync completed successfully! Total records: ${insertedCount}`);

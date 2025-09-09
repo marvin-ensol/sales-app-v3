@@ -60,6 +60,7 @@ export type Database = {
         Row: {
           archived: boolean | null
           associated_contact_id: string | null
+          associated_deal_id: string | null
           created_at: string
           hs_body_preview: string | null
           hs_created_by_user_id: string | null
@@ -89,6 +90,7 @@ export type Database = {
         Insert: {
           archived?: boolean | null
           associated_contact_id?: string | null
+          associated_deal_id?: string | null
           created_at?: string
           hs_body_preview?: string | null
           hs_created_by_user_id?: string | null
@@ -118,6 +120,7 @@ export type Database = {
         Update: {
           archived?: boolean | null
           associated_contact_id?: string | null
+          associated_deal_id?: string | null
           created_at?: string
           hs_body_preview?: string | null
           hs_created_by_user_id?: string | null
@@ -257,6 +260,7 @@ export type Database = {
     Views: {
       enriched_tasks: {
         Row: {
+          associated_deal_id: string | null
           completion_date: string | null
           contact: string | null
           contact_id: string | null
