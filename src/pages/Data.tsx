@@ -1,25 +1,38 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Database, Download, Trash2, Users } from "lucide-react";
+import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface SyncOperation {
+  id: string;
+  name: string;
+  status: 'pending' | 'running' | 'complete' | 'error';
+  message?: string;
+  count?: number;
+}
+
 interface SyncProgress {
   phase: 'idle' | 'clearing' | 'fetching' | 'processing' | 'complete' | 'error';
-  progress: number;
+  operations: SyncOperation[];
+  currentOperation?: string;
   message: string;
-  totalRecords?: number;
-  processedRecords?: number;
   error?: string;
 }
 
 const Data = () => {
+  const initialOperations: SyncOperation[] = [
+    { id: 'tasks', name: 'Fetching Tasks', status: 'pending' },
+    { id: 'associations', name: 'Task Associations', status: 'pending' },
+    { id: 'contacts', name: 'Fetching Contacts', status: 'pending' },
+    { id: 'database', name: 'Writing to Database', status: 'pending' }
+  ];
+
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     phase: 'idle',
-    progress: 0,
+    operations: initialOperations,
     message: 'Ready to sync data'
   });
   const [isRunning, setIsRunning] = useState(false);
@@ -30,7 +43,7 @@ const Data = () => {
     setIsRunning(true);
     setSyncProgress({
       phase: 'clearing',
-      progress: 5,
+      operations: initialOperations,
       message: 'Starting sync process...'
     });
 
@@ -71,12 +84,47 @@ const Data = () => {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
-              setSyncProgress(data);
+              
+              // Convert legacy progress format to new operation format
+              if (data.progress !== undefined) {
+                const updatedOperations = [...initialOperations];
+                
+                if (data.phase === 'clearing') {
+                  // Do nothing, keep all pending
+                } else if (data.phase === 'fetching') {
+                  updatedOperations[0].status = 'running';
+                  updatedOperations[0].message = data.message;
+                } else if (data.phase === 'processing') {
+                  updatedOperations[0].status = 'complete';
+                  updatedOperations[0].count = data.totalRecords;
+                  updatedOperations[1].status = 'running';
+                  updatedOperations[1].message = 'Processing associations...';
+                  updatedOperations[2].status = 'running';
+                  updatedOperations[2].message = 'Processing contacts...';
+                } else if (data.phase === 'complete') {
+                  updatedOperations.forEach(op => {
+                    if (op.status !== 'complete') {
+                      op.status = 'complete';
+                    }
+                  });
+                  updatedOperations[3].status = 'complete';
+                  updatedOperations[3].message = 'Database updated successfully';
+                }
+
+                setSyncProgress({
+                  phase: data.phase,
+                  operations: updatedOperations,
+                  message: data.message,
+                  currentOperation: data.phase
+                });
+              } else {
+                setSyncProgress(data);
+              }
               
               if (data.phase === 'complete') {
                 toast({
                   title: "Sync Complete",
-                  description: `Successfully synced ${data.totalRecords} HubSpot tasks`,
+                  description: `Successfully synced HubSpot data`,
                 });
               }
             } catch (e) {
@@ -87,9 +135,14 @@ const Data = () => {
       }
     } catch (error: any) {
       console.error('Sync error:', error);
+      const errorOperations = syncProgress.operations.map(op => ({
+        ...op,
+        status: op.status === 'running' ? ('error' as const) : op.status
+      }));
+      
       setSyncProgress({
         phase: 'error',
-        progress: 0,
+        operations: errorOperations,
         message: 'Sync failed',
         error: error.message || 'Unknown error occurred'
       });
@@ -136,30 +189,33 @@ const Data = () => {
     }
   };
 
-  const getProgressColor = () => {
-    switch (syncProgress.phase) {
-      case 'error':
-        return 'bg-red-500';
+  const getStatusIcon = (status: SyncOperation['status']) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4 text-gray-400" />;
+      case 'running':
+        return <Clock className="h-4 w-4 text-blue-500 animate-pulse" />;
       case 'complete':
-        return 'bg-green-500';
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-500" />;
       default:
-        return 'bg-blue-500';
+        return <Clock className="h-4 w-4 text-gray-400" />;
     }
   };
 
-  const getPhaseIcon = () => {
-    switch (syncProgress.phase) {
-      case 'clearing':
-        return <Trash2 className="h-4 w-4 animate-spin" />;
-      case 'fetching':
-      case 'processing':
-        return <Download className="h-4 w-4 animate-pulse" />;
+  const getStatusColor = (status: SyncOperation['status']) => {
+    switch (status) {
+      case 'pending':
+        return 'text-gray-500';
+      case 'running':
+        return 'text-blue-600 font-medium';
       case 'complete':
-        return <Database className="h-4 w-4 text-green-600" />;
+        return 'text-green-600 font-medium';
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-600" />;
+        return 'text-red-600 font-medium';
       default:
-        return <Database className="h-4 w-4" />;
+        return 'text-gray-500';
     }
   };
 
@@ -187,31 +243,34 @@ const Data = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {getPhaseIcon()}
-                    <span className="font-medium">{syncProgress.message}</span>
-                  </div>
-                  {syncProgress.totalRecords && (
-                    <span className="text-sm text-gray-500">
-                      {syncProgress.totalRecords} records
-                    </span>
-                  )}
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="font-medium">{syncProgress.message}</span>
                 </div>
                 
-                <div className="space-y-2">
-                  <Progress 
-                    value={syncProgress.progress} 
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>{syncProgress.progress}% complete</span>
-                    {syncProgress.processedRecords && syncProgress.totalRecords && (
-                      <span>
-                        {syncProgress.processedRecords} / {syncProgress.totalRecords}
-                      </span>
-                    )}
-                  </div>
+                {/* Operations Status List */}
+                <div className="space-y-3">
+                  {syncProgress.operations.map((operation) => (
+                    <div key={operation.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(operation.status)}
+                        <div>
+                          <div className={`font-medium ${getStatusColor(operation.status)}`}>
+                            {operation.name}
+                          </div>
+                          {operation.message && (
+                            <div className="text-sm text-gray-500">
+                              {operation.message}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {operation.count && (
+                        <div className="text-sm text-gray-500">
+                          {operation.count} records
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -287,13 +346,12 @@ const Data = () => {
             <CardContent>
               <div className="text-sm text-gray-600 space-y-3">
                 <div>
-                  <h4 className="font-medium mb-1">Tasks Sync:</h4>
+                  <h4 className="font-medium mb-1">Tasks Sync Operations:</h4>
                   <ul className="space-y-1 ml-2">
-                    <li>• Deletes all existing records from hs_tasks table</li>
-                    <li>• Fetches non-completed tasks from HubSpot API</li>
-                    <li>• Processes 100 records per API call with rate limiting</li>
-                    <li>• Handles pagination automatically</li>
-                    <li>• Inserts fresh data into the database</li>
+                    <li>• <strong>Tasks:</strong> Fetches non-completed tasks from HubSpot API</li>
+                    <li>• <strong>Associations:</strong> Links tasks to contacts and companies</li>
+                    <li>• <strong>Contacts:</strong> Fetches associated contact information</li>
+                    <li>• <strong>Database:</strong> Clears old data and inserts fresh records</li>
                   </ul>
                 </div>
                 <div>

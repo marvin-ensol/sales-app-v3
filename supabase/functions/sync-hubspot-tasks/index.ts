@@ -86,10 +86,49 @@ serve(async (req) => {
           controller.enqueue(chunk);
         };
 
+        const sendOperationUpdate = (operationId: string, status: string, message?: string, count?: number) => {
+          const operations = [
+            { id: 'tasks', name: 'Fetching Tasks', status: operationId === 'tasks' ? status : 'pending' },
+            { id: 'associations', name: 'Task Associations', status: operationId === 'associations' ? status : (operationId === 'tasks' && status === 'complete') ? 'pending' : 'pending' },
+            { id: 'contacts', name: 'Fetching Contacts', status: operationId === 'contacts' ? status : (operationId === 'associations' && status === 'complete') ? 'pending' : 'pending' },
+            { id: 'database', name: 'Writing to Database', status: operationId === 'database' ? status : (operationId === 'contacts' && status === 'complete') ? 'pending' : 'pending' }
+          ];
+
+          // Update based on current progress
+          if (operationId === 'associations' && status === 'running') {
+            operations[0].status = 'complete';
+          } else if (operationId === 'contacts' && status === 'running') {
+            operations[0].status = 'complete';
+            operations[1].status = 'complete';
+          } else if (operationId === 'database' && status === 'running') {
+            operations[0].status = 'complete';
+            operations[1].status = 'complete';
+            operations[2].status = 'complete';
+          } else if (operationId === 'database' && status === 'complete') {
+            operations.forEach(op => op.status = 'complete');
+          }
+
+          // Add message and count to current operation
+          const currentOp = operations.find(op => op.id === operationId);
+          if (currentOp && message) {
+            currentOp.message = message;
+          }
+          if (currentOp && count) {
+            currentOp.count = count;
+          }
+
+          sendEvent({
+            phase: operationId === 'database' && status === 'complete' ? 'complete' : 'processing',
+            operations,
+            currentOperation: operationId,
+            message: message || `Processing ${operationId}...`
+          });
+        };
+
         // Start the sync process
         (async () => {
           try {
-            sendEvent({ phase: 'clearing', progress: 5, message: 'Clearing existing data...' });
+            sendOperationUpdate('database', 'running', 'Clearing existing data...');
             
             console.log('🗑️ Clearing existing hs_tasks and hs_contacts data...');
             
@@ -115,7 +154,7 @@ serve(async (req) => {
             }
 
             console.log('✅ Existing data cleared successfully');
-            sendEvent({ phase: 'fetching', progress: 10, message: 'Starting HubSpot tasks fetch...' });
+            sendOperationUpdate('tasks', 'running', 'Starting HubSpot tasks fetch...');
 
             // Prepare the request body as specified by the user
             const requestBody = {
@@ -204,11 +243,7 @@ serve(async (req) => {
 
               // Update progress during fetching (10% to 50%)
               const fetchProgress = Math.min(50, 10 + (pageCount * 2));
-              sendEvent({ 
-                phase: 'fetching', 
-                progress: fetchProgress, 
-                message: `Fetched ${allTasks.length} tasks from ${pageCount} pages...` 
-              });
+              sendOperationUpdate('tasks', 'running', `Fetched ${allTasks.length} tasks from ${pageCount} pages...`, allTasks.length);
               
               // Check if there are more pages
               hasMore = !!data.paging?.next?.after;
@@ -222,12 +257,7 @@ serve(async (req) => {
             }
 
             console.log(`🎯 Total tasks fetched: ${allTasks.length} from ${pageCount} pages`);
-            sendEvent({ 
-              phase: 'associations', 
-              progress: 50, 
-              message: `Fetching contact associations for ${allTasks.length} tasks...`,
-              totalRecords: allTasks.length
-            });
+            sendOperationUpdate('associations', 'running', `Fetching contact associations for ${allTasks.length} tasks...`);
 
             // Extract task IDs and fetch contact associations
             let taskContactMap: { [taskId: string]: string } = {};
@@ -274,11 +304,7 @@ serve(async (req) => {
 
                 // Update progress during association fetching (50% to 60%)
                 const assocProgress = Math.min(60, 50 + Math.floor(((i + associationBatchSize) / taskIds.length) * 10));
-                sendEvent({ 
-                  phase: 'associations', 
-                  progress: assocProgress, 
-                  message: `Fetched associations for ${Math.min(i + associationBatchSize, taskIds.length)}/${taskIds.length} tasks...`
-                });
+                sendOperationUpdate('associations', 'running', `Fetched associations for ${Math.min(i + associationBatchSize, taskIds.length)}/${taskIds.length} tasks...`);
 
                 // Respect API rate limits
                 await new Promise(resolve => setTimeout(resolve, 300));
@@ -291,11 +317,7 @@ serve(async (req) => {
             const uniqueContactIds = [...new Set(Object.values(taskContactMap))];
             console.log(`👥 Fetching details for ${uniqueContactIds.length} unique contacts...`);
             
-            sendEvent({ 
-              phase: 'contacts', 
-              progress: 65, 
-              message: `Fetching details for ${uniqueContactIds.length} contacts...`
-            });
+            sendOperationUpdate('contacts', 'running', `Fetching details for ${uniqueContactIds.length} contacts...`, uniqueContactIds.length);
 
             let allContacts: HubSpotContact[] = [];
             if (uniqueContactIds.length > 0) {
@@ -331,11 +353,7 @@ serve(async (req) => {
 
                 // Update progress during contact fetching (65% to 75%)
                 const contactProgress = Math.min(75, 65 + Math.floor(((i + contactBatchSize) / uniqueContactIds.length) * 10));
-                sendEvent({ 
-                  phase: 'contacts', 
-                  progress: contactProgress, 
-                  message: `Fetched ${Math.min(i + contactBatchSize, uniqueContactIds.length)}/${uniqueContactIds.length} contacts...`
-                });
+                sendOperationUpdate('contacts', 'running', `Fetched ${Math.min(i + contactBatchSize, uniqueContactIds.length)}/${uniqueContactIds.length} contacts...`);
 
                 // Respect API rate limits
                 await new Promise(resolve => setTimeout(resolve, 300));
@@ -362,11 +380,7 @@ serve(async (req) => {
             }
 
             // Insert contacts into database
-            sendEvent({ 
-              phase: 'inserting_contacts', 
-              progress: 80, 
-              message: `Inserting ${allContacts.length} contacts into database...`
-            });
+            sendOperationUpdate('database', 'running', `Inserting ${allContacts.length} contacts into database...`);
 
             if (allContacts.length > 0) {
               console.log('💾 Inserting contacts into database...');
@@ -391,21 +405,11 @@ serve(async (req) => {
               }
             }
 
-            sendEvent({ 
-              phase: 'inserting_tasks', 
-              progress: 85, 
-              message: `Inserting ${allTasks.length} tasks into database...`,
-              totalRecords: allTasks.length
-            });
+            sendOperationUpdate('database', 'running', `Inserting ${allTasks.length} tasks into database...`, allTasks.length);
 
             if (allTasks.length === 0) {
               console.log('⚠️ No tasks found to sync');
-              sendEvent({ 
-                phase: 'complete', 
-                progress: 100, 
-                message: 'No tasks found to sync',
-                totalRecords: 0
-              });
+              sendOperationUpdate('database', 'complete', 'No tasks found to sync', 0);
               controller.close();
               return;
             }
@@ -463,30 +467,25 @@ serve(async (req) => {
               
               // Update progress during insertion (55% to 95%)
               const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / allTasks.length) * 40));
-              sendEvent({ 
-                phase: 'processing', 
-                progress: insertProgress, 
-                message: `Inserted ${insertedCount}/${allTasks.length} records...`,
-                processedRecords: insertedCount,
-                totalRecords: allTasks.length
-              });
+              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${allTasks.length} records...`);
             }
 
             console.log(`🎉 Sync completed successfully! Total records: ${insertedCount}`);
             
-            sendEvent({ 
-              phase: 'complete', 
-              progress: 100, 
-              message: `Successfully synced ${insertedCount} records`,
-              totalRecords: insertedCount
-            });
+            sendOperationUpdate('database', 'complete', `Successfully synced ${insertedCount} records`, insertedCount);
 
             controller.close();
           } catch (error) {
             console.error('Error in sync-hubspot-tasks function:', error);
+            const errorOperations = [
+              { id: 'tasks', name: 'Fetching Tasks', status: 'error' },
+              { id: 'associations', name: 'Task Associations', status: 'error' },
+              { id: 'contacts', name: 'Fetching Contacts', status: 'error' },
+              { id: 'database', name: 'Writing to Database', status: 'error' }
+            ];
             sendEvent({ 
               phase: 'error', 
-              progress: 0, 
+              operations: errorOperations, 
               message: 'Sync failed', 
               error: error.message || 'Unknown error occurred' 
             });
