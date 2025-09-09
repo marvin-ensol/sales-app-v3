@@ -450,8 +450,8 @@ serve(async (req) => {
             ensol_source_group: contact.properties.ensol_source_group || null,
             hs_lead_status: contact.properties.hs_lead_status || null,
             lifecyclestage: contact.properties.lifecyclestage || null,
-            createdate: contact.properties.createdate ? new Date(contact.properties.createdate) : null,
-            lastmodifieddate: contact.properties.lastmodifieddate ? new Date(contact.properties.lastmodifieddate) : null,
+            createdate: contact.properties.createdate ? new Date(parseInt(contact.properties.createdate)) : null,
+            lastmodifieddate: contact.properties.lastmodifieddate ? new Date(parseInt(contact.properties.lastmodifieddate)) : null,
             updated_at: new Date()
           };
 
