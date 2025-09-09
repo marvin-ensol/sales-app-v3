@@ -160,7 +160,7 @@ serve(async (req) => {
             console.log('✅ Existing data cleared successfully');
             sendOperationUpdate('tasks', 'running', 'Starting HubSpot tasks fetch...');
 
-            // Prepare the request body as specified by the user
+            // Prepare the request body - TEMPORARY: Filter for single task ID
             const requestBody = {
               limit: 100,
               sorts: ["hs_lastmodifieddate"],
@@ -168,9 +168,9 @@ serve(async (req) => {
                 {
                   filters: [
                     {
-                      propertyName: "hs_task_status",
-                      operator: "NEQ",
-                      value: "COMPLETED"
+                      propertyName: "hs_object_id",
+                      operator: "EQ",
+                      value: "282601753845"
                     }
                   ]
                 }
@@ -682,6 +682,16 @@ serve(async (req) => {
 
             if (allContacts.length > 0) {
               console.log('💾 Inserting contacts into database...');
+              
+              // Helper function to safely parse contact timestamps
+              const parseContactTimestamp = (value: any): string | null => {
+                if (!value || value === '' || value === 'null' || value === '0') return null;
+                const timestamp = parseInt(String(value));
+                if (isNaN(timestamp) || timestamp === 0) return null;
+                const date = new Date(timestamp);
+                return date.getFullYear() > 1970 ? date.toISOString() : null;
+              };
+              
               const transformedContacts = allContacts.map(contact => ({
                 hs_object_id: contact.id,
                 firstname: contact.properties.firstname || null,
@@ -690,8 +700,8 @@ serve(async (req) => {
                 ensol_source_group: contact.properties.ensol_source_group || null,
                 hs_lead_status: contact.properties.hs_lead_status || null,
                 lifecyclestage: contact.properties.lifecyclestage || null,
-                createdate: contact.properties.createdate ? new Date(parseInt(contact.properties.createdate)).toISOString() : null,
-                lastmodifieddate: contact.properties.lastmodifieddate ? new Date(parseInt(contact.properties.lastmodifieddate)).toISOString() : null,
+                createdate: parseContactTimestamp(contact.properties.createdate),
+                lastmodifieddate: parseContactTimestamp(contact.properties.lastmodifieddate),
               }));
 
               const { error: contactInsertError } = await supabase
@@ -730,28 +740,37 @@ serve(async (req) => {
               
               console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allTasks.length / batchSize)} (${batch.length} records)...`);
               
+              // Helper function to safely parse timestamps
+              const parseTimestamp = (value: any): string | null => {
+                if (!value || value === '' || value === 'null' || value === '0') return null;
+                const timestamp = parseInt(String(value));
+                if (isNaN(timestamp) || timestamp === 0) return null;
+                const date = new Date(timestamp);
+                return date.getFullYear() > 1970 ? date.toISOString() : null;
+              };
+
               const transformedTasks = batch.map(task => ({
                 hs_object_id: task.id,
                 hs_body_preview: task.properties.hs_body_preview || null,
                 hs_created_by_user_id: task.properties.hs_created_by_user_id || null,
-                hs_createdate: task.properties.hs_createdate ? new Date(parseInt(task.properties.hs_createdate)).toISOString() : null,
-                hs_lastmodifieddate: task.properties.hs_lastmodifieddate ? new Date(parseInt(task.properties.hs_lastmodifieddate)).toISOString() : null,
-                hs_timestamp: task.properties.hs_timestamp ? new Date(parseInt(task.properties.hs_timestamp)).toISOString() : null,
+                hs_createdate: parseTimestamp(task.properties.hs_createdate),
+                hs_lastmodifieddate: parseTimestamp(task.properties.hs_lastmodifieddate),
+                hs_timestamp: parseTimestamp(task.properties.hs_timestamp),
                 hs_duration: task.properties.hs_duration || null,
                 hs_queue_membership_ids: task.properties.hs_queue_membership_ids || null,
                 hs_task_body: task.properties.hs_task_body || null,
                 hs_task_completion_count: task.properties.hs_task_completion_count ? parseInt(task.properties.hs_task_completion_count) : null,
-                hs_task_completion_date: task.properties.hs_task_completion_date ? new Date(parseInt(task.properties.hs_task_completion_date)).toISOString() : null,
+                hs_task_completion_date: parseTimestamp(task.properties.hs_task_completion_date),
                 hs_task_for_object_type: task.properties.hs_task_for_object_type || null,
                 hs_task_is_all_day: task.properties.hs_task_is_all_day ? task.properties.hs_task_is_all_day === 'true' : null,
                 hs_task_is_overdue: task.properties.hs_task_is_overdue ? task.properties.hs_task_is_overdue === 'true' : null,
-                hs_task_last_contact_outreach: task.properties.hs_task_last_contact_outreach ? new Date(parseInt(task.properties.hs_task_last_contact_outreach)).toISOString() : null,
+                hs_task_last_contact_outreach: parseTimestamp(task.properties.hs_task_last_contact_outreach),
                 hs_task_priority: task.properties.hs_task_priority || null,
                 hs_task_status: task.properties.hs_task_status || null,
                 hs_task_subject: task.properties.hs_task_subject || null,
                 hs_task_type: task.properties.hs_task_type || null,
                 hs_updated_by_user_id: task.properties.hs_updated_by_user_id || null,
-                hubspot_owner_assigneddate: task.properties.hubspot_owner_assigneddate ? new Date(parseInt(task.properties.hubspot_owner_assigneddate)).toISOString() : null,
+                hubspot_owner_assigneddate: parseTimestamp(task.properties.hubspot_owner_assigneddate),
                 hubspot_owner_id: task.properties.hubspot_owner_id || null,
                 hubspot_team_id: task.properties.hubspot_team_id || null,
                 archived: task.archived || false,

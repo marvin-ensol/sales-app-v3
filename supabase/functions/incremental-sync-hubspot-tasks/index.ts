@@ -404,6 +404,15 @@ serve(async (req) => {
     const tasksToUpsert = [];
     const contactsToUpsert = [];
 
+    // Helper function to safely parse timestamps
+    const parseTimestamp = (value: any): Date | null => {
+      if (!value || value === '' || value === 'null' || value === '0') return null;
+      const timestamp = parseInt(String(value));
+      if (isNaN(timestamp) || timestamp === 0) return null;
+      const date = new Date(timestamp);
+      return date.getFullYear() > 1970 ? date : null;
+    };
+
     for (const task of allTasks) {
       try {
         const taskData = {
@@ -416,17 +425,17 @@ serve(async (req) => {
           hs_task_type: task.properties.hs_task_type || null,
           hs_task_for_object_type: task.properties.hs_task_for_object_type || null,
           hs_duration: task.properties.hs_duration || null,
-          hs_createdate: task.properties.hs_createdate ? new Date(parseInt(task.properties.hs_createdate)) : null,
-          hs_lastmodifieddate: task.properties.hs_lastmodifieddate ? new Date(parseInt(task.properties.hs_lastmodifieddate)) : null,
-          hs_task_completion_date: task.properties.hs_task_completion_date ? new Date(parseInt(task.properties.hs_task_completion_date)) : null,
+          hs_createdate: parseTimestamp(task.properties.hs_createdate),
+          hs_lastmodifieddate: parseTimestamp(task.properties.hs_lastmodifieddate),
+          hs_task_completion_date: parseTimestamp(task.properties.hs_task_completion_date),
           hs_task_completion_count: task.properties.hs_task_completion_count ? parseInt(task.properties.hs_task_completion_count) : 0,
           hs_task_is_all_day: task.properties.hs_task_is_all_day === 'true',
           hs_task_is_overdue: task.properties.hs_task_is_overdue === 'true',
-          hs_timestamp: task.properties.hs_timestamp ? new Date(parseInt(task.properties.hs_timestamp)) : null,
-          hs_task_last_contact_outreach: task.properties.hs_task_last_contact_outreach ? new Date(parseInt(task.properties.hs_task_last_contact_outreach)) : null,
+          hs_timestamp: parseTimestamp(task.properties.hs_timestamp),
+          hs_task_last_contact_outreach: parseTimestamp(task.properties.hs_task_last_contact_outreach),
           hubspot_owner_id: task.properties.hubspot_owner_id || null,
           hubspot_team_id: task.properties.hubspot_team_id || null,
-          hubspot_owner_assigneddate: task.properties.hubspot_owner_assigneddate ? new Date(parseInt(task.properties.hubspot_owner_assigneddate)) : null,
+          hubspot_owner_assigneddate: parseTimestamp(task.properties.hubspot_owner_assigneddate),
           hs_created_by_user_id: task.properties.hs_created_by_user_id || null,
           hs_updated_by_user_id: task.properties.hs_updated_by_user_id || null,
           hs_queue_membership_ids: task.properties.hs_queue_membership_ids || null,
@@ -450,8 +459,8 @@ serve(async (req) => {
             ensol_source_group: contact.properties.ensol_source_group || null,
             hs_lead_status: contact.properties.hs_lead_status || null,
             lifecyclestage: contact.properties.lifecyclestage || null,
-            createdate: contact.properties.createdate ? new Date(parseInt(contact.properties.createdate)) : null,
-            lastmodifieddate: contact.properties.lastmodifieddate ? new Date(parseInt(contact.properties.lastmodifieddate)) : null,
+            createdate: parseTimestamp(contact.properties.createdate),
+            lastmodifieddate: parseTimestamp(contact.properties.lastmodifieddate),
             updated_at: new Date()
           };
 
