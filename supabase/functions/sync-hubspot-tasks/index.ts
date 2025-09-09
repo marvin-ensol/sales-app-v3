@@ -341,7 +341,7 @@ serve(async (req) => {
                     },
                     body: JSON.stringify({
                       inputs: batchContactIds.map(id => ({ id })),
-                      properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate']
+                      properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
                     }),
                   });
 
