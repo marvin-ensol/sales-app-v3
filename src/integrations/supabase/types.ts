@@ -14,24 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      hs_contacts: {
+        Row: {
+          created_at: string
+          firstname: string | null
+          hs_createdate: string | null
+          hs_object_id: string
+          lastname: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          firstname?: string | null
+          hs_createdate?: string | null
+          hs_object_id: string
+          lastname?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          firstname?: string | null
+          hs_createdate?: string | null
+          hs_object_id?: string
+          lastname?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hs_tasks: {
         Row: {
           archived: boolean | null
+          associated_contact_id: string | null
           created_at: string
           hs_body_preview: string | null
-          hs_body_preview_html: string | null
           hs_created_by_user_id: string | null
           hs_createdate: string | null
           hs_duration: string | null
           hs_lastmodifieddate: string | null
           hs_object_id: string
-          hs_pipeline: string | null
-          hs_pipeline_stage: string | null
           hs_queue_membership_ids: string | null
           hs_task_body: string | null
           hs_task_completion_count: number | null
           hs_task_completion_date: string | null
-          hs_task_family: string | null
           hs_task_for_object_type: string | null
           hs_task_is_all_day: boolean | null
           hs_task_is_overdue: boolean | null
@@ -45,26 +69,22 @@ export type Database = {
           hubspot_owner_assigneddate: string | null
           hubspot_owner_id: string | null
           hubspot_team_id: string | null
-          id: string
           updated_at: string
         }
         Insert: {
           archived?: boolean | null
+          associated_contact_id?: string | null
           created_at?: string
           hs_body_preview?: string | null
-          hs_body_preview_html?: string | null
           hs_created_by_user_id?: string | null
           hs_createdate?: string | null
           hs_duration?: string | null
           hs_lastmodifieddate?: string | null
           hs_object_id: string
-          hs_pipeline?: string | null
-          hs_pipeline_stage?: string | null
           hs_queue_membership_ids?: string | null
           hs_task_body?: string | null
           hs_task_completion_count?: number | null
           hs_task_completion_date?: string | null
-          hs_task_family?: string | null
           hs_task_for_object_type?: string | null
           hs_task_is_all_day?: boolean | null
           hs_task_is_overdue?: boolean | null
@@ -78,26 +98,22 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
-          id?: string
           updated_at?: string
         }
         Update: {
           archived?: boolean | null
+          associated_contact_id?: string | null
           created_at?: string
           hs_body_preview?: string | null
-          hs_body_preview_html?: string | null
           hs_created_by_user_id?: string | null
           hs_createdate?: string | null
           hs_duration?: string | null
           hs_lastmodifieddate?: string | null
           hs_object_id?: string
-          hs_pipeline?: string | null
-          hs_pipeline_stage?: string | null
           hs_queue_membership_ids?: string | null
           hs_task_body?: string | null
           hs_task_completion_count?: number | null
           hs_task_completion_date?: string | null
-          hs_task_family?: string | null
           hs_task_for_object_type?: string | null
           hs_task_is_all_day?: boolean | null
           hs_task_is_overdue?: boolean | null
@@ -111,10 +127,17 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
-          id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_hs_tasks_associated_contact"
+            columns: ["associated_contact_id"]
+            isOneToOne: false
+            referencedRelation: "hs_contacts"
+            referencedColumns: ["hs_object_id"]
+          },
+        ]
       }
       sync_metadata: {
         Row: {

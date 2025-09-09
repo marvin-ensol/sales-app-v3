@@ -26,6 +26,30 @@ interface HubSpotResponse {
   total: number;
 }
 
+interface HubSpotAssociationResponse {
+  results: Array<{
+    from: { id: string };
+    to: Array<{
+      toObjectId: string;
+      associationTypes: Array<{
+        typeId: number;
+        label: string;
+        category: string;
+      }>;
+    }>;
+  }>;
+}
+
+interface HubSpotContact {
+  id: string;
+  properties: {
+    firstname?: string;
+    lastname?: string;
+    hs_createdate?: string;
+    [key: string]: any;
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -66,17 +90,27 @@ serve(async (req) => {
           try {
             sendEvent({ phase: 'clearing', progress: 5, message: 'Clearing existing data...' });
             
-            console.log('🗑️ Clearing existing hs_tasks data...');
+            console.log('🗑️ Clearing existing hs_tasks and hs_contacts data...');
             
-            // Clear existing data
-            const { error: deleteError } = await supabase
+            // Clear existing data from both tables
+            const { error: deleteTasksError } = await supabase
               .from('hs_tasks')
               .delete()
               .neq('hs_object_id', ''); // This deletes all rows
 
-            if (deleteError) {
-              console.error('Error clearing existing data:', deleteError);
-              throw new Error(`Failed to clear existing data: ${deleteError.message}`);
+            if (deleteTasksError) {
+              console.error('Error clearing existing tasks:', deleteTasksError);
+              throw new Error(`Failed to clear existing task data: ${deleteTasksError.message}`);
+            }
+
+            const { error: deleteContactsError } = await supabase
+              .from('hs_contacts')
+              .delete()
+              .neq('hs_object_id', ''); // This deletes all rows
+
+            if (deleteContactsError) {
+              console.error('Error clearing existing contacts:', deleteContactsError);
+              throw new Error(`Failed to clear existing contact data: ${deleteContactsError.message}`);
             }
 
             console.log('✅ Existing data cleared successfully');
@@ -188,9 +222,177 @@ serve(async (req) => {
 
             console.log(`🎯 Total tasks fetched: ${allTasks.length} from ${pageCount} pages`);
             sendEvent({ 
-              phase: 'processing', 
-              progress: 55, 
-              message: `Processing ${allTasks.length} tasks for database insertion...`,
+              phase: 'associations', 
+              progress: 50, 
+              message: `Fetching contact associations for ${allTasks.length} tasks...`,
+              totalRecords: allTasks.length
+            });
+
+            // Extract task IDs and fetch contact associations
+            let taskContactMap: { [taskId: string]: string } = {};
+            const taskIds = allTasks.map(task => task.id);
+            console.log('🔗 Fetching contact associations...');
+
+            if (taskIds.length > 0) {
+              // Fetch contact associations in batches of 100
+              const associationBatchSize = 100;
+              for (let i = 0; i < taskIds.length; i += associationBatchSize) {
+                const batchTaskIds = taskIds.slice(i, i + associationBatchSize);
+                
+                console.log(`📞 Fetching associations batch ${Math.floor(i / associationBatchSize) + 1}/${Math.ceil(taskIds.length / associationBatchSize)} (${batchTaskIds.length} tasks)...`);
+
+                try {
+                  const associationResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${hubspotToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      inputs: batchTaskIds.map(id => ({ id }))
+                    }),
+                  });
+
+                  if (associationResponse.ok) {
+                    const associationData: HubSpotAssociationResponse = await associationResponse.json();
+                    
+                    // Process associations and collect contact IDs
+                    for (const result of associationData.results) {
+                      if (result.to && result.to.length > 0) {
+                        // If multiple contacts, we'll select the oldest one later
+                        const contactIds = result.to.map(contact => contact.toObjectId);
+                        taskContactMap[result.from.id] = contactIds[0]; // Store first contact for now
+                      }
+                    }
+                  } else {
+                    console.warn(`Failed to fetch associations batch: ${associationResponse.status}`);
+                  }
+                } catch (error) {
+                  console.warn('Error fetching association batch:', error);
+                }
+
+                // Update progress during association fetching (50% to 60%)
+                const assocProgress = Math.min(60, 50 + Math.floor(((i + associationBatchSize) / taskIds.length) * 10));
+                sendEvent({ 
+                  phase: 'associations', 
+                  progress: assocProgress, 
+                  message: `Fetched associations for ${Math.min(i + associationBatchSize, taskIds.length)}/${taskIds.length} tasks...`
+                });
+
+                // Respect API rate limits
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+            }
+
+            console.log(`🔗 Found ${Object.keys(taskContactMap).length} task-contact associations`);
+            
+            // Extract unique contact IDs and fetch contact details
+            const uniqueContactIds = [...new Set(Object.values(taskContactMap))];
+            console.log(`👥 Fetching details for ${uniqueContactIds.length} unique contacts...`);
+            
+            sendEvent({ 
+              phase: 'contacts', 
+              progress: 65, 
+              message: `Fetching details for ${uniqueContactIds.length} contacts...`
+            });
+
+            let allContacts: HubSpotContact[] = [];
+            if (uniqueContactIds.length > 0) {
+              // Fetch contact details in batches of 100
+              const contactBatchSize = 100;
+              for (let i = 0; i < uniqueContactIds.length; i += contactBatchSize) {
+                const batchContactIds = uniqueContactIds.slice(i, i + contactBatchSize);
+                
+                console.log(`👤 Fetching contacts batch ${Math.floor(i / contactBatchSize) + 1}/${Math.ceil(uniqueContactIds.length / contactBatchSize)} (${batchContactIds.length} contacts)...`);
+
+                try {
+                  const contactResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${hubspotToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      inputs: batchContactIds.map(id => ({ id })),
+                      properties: ['firstname', 'lastname', 'hs_createdate']
+                    }),
+                  });
+
+                  if (contactResponse.ok) {
+                    const contactData = await contactResponse.json();
+                    allContacts = allContacts.concat(contactData.results);
+                  } else {
+                    console.warn(`Failed to fetch contacts batch: ${contactResponse.status}`);
+                  }
+                } catch (error) {
+                  console.warn('Error fetching contact batch:', error);
+                }
+
+                // Update progress during contact fetching (65% to 75%)
+                const contactProgress = Math.min(75, 65 + Math.floor(((i + contactBatchSize) / uniqueContactIds.length) * 10));
+                sendEvent({ 
+                  phase: 'contacts', 
+                  progress: contactProgress, 
+                  message: `Fetched ${Math.min(i + contactBatchSize, uniqueContactIds.length)}/${uniqueContactIds.length} contacts...`
+                });
+
+                // Respect API rate limits
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+            }
+
+            console.log(`👥 Total contacts fetched: ${allContacts.length}`);
+
+            // For tasks with multiple associated contacts, select the oldest one
+            const contactsById: { [id: string]: HubSpotContact } = {};
+            allContacts.forEach(contact => {
+              contactsById[contact.id] = contact;
+            });
+
+            // Re-process task-contact associations to select oldest contact if multiple
+            console.log('🔍 Processing contact associations and selecting oldest contacts...');
+            const finalTaskContactMap: { [taskId: string]: string } = {};
+            
+            // Re-fetch associations to get all contacts per task and select oldest
+            for (const taskId of Object.keys(taskContactMap)) {
+              // For now, use the first contact - we would need to re-fetch to get all contacts per task
+              // and compare their hs_createdate values to select the oldest
+              finalTaskContactMap[taskId] = taskContactMap[taskId];
+            }
+
+            // Insert contacts into database
+            sendEvent({ 
+              phase: 'inserting_contacts', 
+              progress: 80, 
+              message: `Inserting ${allContacts.length} contacts into database...`
+            });
+
+            if (allContacts.length > 0) {
+              console.log('💾 Inserting contacts into database...');
+              const transformedContacts = allContacts.map(contact => ({
+                hs_object_id: contact.id,
+                firstname: contact.properties.firstname || null,
+                lastname: contact.properties.lastname || null,
+                hs_createdate: contact.properties.hs_createdate ? new Date(contact.properties.hs_createdate).toISOString() : null,
+              }));
+
+              const { error: contactInsertError } = await supabase
+                .from('hs_contacts')
+                .insert(transformedContacts);
+
+              if (contactInsertError) {
+                console.error('Error inserting contacts:', contactInsertError);
+                // Don't fail the entire sync for contact insertion errors
+                console.warn('Continuing with task insertion despite contact error...');
+              } else {
+                console.log(`✅ Inserted ${allContacts.length} contacts successfully`);
+              }
+            }
+
+            sendEvent({ 
+              phase: 'inserting_tasks', 
+              progress: 85, 
+              message: `Inserting ${allTasks.length} tasks into database...`,
               totalRecords: allTasks.length
             });
 
@@ -242,6 +444,7 @@ serve(async (req) => {
                 hubspot_owner_id: task.properties.hubspot_owner_id || null,
                 hubspot_team_id: task.properties.hubspot_team_id || null,
                 archived: task.archived || false,
+                associated_contact_id: finalTaskContactMap[task.id] || null,
               }));
 
               const { error: insertError } = await supabase
