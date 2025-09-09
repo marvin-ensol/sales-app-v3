@@ -25,7 +25,7 @@ serve(async (req) => {
 
     // Fetch owners from HubSpot
     const ownersResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/owners?archived=false`,
+      `https://api.hubapi.com/crm/v3/owners`,
       {
         method: 'GET',
         headers: {

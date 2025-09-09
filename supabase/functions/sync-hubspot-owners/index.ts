@@ -10,6 +10,7 @@ interface HubSpotOwner {
   firstName?: string
   lastName?: string
   email?: string
+  archived?: boolean
   teams?: Array<{
     id: string
     name: string
@@ -70,7 +71,7 @@ Deno.serve(async (req) => {
 
     // Fetch owners data
     console.log('👥 Fetching owners from HubSpot...')
-    const ownersResponse = await fetch('https://api.hubapi.com/crm/v3/owners?limit=100&archived=false', {
+    const ownersResponse = await fetch('https://api.hubapi.com/crm/v3/owners?limit=100', {
       headers: {
         'Authorization': `Bearer ${hubspotToken}`,
         'Content-Type': 'application/json'
@@ -103,6 +104,7 @@ Deno.serve(async (req) => {
         email: owner.email || null,
         team_id: teamId,
         team_name: teamName,
+        archived: owner.archived || false,
         updated_at: new Date().toISOString()
       }
     })

@@ -102,7 +102,7 @@ export class HubSpotApiClient {
   }
 
   async fetchOwners(): Promise<HubSpotOwner[]> {
-    const data = await this.makeGetRequest<{ results: HubSpotOwner[] }>('https://api.hubapi.com/crm/v3/owners?archived=false');
+    const data = await this.makeGetRequest<{ results: HubSpotOwner[] }>('https://api.hubapi.com/crm/v3/owners');
     return data.results || [];
   }
 
