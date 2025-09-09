@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
     // Fetch owners data
     console.log('👥 Fetching owners from HubSpot...')
-    const ownersResponse = await fetch('https://api.hubapi.com/crm/v3/owners?limit=100', {
+    const ownersResponse = await fetch('https://api.hubapi.com/crm/v3/owners?limit=100&archived=false', {
       headers: {
         'Authorization': `Bearer ${hubspotToken}`,
         'Content-Type': 'application/json'
