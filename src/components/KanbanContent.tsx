@@ -76,14 +76,14 @@ const KanbanContent = ({
   console.log('All columns:', kanbanColumns.map(c => ({ id: c.id, title: c.title })));
   console.log('Visible columns:', visibleColumns.map(c => ({ id: c.id, title: c.title })));
 
-  // Sort columns: first those with tasks, then those without, maintaining original order within each group
+  // Sort columns: first those with tasks, then those without, maintaining database order within each group
   const sortedColumns = [...visibleColumns].sort((a, b) => {
     const aTaskCount = getTasksByQueue(a.id as TaskQueue).length;
     const bTaskCount = getTasksByQueue(b.id as TaskQueue).length;
     
-    // If both have tasks or both are empty, maintain original order
+    // If both have tasks or both are empty, maintain database order
     if ((aTaskCount > 0 && bTaskCount > 0) || (aTaskCount === 0 && bTaskCount === 0)) {
-      return kanbanColumns.findIndex(col => col.id === a.id) - kanbanColumns.findIndex(col => col.id === b.id);
+      return a.order - b.order;
     }
     
     // Columns with tasks come first
