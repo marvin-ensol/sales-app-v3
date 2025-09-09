@@ -174,8 +174,8 @@ const Data = () => {
       }
 
       toast({
-        title: "Owners Sync Complete",
-        description: `Successfully synced ${response.data.stats?.owners_processed || 0} owners and ${response.data.stats?.teams_fetched || 0} teams`,
+        title: "Users Sync Complete",
+        description: `Successfully synced ${response.data.stats?.users_processed || 0} users and ${response.data.stats?.teams_fetched || 0} teams`,
       });
     } catch (error: any) {
       console.error('Owners sync error:', error);
@@ -308,10 +308,10 @@ const Data = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                HubSpot Owners & Teams Sync
+                HubSpot Users & Teams Sync
               </CardTitle>
               <CardDescription>
-                Update owner and team information from HubSpot. This runs automatically every 6 hours but can be triggered manually.
+                Update user and team information from HubSpot. This runs automatically every 6 hours but can be triggered manually.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -325,12 +325,12 @@ const Data = () => {
                 {isOwnersSyncing ? (
                   <>
                     <Download className="mr-2 h-4 w-4 animate-pulse" />
-                    Syncing Owners & Teams...
+                    Syncing Users & Teams...
                   </>
                 ) : (
                   <>
                     <Users className="mr-2 h-4 w-4" />
-                    Sync HubSpot Owners & Teams
+                    Sync HubSpot Users & Teams
                   </>
                 )}
               </Button>
@@ -355,10 +355,10 @@ const Data = () => {
                   </ul>
                 </div>
                 <div>
-                  <h4 className="font-medium mb-1">Owners & Teams Sync:</h4>
+                  <h4 className="font-medium mb-1">Users & Teams Sync:</h4>
                   <ul className="space-y-1 ml-2">
-                    <li>• Fetches all owners and teams from HubSpot</li>
-                    <li>• Updates owner information with team details</li>
+                    <li>• Fetches all users and teams from HubSpot</li>
+                    <li>• Updates user information with team details</li>
                     <li>• Runs automatically every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)</li>
                     <li>• Can be triggered manually using the button above</li>
                   </ul>

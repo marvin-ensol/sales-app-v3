@@ -23,135 +23,99 @@ serve(async (req) => {
 
     console.log('✅ HubSpot token found, making API call...')
 
-    // Fetch owners from HubSpot
-    const ownersResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/owners`,
-      {
+    // Fetch users from HubSpot with pagination
+    let allUsers: any[] = []
+    let after = ''
+    let hasMore = true
+    
+    while (hasMore) {
+      const url = `https://api.hubapi.com/crm/v3/objects/users?properties=hs_given_name,hs_family_name,hs_email,hs_deactivated,hubspot_owner_id,hs_user_assigned_primary_team&limit=100${after ? `&after=${after}` : ''}`
+      
+      const usersResponse = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${hubspotToken}`,
           'Content-Type': 'application/json',
         }
+      })
+
+      if (!usersResponse.ok) {
+        const errorText = await usersResponse.text()
+        console.log(`❌ HubSpot API error: ${usersResponse.status} - ${errorText}`)
+        throw new Error(`HubSpot API error: ${usersResponse.status}`)
       }
-    )
 
-    if (!ownersResponse.ok) {
-      const errorText = await ownersResponse.text()
-      console.log(`❌ HubSpot API error: ${ownersResponse.status} - ${errorText}`)
-      throw new Error(`HubSpot API error: ${ownersResponse.status}`)
+      const usersData = await usersResponse.json()
+      const users = usersData.results || []
+      allUsers = [...allUsers, ...users]
+      
+      // Check if there are more pages
+      if (usersData.paging?.next?.after) {
+        after = usersData.paging.next.after
+      } else {
+        hasMore = false
+      }
     }
+    
+    console.log(`📊 Total users from HubSpot: ${allUsers.length}`)
 
-    const ownersData = await ownersResponse.json()
-    console.log(`📊 Total owners from HubSpot: ${ownersData.results?.length || 0}`)
-
-    // Transform owners to our format and filter by team IDs
+    // Transform users to our format and filter by team IDs
     const allowedTeamIds = ['162028741', '135903065']
     console.log(`🎯 Allowed team IDs: ${JSON.stringify(allowedTeamIds)}`)
     
-    // Log ALL owners first
-    console.log('=== ALL OWNERS FROM HUBSPOT ===')
-    ownersData.results?.forEach((owner, index) => {
-      const teams = owner.teams || []
-      const teamIds = teams.map(t => t.id?.toString())
-      console.log(`Owner ${index + 1}: ${owner.firstName} ${owner.lastName} (${owner.email}) - Teams: [${teamIds.join(', ')}]`)
+    // Log ALL users first
+    console.log('=== ALL USERS FROM HUBSPOT ===')
+    allUsers.forEach((user, index) => {
+      const teamId = user.properties.hs_user_assigned_primary_team || 'none'
+      const isDeactivated = user.properties.hs_deactivated === 'true'
+      console.log(`User ${index + 1}: ${user.properties.hs_given_name || ''} ${user.properties.hs_family_name || ''} (${user.properties.hs_email || ''}) - Team: ${teamId}, Deactivated: ${isDeactivated}`)
     })
     
-    // Check specifically for Adrien first
-    const adrienOwner = ownersData.results?.find((owner) => 
-      (owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') ||
-      owner.email?.toLowerCase().includes('adrien')
-    )
-    
-    if (adrienOwner) {
-      console.log(`🔍 FOUND ADRIEN HOLVOET:`)
-      console.log(`   ID: ${adrienOwner.id}`)
-      console.log(`   Name: ${adrienOwner.firstName} ${adrienOwner.lastName}`)
-      console.log(`   Email: ${adrienOwner.email}`)
-      console.log(`   Teams: ${JSON.stringify(adrienOwner.teams || [])}`)
+    // Filter users based on team membership and active status
+    const transformedOwners = allUsers.filter((user) => {
+      const teamId = user.properties.hs_user_assigned_primary_team
+      const isDeactivated = user.properties.hs_deactivated === 'true'
       
-      if (adrienOwner.teams && adrienOwner.teams.length > 0) {
-        adrienOwner.teams.forEach((team, index) => {
-          const teamIdStr = team.id?.toString()
-          const isAllowed = allowedTeamIds.includes(teamIdStr)
-          console.log(`   Team ${index + 1}: ID="${teamIdStr}", Name="${team.name}", Allowed: ${isAllowed}`)
-        })
-      } else {
-        console.log(`   ⚠️ Adrien has NO TEAMS`)
-      }
-    } else {
-      console.log(`🔍 ADRIEN HOLVOET NOT FOUND in raw data`)
-    }
-    
-    // Filter owners
-    const transformedOwners = ownersData.results?.filter((owner) => {
-      const ownerTeams = owner.teams || []
-      
-      if (ownerTeams.length === 0) {
-        console.log(`❌ EXCLUDING ${owner.firstName} ${owner.lastName} - NO TEAMS`)
+      if (isDeactivated) {
+        console.log(`❌ EXCLUDING ${user.properties.hs_given_name || ''} ${user.properties.hs_family_name || ''} - DEACTIVATED`)
         return false
       }
       
-      const hasAllowedTeam = ownerTeams.some((team) => {
-        const teamIdString = team.id?.toString()
-        return allowedTeamIds.includes(teamIdString)
-      })
+      if (!teamId) {
+        console.log(`❌ EXCLUDING ${user.properties.hs_given_name || ''} ${user.properties.hs_family_name || ''} - NO TEAM`)
+        return false
+      }
+      
+      const hasAllowedTeam = allowedTeamIds.includes(teamId)
       
       // Log every filtering decision
       const result = hasAllowedTeam ? 'INCLUDED' : 'EXCLUDED'
-      console.log(`${hasAllowedTeam ? '✅' : '❌'} ${result}: ${owner.firstName} ${owner.lastName} (${owner.email})`)
-      
-      // Special logging for Adrien
-      if ((owner.firstName?.toLowerCase() === 'adrien' && owner.lastName?.toLowerCase() === 'holvoet') || 
-          owner.email?.toLowerCase().includes('adrien')) {
-        console.log(`🚨 ADRIEN FILTER RESULT: ${hasAllowedTeam ? 'INCLUDED' : 'EXCLUDED'}`)
-        if (hasAllowedTeam) {
-          console.log(`❌❌❌ BUG: Adrien should be EXCLUDED but is INCLUDED!`)
-          console.log(`❌❌❌ Adrien's teams that are causing inclusion:`)
-          ownerTeams.forEach(team => {
-            const teamIdStr = team.id?.toString()
-            if (allowedTeamIds.includes(teamIdStr)) {
-              console.log(`❌❌❌ PROBLEM TEAM: ID="${teamIdStr}", Name="${team.name}"`)
-            }
-          })
-        }
-      }
+      console.log(`${hasAllowedTeam ? '✅' : '❌'} ${result}: ${user.properties.hs_given_name || ''} ${user.properties.hs_family_name || ''} (${user.properties.hs_email || ''})`)
       
       return hasAllowedTeam
-    }).map((owner) => {
-      const firstName = owner.firstName || ''
-      const lastName = owner.lastName || ''
-      const email = owner.email || ''
+    }).map((user) => {
+      const firstName = user.properties.hs_given_name || ''
+      const lastName = user.properties.hs_family_name || ''
+      const email = user.properties.hs_email || ''
       
       let fullName = `${firstName} ${lastName}`.trim()
       if (!fullName && email) {
         fullName = email
       }
       if (!fullName) {
-        fullName = `Owner ${owner.id}`
+        fullName = `User ${user.properties.hubspot_owner_id}`
       }
 
       return {
-        id: owner.id,
+        id: user.properties.hubspot_owner_id,
         firstName,
         lastName,
         email,
         fullName
       }
-    }) || []
+    })
 
     console.log(`📋 Final filtered count: ${transformedOwners.length}`)
-    
-    // Final check for Adrien in results
-    const adrienInFinal = transformedOwners.find(o => 
-      o.fullName.toLowerCase().includes('adrien') || 
-      o.email.toLowerCase().includes('adrien')
-    )
-    
-    if (adrienInFinal) {
-      console.log(`❌❌❌ CRITICAL: Adrien is in final results: ${JSON.stringify(adrienInFinal)}`)
-    } else {
-      console.log(`✅ GOOD: Adrien not in final results`)
-    }
 
     const response = { 
       owners: transformedOwners,

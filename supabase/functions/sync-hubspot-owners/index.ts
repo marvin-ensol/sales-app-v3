@@ -5,17 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface HubSpotOwner {
+interface HubSpotUser {
   id: string
-  firstName?: string
-  lastName?: string
-  email?: string
-  archived?: boolean
-  teams?: Array<{
-    id: string
-    name: string
-    primary: boolean
-  }>
+  properties: {
+    hs_given_name?: string
+    hs_family_name?: string
+    hs_email?: string
+    hs_deactivated?: string
+    hubspot_owner_id?: string
+    hs_user_assigned_primary_team?: string
+  }
 }
 
 interface HubSpotTeam {
@@ -69,52 +68,69 @@ Deno.serve(async (req) => {
       teamsMap.set(team.id, team.name)
     })
 
-    // Fetch owners data
-    console.log('👥 Fetching owners from HubSpot...')
-    const ownersResponse = await fetch('https://api.hubapi.com/crm/v3/owners?limit=100', {
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json'
-      }
-    })
+    // Fetch users data with pagination
+    console.log('👥 Fetching users from HubSpot...')
+    let allUsers: HubSpotUser[] = []
+    let after = ''
+    let hasMore = true
+    
+    while (hasMore) {
+      const url = `https://api.hubapi.com/crm/v3/objects/users?properties=hs_given_name,hs_family_name,hs_email,hs_deactivated,hubspot_owner_id,hs_user_assigned_primary_team&limit=100${after ? `&after=${after}` : ''}`
+      
+      const usersResponse = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${hubspotToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
 
-    if (!ownersResponse.ok) {
-      throw new Error(`HubSpot owners API error: ${ownersResponse.status} - ${ownersResponse.statusText}`)
+      if (!usersResponse.ok) {
+        throw new Error(`HubSpot users API error: ${usersResponse.status} - ${usersResponse.statusText}`)
+      }
+
+      const usersData = await usersResponse.json()
+      const users: HubSpotUser[] = usersData.results || []
+      allUsers = [...allUsers, ...users]
+      
+      // Check if there are more pages
+      if (usersData.paging?.next?.after) {
+        after = usersData.paging.next.after
+      } else {
+        hasMore = false
+      }
     }
 
-    const ownersData = await ownersResponse.json()
-    const owners: HubSpotOwner[] = ownersData.results || []
+    console.log(`✅ Fetched ${allUsers.length} users from HubSpot`)
 
-    console.log(`✅ Fetched ${owners.length} owners from HubSpot`)
-
-    // Process and upsert owners data
-    const processedOwners = owners.map(owner => {
-      // Get primary team info
-      const primaryTeam = owner.teams?.find(team => team.primary) || owner.teams?.[0]
-      const teamId = primaryTeam?.id || null
-      const teamName = teamId ? teamsMap.get(teamId) || primaryTeam?.name || null : null
+    // Process and upsert users data
+    const processedUsers = allUsers.map(user => {
+      // Get team info from primary team assignment
+      const teamId = user.properties.hs_user_assigned_primary_team || null
+      const teamName = teamId ? teamsMap.get(teamId) || null : null
       
-      const fullName = [owner.firstName, owner.lastName].filter(Boolean).join(' ') || null
+      const firstName = user.properties.hs_given_name || null
+      const lastName = user.properties.hs_family_name || null
+      const fullName = [firstName, lastName].filter(Boolean).join(' ') || null
 
       return {
-        owner_id: owner.id,
-        first_name: owner.firstName || null,
-        last_name: owner.lastName || null,
+        owner_id: user.properties.hubspot_owner_id || null,
+        first_name: firstName,
+        last_name: lastName,
         full_name: fullName,
-        email: owner.email || null,
+        email: user.properties.hs_email || null,
         team_id: teamId,
         team_name: teamName,
-        archived: owner.archived || false,
+        archived: user.properties.hs_deactivated === 'true',
         updated_at: new Date().toISOString()
       }
     })
 
-    console.log(`🔄 Upserting ${processedOwners.length} owners to database...`)
+    console.log(`🔄 Upserting ${processedUsers.length} users to database...`)
 
-    // Upsert owners data
+    // Upsert users data
     const { error: upsertError } = await supabase
-      .from('hs_owners')
-      .upsert(processedOwners, { 
+      .from('hs_users')
+      .upsert(processedUsers, { 
         onConflict: 'owner_id',
         ignoreDuplicates: false
       })
@@ -123,14 +139,14 @@ Deno.serve(async (req) => {
       throw new Error(`Database upsert error: ${upsertError.message}`)
     }
 
-    console.log('✅ HubSpot owners and teams sync completed successfully')
+    console.log('✅ HubSpot users and teams sync completed successfully')
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'HubSpot owners and teams synced successfully',
+      message: 'HubSpot users and teams synced successfully',
       stats: {
         teams_fetched: teams.length,
-        owners_processed: processedOwners.length
+        users_processed: processedUsers.length
       },
       timestamp: new Date().toISOString()
     }), {

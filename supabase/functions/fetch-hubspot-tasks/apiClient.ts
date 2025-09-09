@@ -102,8 +102,41 @@ export class HubSpotApiClient {
   }
 
   async fetchOwners(): Promise<HubSpotOwner[]> {
-    const data = await this.makeGetRequest<{ results: HubSpotOwner[] }>('https://api.hubapi.com/crm/v3/owners');
-    return data.results || [];
+    // Fetch users with pagination and convert to owner format
+    let allUsers: any[] = []
+    let after = ''
+    let hasMore = true
+    
+    while (hasMore) {
+      const url = `https://api.hubapi.com/crm/v3/objects/users?properties=hs_given_name,hs_family_name,hs_email,hs_deactivated,hubspot_owner_id,hs_user_assigned_primary_team&limit=100${after ? `&after=${after}` : ''}`
+      
+      const data = await this.makeGetRequest<{ results: any[], paging?: { next?: { after: string } } }>(url)
+      const users = data.results || []
+      allUsers = [...allUsers, ...users]
+      
+      // Check if there are more pages
+      if (data.paging?.next?.after) {
+        after = data.paging.next.after
+      } else {
+        hasMore = false
+      }
+    }
+    
+    // Convert users to owner format
+    const owners: HubSpotOwner[] = allUsers.map(user => ({
+      id: user.properties.hubspot_owner_id,
+      firstName: user.properties.hs_given_name,
+      lastName: user.properties.hs_family_name,
+      email: user.properties.hs_email,
+      archived: user.properties.hs_deactivated === 'true',
+      teams: user.properties.hs_user_assigned_primary_team ? [{
+        id: user.properties.hs_user_assigned_primary_team,
+        name: '',
+        primary: true
+      }] : []
+    }))
+    
+    return owners
   }
 
   async fetchBatchAssociations(taskIds: string[]): Promise<any> {
