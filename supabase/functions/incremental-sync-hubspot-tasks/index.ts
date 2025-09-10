@@ -156,28 +156,8 @@ serve(async (req) => {
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 409
-          }
-        );
-      } else {
-        // Clean up stale running syncs (older than 3 minutes)
-        const staleExecutions = runningSyncs.filter(sync => 
-          new Date(sync.started_at) <= threeMinutesAgo
-        );
-        
-        if (staleExecutions.length > 0) {
-          await supabase
-            .from('sync_executions')
-            .update({
-              status: 'failed',
-              error_message: 'Execution timed out (exceeded 3 minute limit)',
-              completed_at: new Date().toISOString(),
-              duration_ms: 180000 // 3 minutes
-            })
-            .in('execution_id', staleExecutions.map(sync => sync.execution_id));
-          
-          console.log(`🧹 Cleaned up ${staleExecutions.length} stale sync executions`);
         }
-      }
+      );
     }
 
     const startTime = Date.now();
