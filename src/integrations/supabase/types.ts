@@ -199,6 +199,69 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_details: Json | null
+          error_message: string | null
+          execution_id: string
+          execution_log: Json | null
+          hubspot_api_calls: number | null
+          id: string
+          started_at: string
+          status: string
+          sync_type: string
+          tasks_failed: number | null
+          tasks_fetched: number | null
+          tasks_processed: number | null
+          tasks_updated: number | null
+          trigger_source: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          execution_id: string
+          execution_log?: Json | null
+          hubspot_api_calls?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          sync_type?: string
+          tasks_failed?: number | null
+          tasks_fetched?: number | null
+          tasks_processed?: number | null
+          tasks_updated?: number | null
+          trigger_source?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          execution_id?: string
+          execution_log?: Json | null
+          hubspot_api_calls?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          sync_type?: string
+          tasks_failed?: number | null
+          tasks_fetched?: number | null
+          tasks_processed?: number | null
+          tasks_updated?: number | null
+          trigger_source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sync_metadata: {
         Row: {
           created_at: string
@@ -265,6 +328,51 @@ export type Database = {
           id?: number
           label?: string | null
           order_column?: number
+        }
+        Relationships: []
+      }
+      task_sync_attempts: {
+        Row: {
+          attempt_number: number
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_details: Json | null
+          error_message: string | null
+          execution_id: string
+          hubspot_response: Json | null
+          id: string
+          started_at: string
+          status: string
+          task_hubspot_id: string
+        }
+        Insert: {
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          execution_id: string
+          hubspot_response?: Json | null
+          id?: string
+          started_at?: string
+          status?: string
+          task_hubspot_id: string
+        }
+        Update: {
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: Json | null
+          error_message?: string | null
+          execution_id?: string
+          hubspot_response?: Json | null
+          id?: string
+          started_at?: string
+          status?: string
+          task_hubspot_id?: string
         }
         Relationships: []
       }
@@ -353,6 +461,15 @@ export type Database = {
       }
     }
     Functions: {
+      add_execution_log: {
+        Args: {
+          details?: Json
+          execution_id_param: string
+          log_level: string
+          message: string
+        }
+        Returns: undefined
+      }
       get_all_tasks: {
         Args: Record<PropertyKey, never>
         Returns: {
