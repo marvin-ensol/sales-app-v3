@@ -188,7 +188,7 @@ serve(async (req) => {
     
     // Parse request body 
     const requestBody = await req.json().catch(() => ({}));
-    const triggerSource = requestBody.triggerSource || requestBody.timestamp ? 'cron-legacy' : 'manual';
+    const triggerSource = requestBody.triggerSource || 'manual';
     
     // Create execution record with proper error handling
     const { error: execInsertError } = await supabase.from('sync_executions').insert({
