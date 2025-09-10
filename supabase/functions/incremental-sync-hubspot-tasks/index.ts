@@ -563,12 +563,12 @@ serve(async (req) => {
   } catch (error) {
     console.error('Incremental sync error:', error);
     
-    // Update sync metadata with error (global row only)
+    // Update sync metadata with error (global row only) - PRESERVE last_sync_timestamp on failure
     const currentTimestamp = new Date().toISOString();
     const { error: errorUpdateError } = await supabase
       .from('sync_metadata')
       .update({
-        last_sync_timestamp: currentTimestamp,
+        // DO NOT update last_sync_timestamp on failure - preserve it to prevent data loss
         last_sync_success: false,
         sync_type: 'incremental',
         sync_duration: Math.round((Date.now() - startTime) / 1000),
