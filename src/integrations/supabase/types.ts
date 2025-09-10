@@ -246,6 +246,7 @@ export type Database = {
           started_at: string
           status: string
           sync_type: string
+          task_details: Json | null
           tasks_failed: number | null
           tasks_fetched: number | null
           tasks_processed: number | null
@@ -266,6 +267,7 @@ export type Database = {
           started_at?: string
           status?: string
           sync_type?: string
+          task_details?: Json | null
           tasks_failed?: number | null
           tasks_fetched?: number | null
           tasks_processed?: number | null
@@ -286,6 +288,7 @@ export type Database = {
           started_at?: string
           status?: string
           sync_type?: string
+          task_details?: Json | null
           tasks_failed?: number | null
           tasks_fetched?: number | null
           tasks_processed?: number | null
