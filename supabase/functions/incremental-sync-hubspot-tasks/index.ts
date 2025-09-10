@@ -34,15 +34,16 @@ interface TaskSyncAttempt {
 
 interface SyncResult {
   contactsUpdated: number;
+  tasksCreated: number;
   tasksUpdated: number;
-  tasksProcessed: number;
+  tasksFetched: number;
   tasksFailed: number;
   errors: number;
   duration: number;
   hubspotApiCalls?: number;
   taskDetails: {
     fetchedTaskIds: string[];
-    processedTaskIds: string[];
+    createdTaskIds: string[];
     updatedTaskIds: string[];
     failedTaskIds: string[];
     failedDetails: Array<{ taskId: string; error: string; stage: string }>;
@@ -241,8 +242,8 @@ serve(async (req) => {
           status: 'completed',
           completed_at: new Date().toISOString(),
           duration_ms: result.duration,
-          tasks_fetched: result.taskDetails.fetchedTaskIds.length,
-          tasks_processed: result.tasksProcessed,
+          tasks_fetched: result.tasksFetched,
+          tasks_created: result.tasksCreated,
           tasks_updated: result.tasksUpdated,
           tasks_failed: result.tasksFailed,
           task_details: result.taskDetails,
@@ -448,14 +449,15 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
 
     return { 
       contactsUpdated: 0,
+      tasksCreated: 0,
       tasksUpdated: 0,
-      tasksProcessed: 0,
+      tasksFetched: 0,
       tasksFailed: 0,
       errors: 0,
       duration: Date.now() - startTime,
       taskDetails: {
         fetchedTaskIds: [],
-        processedTaskIds: [],
+        createdTaskIds: [],
         updatedTaskIds: [],
         failedTaskIds: [],
         failedDetails: []
@@ -602,8 +604,18 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   // ==== PROCESS AND UPSERT TASKS ====
   logger.info('📋 Processing and upserting tasks...');
   
+  // First, check which tasks already exist to distinguish created vs updated
+  const taskIds = allModifiedTasks.map((task: HubSpotTask) => task.id);
+  const { data: existingTasks } = await supabase
+    .from('hs_tasks')
+    .select('hs_object_id')
+    .in('hs_object_id', taskIds);
+  
+  const existingTaskIds = new Set(existingTasks?.map(t => t.hs_object_id) || []);
+  
+  let tasksCreated = 0;
   let tasksUpdated = 0;
-  let tasksProcessed = 0;
+  let tasksFetched = allModifiedTasks.length;
   let tasksFailed = 0;
   let errors = contactErrors;
   let warningCount = 0;
@@ -611,7 +623,6 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   if (allModifiedTasks.length > 0) {
     // Process all tasks and prepare for upsert
     const tasksToUpsert = allModifiedTasks.map((task: HubSpotTask) => {
-      tasksProcessed++;
       processedTaskIds.push(task.id);
 
       const contactId = taskContactMap[task.id];
@@ -687,15 +698,19 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
         throw tasksError;
       }
 
-      // Track successful updates
+      // Track successful updates and count created vs updated
       if (tasksData) {
         tasksData.forEach(task => {
           updatedTaskIds.push(task.hs_object_id);
+          if (existingTaskIds.has(task.hs_object_id)) {
+            tasksUpdated++;
+          } else {
+            tasksCreated++;
+          }
         });
       }
 
-      tasksUpdated = tasksData?.length || 0;
-      logger.info(`✅ Upserted ${tasksUpdated} tasks`);
+      logger.info(`✅ Upserted ${tasksData?.length || 0} tasks (${tasksCreated} created, ${tasksUpdated} updated)`);
 
     } catch (error) {
       logger.error('Failed to upsert tasks:', error);
@@ -703,7 +718,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     }
 
     // Errors are already tracked in the execution record - no additional metadata update needed
-    logger.info(`⚠️ Sync completed with ${errors} errors out of ${tasksProcessed} tasks processed`);
+    logger.info(`⚠️ Sync completed with ${errors} errors out of ${tasksFetched} tasks fetched`);
   }
 
   const duration = Date.now() - startTime;
@@ -748,8 +763,9 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
 
   logger.info('=== INCREMENTAL SYNC COMPLETE ===');
   logger.info(`📊 Contacts updated: ${contactsUpdated}`);
+  logger.info(`🆕 Tasks created: ${tasksCreated}`);
   logger.info(`📋 Tasks updated: ${tasksUpdated}`);
-  logger.info(`🔍 Tasks processed: ${tasksProcessed}`);
+  logger.info(`📦 Tasks fetched: ${tasksFetched}`);
   logger.info(`❌ Tasks failed: ${tasksFailed}`);
   logger.info(`⚠️ Warnings: ${warningCount}`);
   logger.info(`🕒 Duration: ${Math.round(duration / 1000)}s`);
@@ -760,15 +776,16 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
 
   return {
     contactsUpdated,
+    tasksCreated,
     tasksUpdated,
-    tasksProcessed,
+    tasksFetched,
     tasksFailed,
     errors,
     duration,
     hubspotApiCalls: hubspotApiCallCount,
     taskDetails: {
       fetchedTaskIds,
-      processedTaskIds,
+      createdTaskIds: tasksToUpsert.filter(task => !existingTaskIds.has(task.hs_object_id)).map(task => task.hs_object_id),
       updatedTaskIds,
       failedTaskIds,
       failedDetails

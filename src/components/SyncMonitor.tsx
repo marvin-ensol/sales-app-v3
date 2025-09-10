@@ -19,7 +19,7 @@ interface SyncExecution {
   duration_ms?: number;
   status: string;
   tasks_fetched: number;
-  tasks_processed: number;
+  tasks_created?: number;
   tasks_updated: number;
   tasks_failed: number;
   hubspot_api_calls: number;
@@ -273,7 +273,7 @@ export const SyncMonitor = () => {
                           <span className="text-muted-foreground">Duration:</span> {formatDuration(execution.duration_ms)}
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Tasks:</span> {execution.tasks_processed}
+                          <span className="text-muted-foreground">Tasks:</span> {execution.tasks_fetched}
                         </div>
                       </div>
                       

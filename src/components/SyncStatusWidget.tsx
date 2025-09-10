@@ -11,7 +11,7 @@ interface SyncStatus {
     status: string;
     started_at: string;
     completed_at?: string;
-    tasks_processed: number;
+    tasks_fetched: number;
     tasks_failed: number;
     error_message?: string;
   };
@@ -195,8 +195,8 @@ export const SyncStatusWidget = () => {
               </div>
               
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Tasks Processed:</span>
-                <span>{syncStatus.lastExecution.tasks_processed}</span>
+                <span className="text-muted-foreground">Tasks Fetched:</span>
+                <span>{syncStatus.lastExecution.tasks_fetched}</span>
               </div>
               
               {syncStatus.lastExecution.tasks_failed > 0 && (

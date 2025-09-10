@@ -50,7 +50,7 @@ export const useCacheMonitoring = () => {
       last_sync_timestamp: data.completed_at || data.started_at,
       last_sync_success: data.status === 'completed',
       sync_duration: data.duration_ms ? Math.floor(data.duration_ms / 1000) : 0,
-      tasks_added: data.sync_type === 'full' ? data.tasks_processed : 0,
+      tasks_added: data.tasks_created || 0,
       tasks_updated: data.tasks_updated || 0,
       tasks_deleted: 0, // Not tracked separately
       error_message: data.error_message,

@@ -27,7 +27,7 @@ export const SyncDashboard = () => {
       if (error) throw error;
 
       const csvContent = [
-        'execution_id,sync_type,status,started_at,completed_at,duration_ms,tasks_processed,tasks_failed,error_message',
+        'execution_id,sync_type,status,started_at,completed_at,duration_ms,tasks_fetched,tasks_created,tasks_updated,tasks_failed,error_message',
         ...data.map(exec => [
           exec.execution_id,
           exec.sync_type,
@@ -35,7 +35,9 @@ export const SyncDashboard = () => {
           exec.started_at,
           exec.completed_at || '',
           exec.duration_ms || '',
-          exec.tasks_processed,
+          exec.tasks_fetched || '',
+          exec.tasks_created || '',
+          exec.tasks_updated || '',
           exec.tasks_failed,
           exec.error_message || ''
         ].join(','))
