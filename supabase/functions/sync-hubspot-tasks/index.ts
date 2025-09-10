@@ -160,7 +160,7 @@ serve(async (req) => {
             console.log('✅ Existing data cleared successfully');
             sendOperationUpdate('tasks', 'running', 'Starting HubSpot tasks fetch...');
 
-            // Prepare the request body - TEMPORARY: Filter for single task ID
+            // Prepare the request body - fetch all non-completed tasks
             const requestBody = {
               limit: 100,
               sorts: ["hs_lastmodifieddate"],
@@ -168,9 +168,9 @@ serve(async (req) => {
                 {
                   filters: [
                     {
-                      propertyName: "hs_object_id",
-                      operator: "EQ",
-                      value: "282601753845"
+                      propertyName: "hs_task_status",
+                      operator: "NEQ",
+                      value: "COMPLETED"
                     }
                   ]
                 }
