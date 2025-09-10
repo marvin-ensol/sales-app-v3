@@ -242,7 +242,6 @@ export type Database = {
           execution_id: string
           execution_log: Json | null
           hubspot_api_calls: number | null
-          id: string
           started_at: string
           status: string
           sync_type: string
@@ -263,7 +262,6 @@ export type Database = {
           execution_id: string
           execution_log?: Json | null
           hubspot_api_calls?: number | null
-          id?: string
           started_at?: string
           status?: string
           sync_type?: string
@@ -284,7 +282,6 @@ export type Database = {
           execution_id?: string
           execution_log?: Json | null
           hubspot_api_calls?: number | null
-          id?: string
           started_at?: string
           status?: string
           sync_type?: string

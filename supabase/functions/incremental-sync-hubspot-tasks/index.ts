@@ -95,8 +95,16 @@ serve(async (req) => {
   const requestBody = await req.json().catch(() => ({}));
   const triggerSource = requestBody.triggerSource || 'manual';
   
-  // Generate unique execution ID
-  const executionId = `inc-sync-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  // Generate execution_id in format: inc_YY-MM-DD_HH:mm:ss using Paris timezone
+  const now = new Date();
+  const parisTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+  const year = parisTime.getFullYear().toString().slice(-2);
+  const month = (parisTime.getMonth() + 1).toString().padStart(2, '0');
+  const day = parisTime.getDate().toString().padStart(2, '0');
+  const hour = parisTime.getHours().toString().padStart(2, '0');
+  const minute = parisTime.getMinutes().toString().padStart(2, '0');
+  const second = parisTime.getSeconds().toString().padStart(2, '0');
+  const executionId = `inc_${year}-${month}-${day}_${hour}:${minute}:${second}`;
   
   console.log(`=== [${executionId}] INCREMENTAL HUBSPOT TASKS SYNC START ===`);
   

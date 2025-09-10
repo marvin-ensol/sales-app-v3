@@ -45,7 +45,7 @@ export const useCacheMonitoring = () => {
 
     // Transform sync_execution data to match SyncMetadata interface
     return {
-      id: data.id,
+      id: data.execution_id,
       sync_type: data.sync_type,
       last_sync_timestamp: data.completed_at || data.started_at,
       last_sync_success: data.status === 'completed',

@@ -10,7 +10,6 @@ import { RefreshCw, Activity, Clock, AlertTriangle, CheckCircle, XCircle } from 
 import { useToast } from '@/hooks/use-toast';
 
 interface SyncExecution {
-  id: string;
   execution_id: string;
   sync_type: string;
   trigger_source: string;
@@ -241,7 +240,7 @@ export const SyncMonitor = () => {
                 <div className="space-y-4">
                   {executions.map((execution) => (
                     <div
-                      key={execution.id}
+                      key={execution.execution_id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                         selectedExecution === execution.execution_id
                           ? 'border-primary bg-primary/5'
