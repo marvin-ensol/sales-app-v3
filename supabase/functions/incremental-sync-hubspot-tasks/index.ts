@@ -51,25 +51,24 @@ serve(async (req) => {
     // Initialize Supabase client with service role key for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse owner ID from request body (optional - if provided, sync only that owner's tasks)
-    const { ownerId } = await req.json().catch(() => ({ ownerId: null }));
+    // Parse request body 
+    const { timestamp, triggerSource } = await req.json().catch(() => ({}));
 
-    console.log(`🔄 Starting incremental sync${ownerId ? ` for owner ${ownerId}` : ' for all owners'}`);
+    console.log(`🔄 Starting global incremental sync (triggered by: ${triggerSource || 'manual'})`);
 
-    // Get the last sync timestamp for this owner (or global if no owner specified)
+    // Get the last sync timestamp from global metadata row
     const { data: syncMetadata, error: syncError } = await supabase
       .from('sync_metadata')
-      .select('incremental_sync_timestamp, last_sync_timestamp')
-      .eq('owner_id', ownerId || 'global')
-      .maybeSingle();
+      .select('last_sync_timestamp')
+      .single();
 
     if (syncError) {
       console.error('Error fetching sync metadata:', syncError);
       throw new Error(`Failed to fetch sync metadata: ${syncError.message}`);
     }
 
-    // Use the latest timestamp (incremental if available, otherwise last_sync)
-    const lastSyncTimestamp = syncMetadata?.incremental_sync_timestamp || syncMetadata?.last_sync_timestamp || '1970-01-01T00:00:00Z';
+    // Use the last sync timestamp (fallback to epoch if none)
+    const lastSyncTimestamp = syncMetadata?.last_sync_timestamp || '1970-01-01T00:00:00Z';
     console.log(`📅 Last sync timestamp: ${lastSyncTimestamp}`);
 
     // Create the request body for fetching modified tasks
@@ -120,14 +119,7 @@ serve(async (req) => {
       ]
     };
 
-    // Add owner filter if specified
-    if (ownerId) {
-      requestBody.filterGroups[0].filters.push({
-        propertyName: "hubspot_owner_id",
-        operator: "EQ",
-        value: ownerId
-      });
-    }
+    // Global sync - no owner filter needed
 
     console.log('📥 Fetching modified tasks from HubSpot...');
     
@@ -180,21 +172,24 @@ serve(async (req) => {
       console.log('✅ No tasks modified since last sync');
       
       // Update sync metadata
-      const { error: updateError } = await supabase
+      const currentTimestamp = new Date().toISOString();
+      const { error: metadataUpdateError } = await supabase
         .from('sync_metadata')
-        .upsert({
-          owner_id: ownerId || 'global',
-          incremental_sync_timestamp: new Date().toISOString(),
+        .update({
+          last_sync_timestamp: currentTimestamp,
           last_sync_success: true,
           sync_type: 'incremental',
-          sync_duration: Date.now() - startTime,
+          sync_duration: Math.round((Date.now() - startTime) / 1000),
           tasks_added: 0,
           tasks_updated: 0,
-          tasks_deleted: 0
-        });
+          tasks_deleted: 0,
+          error_message: null,
+          updated_at: currentTimestamp
+        })
+        .single();
 
-      if (updateError) {
-        console.error('Error updating sync metadata:', updateError);
+      if (metadataUpdateError) {
+        console.error('Error updating sync metadata:', metadataUpdateError);
       }
 
       return new Response(JSON.stringify({ 
@@ -521,26 +516,7 @@ serve(async (req) => {
       }
     }
 
-    // Update sync metadata
     const syncDuration = Date.now() - startTime;
-    const { error: updateError } = await supabase
-      .from('sync_metadata')
-      .upsert({
-        owner_id: ownerId || 'global',
-        incremental_sync_timestamp: new Date().toISOString(),
-        last_sync_success: result.errors.length === 0,
-        sync_type: 'incremental',
-        sync_duration: syncDuration,
-        tasks_added: result.tasksAdded,
-        tasks_updated: result.tasksUpdated,
-        tasks_deleted: result.tasksDeleted,
-        error_message: result.errors.length > 0 ? result.errors.join('; ') : null
-      });
-
-    if (updateError) {
-      console.error('Error updating sync metadata:', updateError);
-      result.errors.push(`Failed to update sync metadata: ${updateError.message}`);
-    }
 
     console.log('=== INCREMENTAL SYNC COMPLETE ===');
     console.log(`📊 Tasks processed: ${allTasks.length}`);
@@ -551,23 +527,23 @@ serve(async (req) => {
 
     // Update sync metadata (global row only)
     const currentTimestamp = new Date().toISOString();
-    const { error: updateError } = await supabase
+    const { error: finalUpdateError } = await supabase
       .from('sync_metadata')
       .update({
         last_sync_timestamp: currentTimestamp,
         last_sync_success: result.errors.length === 0,
         sync_type: 'incremental',
         sync_duration: Math.round(syncDuration / 1000), // Convert to seconds
-        tasks_added: result.added,
-        tasks_updated: result.updated,
-        tasks_deleted: result.deleted,
+        tasks_added: result.tasksAdded,
+        tasks_updated: result.tasksUpdated,
+        tasks_deleted: result.tasksDeleted,
         error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
         updated_at: currentTimestamp
       })
       .single();
 
-    if (updateError) {
-      console.error('❌ Failed to update sync metadata:', updateError);
+    if (finalUpdateError) {
+      console.error('❌ Failed to update sync metadata:', finalUpdateError);
     } else {
       console.log('✅ Sync metadata updated successfully');
     }
@@ -589,7 +565,7 @@ serve(async (req) => {
     
     // Update sync metadata with error (global row only)
     const currentTimestamp = new Date().toISOString();
-    const { error: updateError } = await supabase
+    const { error: errorUpdateError } = await supabase
       .from('sync_metadata')
       .update({
         last_sync_timestamp: currentTimestamp,
@@ -601,8 +577,8 @@ serve(async (req) => {
       })
       .single();
 
-    if (updateError) {
-      console.error('❌ Failed to update sync metadata with error:', updateError);
+    if (errorUpdateError) {
+      console.error('❌ Failed to update sync metadata with error:', errorUpdateError);
     }
     
     return new Response(JSON.stringify({ 
