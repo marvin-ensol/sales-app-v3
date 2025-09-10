@@ -25,15 +25,74 @@ interface SyncResult {
   errors: string[];
 }
 
+// Enhanced logging utility
+class SyncLogger {
+  private executionId: string;
+  private supabase: any;
+
+  constructor(executionId: string, supabase: any) {
+    this.executionId = executionId;
+    this.supabase = supabase;
+  }
+
+  async log(level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG', message: string, details?: any) {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [${this.executionId}] [${level}] ${message}`, details || '');
+    
+    // Also log to database
+    try {
+      await this.supabase.rpc('add_execution_log', {
+        execution_id_param: this.executionId,
+        log_level: level,
+        message,
+        details: details ? JSON.stringify(details) : null
+      });
+    } catch (error) {
+      console.error(`Failed to log to database: ${error.message}`);
+    }
+  }
+
+  async updateExecution(updates: any) {
+    try {
+      await this.supabase
+        .from('sync_executions')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('execution_id', this.executionId);
+    } catch (error) {
+      console.error(`Failed to update execution: ${error.message}`);
+    }
+  }
+
+  async logTaskAttempt(taskHubspotId: string, status: string, error?: string, response?: any) {
+    try {
+      await this.supabase
+        .from('task_sync_attempts')
+        .insert({
+          execution_id: this.executionId,
+          task_hubspot_id: taskHubspotId,
+          status,
+          completed_at: new Date().toISOString(),
+          error_message: error,
+          hubspot_response: response ? JSON.stringify(response) : null
+        });
+    } catch (error) {
+      console.error(`Failed to log task attempt: ${error.message}`);
+    }
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Generate unique execution ID
+  const executionId = `inc-sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
   try {
     const startTime = Date.now();
-    console.log('=== INCREMENTAL HUBSPOT TASKS SYNC START ===');
+    console.log(`=== [${executionId}] INCREMENTAL HUBSPOT TASKS SYNC START ===`);
     
     // Get environment variables
     const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
@@ -50,11 +109,22 @@ serve(async (req) => {
 
     // Initialize Supabase client with service role key for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
+    
+    // Initialize logger and execution tracking
+    const logger = new SyncLogger(executionId, supabase);
+    
     // Parse request body 
     const { timestamp, triggerSource } = await req.json().catch(() => ({}));
+    
+    // Create execution record
+    await supabase.from('sync_executions').insert({
+      execution_id: executionId,
+      sync_type: 'incremental',
+      trigger_source: triggerSource || 'manual',
+      status: 'running'
+    });
 
-    console.log(`🔄 Starting global incremental sync (triggered by: ${triggerSource || 'manual'})`);
+    await logger.log('INFO', 'Starting global incremental sync', { triggerSource: triggerSource || 'manual' });
 
     // Get the last sync timestamp from global metadata row
     const { data: syncMetadata, error: syncError } = await supabase
