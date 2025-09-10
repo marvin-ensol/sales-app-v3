@@ -407,6 +407,14 @@ serve(async (req) => {
     // Helper function to safely parse timestamps
     const parseTimestamp = (value: any): Date | null => {
       if (!value || value === '' || value === 'null' || value === '0') return null;
+      
+      // Handle ISO 8601 strings (e.g., "2025-09-05T07:00:11.629Z")
+      if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+        const date = new Date(value);
+        return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date : null;
+      }
+      
+      // Handle numeric timestamps
       const timestamp = parseInt(String(value));
       if (isNaN(timestamp) || timestamp === 0) return null;
       const date = new Date(timestamp);
