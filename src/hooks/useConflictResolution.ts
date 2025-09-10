@@ -38,10 +38,11 @@ export const useConflictResolution = (options: ConflictResolutionOptions = { str
       const detectedConflicts: SyncConflict[] = [];
 
       // Check for assignment conflicts (local vs sync metadata)
+      // Note: Since we simplified sync_metadata to a single global row,
+      // we'll get the general sync status instead of owner-specific data
       const { data: syncMeta } = await supabase
         .from('sync_metadata')
         .select('*')
-        .eq('owner_id', localTask.hubspot_owner_id || 'unassigned')
         .single();
 
       if (syncMeta && syncMeta.last_sync_timestamp) {

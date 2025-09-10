@@ -549,6 +549,29 @@ serve(async (req) => {
     console.log(`📊 Errors: ${result.errors.length}`);
     console.log(`⏱️ Duration: ${syncDuration}ms`);
 
+    // Update sync metadata (global row only)
+    const currentTimestamp = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from('sync_metadata')
+      .update({
+        last_sync_timestamp: currentTimestamp,
+        last_sync_success: result.errors.length === 0,
+        sync_type: 'incremental',
+        sync_duration: Math.round(syncDuration / 1000), // Convert to seconds
+        tasks_added: result.added,
+        tasks_updated: result.updated,
+        tasks_deleted: result.deleted,
+        error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
+        updated_at: currentTimestamp
+      })
+      .single();
+
+    if (updateError) {
+      console.error('❌ Failed to update sync metadata:', updateError);
+    } else {
+      console.log('✅ Sync metadata updated successfully');
+    }
+
     return new Response(JSON.stringify({ 
       success: result.errors.length === 0,
       message: result.errors.length === 0 ? 'Incremental sync completed successfully' : 'Incremental sync completed with errors',
@@ -563,6 +586,24 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Incremental sync error:', error);
+    
+    // Update sync metadata with error (global row only)
+    const currentTimestamp = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from('sync_metadata')
+      .update({
+        last_sync_timestamp: currentTimestamp,
+        last_sync_success: false,
+        sync_type: 'incremental',
+        sync_duration: Math.round((Date.now() - startTime) / 1000),
+        error_message: error.message,
+        updated_at: currentTimestamp
+      })
+      .single();
+
+    if (updateError) {
+      console.error('❌ Failed to update sync metadata with error:', updateError);
+    }
     
     return new Response(JSON.stringify({ 
       success: false,

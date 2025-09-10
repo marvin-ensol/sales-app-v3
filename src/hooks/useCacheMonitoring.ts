@@ -1,17 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface SyncMetadata {
-  owner_id: string;
+  id: string;
+  sync_type: 'full' | 'incremental';
   last_sync_timestamp: string;
-  incremental_sync_timestamp: string;
-  full_sync_timestamp: string;
   last_sync_success: boolean;
-  sync_type: string;
   sync_duration: number;
   tasks_added: number;
   tasks_updated: number;
   tasks_deleted: number;
   error_message?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SyncStatus {
@@ -24,23 +24,23 @@ export interface SyncStatus {
 }
 
 export const useCacheMonitoring = () => {
-  const fetchSyncMetadata = async (): Promise<SyncMetadata[]> => {
+  const fetchSyncMetadata = async (): Promise<SyncMetadata | null> => {
     const { data, error } = await supabase
       .from('sync_metadata')
       .select('*')
-      .order('last_sync_timestamp', { ascending: false });
+      .single();
 
     if (error) {
       console.error('Error fetching sync metadata:', error);
-      throw error;
+      return null;
     }
 
-    return data || [];
+    return data as SyncMetadata;
   };
 
-  const triggerIncrementalSync = async (ownerId?: string): Promise<any> => {
+  const triggerIncrementalSync = async (): Promise<any> => {
     const { data, error } = await supabase.functions.invoke('incremental-sync-hubspot-tasks', {
-      body: { ownerId }
+      body: {}
     });
 
     if (error) {
@@ -65,19 +65,18 @@ export const useCacheMonitoring = () => {
   const getSyncStatus = async (): Promise<SyncStatus> => {
     try {
       const metadata = await fetchSyncMetadata();
-      const globalMetadata = metadata.find(m => m.owner_id === 'global');
       
-      if (!globalMetadata) {
+      if (!metadata) {
         return { isRunning: false };
       }
 
       return {
         isRunning: false, // We'd need to check if any sync is currently running
-        lastSync: new Date(globalMetadata.last_sync_timestamp),
-        lastSyncType: globalMetadata.sync_type as 'full' | 'incremental',
-        lastSyncSuccess: globalMetadata.last_sync_success,
-        tasksProcessed: globalMetadata.tasks_added + globalMetadata.tasks_updated,
-        errors: globalMetadata.error_message ? [globalMetadata.error_message] : []
+        lastSync: new Date(metadata.last_sync_timestamp),
+        lastSyncType: metadata.sync_type,
+        lastSyncSuccess: metadata.last_sync_success,
+        tasksProcessed: metadata.tasks_added + metadata.tasks_updated,
+        errors: metadata.error_message ? [metadata.error_message] : []
       };
     } catch (error) {
       console.error('Error getting sync status:', error);

@@ -203,14 +203,11 @@ export type Database = {
         Row: {
           created_at: string
           error_message: string | null
-          full_sync_timestamp: string | null
           id: string
-          incremental_sync_timestamp: string | null
           last_sync_success: boolean
           last_sync_timestamp: string
-          owner_id: string
           sync_duration: number | null
-          sync_type: string | null
+          sync_type: string
           tasks_added: number | null
           tasks_deleted: number | null
           tasks_updated: number | null
@@ -219,14 +216,11 @@ export type Database = {
         Insert: {
           created_at?: string
           error_message?: string | null
-          full_sync_timestamp?: string | null
           id?: string
-          incremental_sync_timestamp?: string | null
           last_sync_success?: boolean
           last_sync_timestamp?: string
-          owner_id: string
           sync_duration?: number | null
-          sync_type?: string | null
+          sync_type?: string
           tasks_added?: number | null
           tasks_deleted?: number | null
           tasks_updated?: number | null
@@ -235,14 +229,11 @@ export type Database = {
         Update: {
           created_at?: string
           error_message?: string | null
-          full_sync_timestamp?: string | null
           id?: string
-          incremental_sync_timestamp?: string | null
           last_sync_success?: boolean
           last_sync_timestamp?: string
-          owner_id?: string
           sync_duration?: number | null
-          sync_type?: string | null
+          sync_type?: string
           tasks_added?: number | null
           tasks_deleted?: number | null
           tasks_updated?: number | null

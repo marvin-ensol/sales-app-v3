@@ -813,11 +813,60 @@ serve(async (req) => {
 
             console.log(`🎉 Sync completed successfully! Total records: ${insertedCount}`);
             
+            // Update sync metadata on successful completion
+            const endTime = Date.now();
+            const syncDuration = Math.round((endTime - startTime) / 1000); // Duration in seconds
+            
+            console.log(`🔄 Updating sync metadata - Duration: ${syncDuration}s, Tasks: ${insertedCount}`);
+            
+            const { error: metadataError } = await supabase
+              .from('sync_metadata')
+              .update({
+                sync_type: 'full',
+                last_sync_timestamp: new Date().toISOString(),
+                last_sync_success: true,
+                sync_duration: syncDuration,
+                tasks_added: insertedCount,
+                tasks_updated: 0, // Full sync doesn't track updates
+                tasks_deleted: 0, // We clear and repopulate, so not applicable
+                error_message: null,
+                updated_at: new Date().toISOString()
+              })
+              .single();
+
+            if (metadataError) {
+              console.error('⚠️ Failed to update sync metadata:', metadataError);
+              // Don't fail the entire sync for metadata update issues
+            } else {
+              console.log('✅ Sync metadata updated successfully');
+            }
+            
             sendOperationUpdate('database', 'complete', `Successfully synced ${insertedCount} records`, insertedCount);
 
             controller.close();
           } catch (error) {
             console.error('Error in sync-hubspot-tasks function:', error);
+            
+            // Update sync metadata on failure
+            const endTime = Date.now();
+            const syncDuration = Math.round((endTime - startTime) / 1000);
+            
+            const { error: metadataError } = await supabase
+              .from('sync_metadata')
+              .update({
+                sync_type: 'full',
+                last_sync_timestamp: new Date().toISOString(),
+                last_sync_success: false,
+                sync_duration: syncDuration,
+                error_message: error.message,
+                updated_at: new Date().toISOString()
+              })
+              .single();
+
+            if (metadataError) {
+              console.error('⚠️ Failed to update sync metadata on error:', metadataError);
+            }
+            
             const errorOperations = [
               { id: 'tasks', name: 'Fetching Tasks', status: 'error' },
               { id: 'associations', name: 'Task Associations', status: 'error' },
