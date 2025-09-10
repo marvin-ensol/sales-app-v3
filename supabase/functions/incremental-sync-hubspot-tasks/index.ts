@@ -120,8 +120,23 @@ serve(async (req) => {
   
   try {
     // ==============================================
-    // CONCURRENCY CONTROL: Check for running syncs
+    // CONCURRENCY CONTROL: Enhanced check with cleanup
     // ==============================================
+    
+    // First, clean up any stale executions older than 3 minutes
+    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
+    await supabase
+      .from('sync_executions')
+      .update({ 
+        status: 'failed', 
+        error_message: 'Execution timed out',
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('status', 'running')
+      .lt('started_at', threeMinutesAgo.toISOString());
+
+    // Check for any remaining running syncs
     const { data: runningSyncs, error: syncCheckError } = await supabase
       .from('sync_executions')
       .select('execution_id, started_at')
@@ -131,23 +146,16 @@ serve(async (req) => {
     if (syncCheckError) {
       console.error('Error checking for running syncs:', syncCheckError);
     } else if (runningSyncs && runningSyncs.length > 0) {
-      // Check if any sync has been running for more than 3 minutes (timeout)
-      const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
-      const validRunningSyncs = runningSyncs.filter(sync => 
-        new Date(sync.started_at) > threeMinutesAgo
-      );
-
-      if (validRunningSyncs.length > 0) {
-        console.log(`⏳ Another sync is already running: ${validRunningSyncs[0].execution_id}. Skipping this execution.`);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Another sync is already running',
-            runningSync: validRunningSyncs[0].execution_id
-          }), 
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 409 
+      console.log(`⏳ Another sync is already running: ${runningSyncs[0].execution_id}. Skipping this execution.`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Another sync is already running',
+          runningSync: runningSyncs[0].execution_id
+        }), 
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 409
           }
         );
       } else {
@@ -179,17 +187,30 @@ serve(async (req) => {
     const logger = new SyncLogger(executionId, supabase);
     
     // Parse request body 
-    const { timestamp, triggerSource } = await req.json().catch(() => ({}));
+    const requestBody = await req.json().catch(() => ({}));
+    const triggerSource = requestBody.triggerSource || requestBody.timestamp ? 'cron-legacy' : 'manual';
     
-    // Create execution record
-    await supabase.from('sync_executions').insert({
+    // Create execution record with proper error handling
+    const { error: execInsertError } = await supabase.from('sync_executions').insert({
       execution_id: executionId,
       sync_type: 'incremental',
-      trigger_source: triggerSource || 'manual',
+      trigger_source: triggerSource,
       status: 'running'
     });
 
-    await logger.log('INFO', 'Starting global incremental sync', { triggerSource: triggerSource || 'manual' });
+    if (execInsertError) {
+      console.error('Failed to create execution record:', execInsertError);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Failed to create execution record',
+        details: execInsertError.message 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    await logger.log('INFO', 'Starting global incremental sync', { triggerSource });
 
     // ==============================================
     // MAIN SYNC LOGIC WITH TIMEOUT WRAPPER

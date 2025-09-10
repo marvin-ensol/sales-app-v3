@@ -31,8 +31,8 @@ serve(async (req) => {
     // Trigger the incremental sync (global only, no owner-specific logic)
     const { data, error } = await supabase.functions.invoke('incremental-sync-hubspot-tasks', {
       body: { 
-        timestamp: now.toISOString(),
-        triggerSource: 'cron-30s'
+        triggerSource: 'cron-every-minute',
+        triggerTime: now.toISOString()
       }
     });
 
