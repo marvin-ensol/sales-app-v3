@@ -15,16 +15,6 @@ serve(async (req) => {
   try {
     console.log('=== SCHEDULED INCREMENTAL SYNC TRIGGER ===');
     
-    // TEMPORARY KILL SWITCH - Disable incremental sync
-    console.log('🚫 Incremental sync temporarily disabled');
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: 'Incremental sync temporarily disabled',
-      timestamp: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -40,12 +30,11 @@ serve(async (req) => {
     
     // Only trigger at :00 and :45 seconds (45-second intervals)
     if (currentSeconds < 5 || (currentSeconds >= 45 && currentSeconds < 50)) {
-      console.log(`🚀 Triggering incremental sync at ${now.toISOString()}`);
+      console.log(`🚀 Triggering global incremental sync at ${now.toISOString()}`);
       
-      // Trigger the incremental sync for global data
+      // Trigger the incremental sync (now global only, no owner-specific logic)
       const { data, error } = await supabase.functions.invoke('incremental-sync-hubspot-tasks', {
         body: { 
-          ownerId: null, // Global sync
           timestamp: now.toISOString(),
           triggerSource: 'cron-45s'
         }
@@ -63,11 +52,11 @@ serve(async (req) => {
         });
       }
 
-      console.log('✅ Incremental sync triggered successfully');
+      console.log('✅ Global incremental sync triggered successfully');
       
       return new Response(JSON.stringify({ 
         success: true, 
-        message: 'Incremental sync triggered successfully',
+        message: 'Global incremental sync triggered successfully',
         triggerTime: now.toISOString(),
         nextTrigger: new Date(now.getTime() + 45000).toISOString(),
         data
