@@ -324,6 +324,7 @@ export type Database = {
       }
       task_sync_attempts: {
         Row: {
+          action_type: string
           attempt_number: number
           completed_at: string | null
           created_at: string
@@ -338,6 +339,7 @@ export type Database = {
           task_hubspot_id: string
         }
         Insert: {
+          action_type?: string
           attempt_number?: number
           completed_at?: string | null
           created_at?: string
@@ -352,6 +354,7 @@ export type Database = {
           task_hubspot_id: string
         }
         Update: {
+          action_type?: string
           attempt_number?: number
           completed_at?: string | null
           created_at?: string

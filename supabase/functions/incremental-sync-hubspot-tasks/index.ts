@@ -30,6 +30,7 @@ interface TaskSyncAttempt {
   hubspotResponse?: any;
   supabaseData?: any;
   warnings?: string[];
+  actionType: 'created' | 'updated' | 'skipped' | 'failed' | 'unknown';
 }
 
 interface SyncResult {
@@ -294,7 +295,8 @@ serve(async (req) => {
             duration_ms: 0,
             error_message: attempt.errorMessage,
             error_details: attempt.errorDetails,
-            hubspot_response: attempt.hubspotResponse
+            hubspot_response: attempt.hubspotResponse,
+            action_type: attempt.actionType
           }))
         );
 
@@ -759,6 +761,14 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       warnings.push('Missing contact reference in database');
     }
     
+    // Determine action type based on success and whether task existed
+    let actionType = 'unknown';
+    if (isSuccess) {
+      actionType = existingTaskIds.has(taskId) ? 'updated' : 'created';
+    } else {
+      actionType = 'failed';
+    }
+    
     taskSyncAttempts.push({
       taskHubspotId: taskId,
       status,
@@ -766,7 +776,8 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       errorMessage,
       hubspotResponse: { properties: task.properties },
       supabaseData: isSuccess ? { upserted: true } : undefined,
-      warnings: warnings.length > 0 ? warnings : undefined
+      warnings: warnings.length > 0 ? warnings : undefined,
+      actionType
     });
   });
 
