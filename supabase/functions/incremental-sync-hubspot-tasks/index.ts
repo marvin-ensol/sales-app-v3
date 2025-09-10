@@ -120,6 +120,32 @@ serve(async (req) => {
   // Initialize Supabase client with service role key for admin operations
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   
+  // Check if sync is paused
+  try {
+    const { data: syncControl, error: syncControlError } = await supabase
+      .from('sync_control')
+      .select('*')
+      .single();
+
+    if (syncControlError && syncControlError.code !== 'PGRST116') {
+      console.error('❌ Error checking sync control:', syncControlError);
+    } else if (syncControl?.is_paused) {
+      console.log('⏸️ Sync is paused by user');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Sync is currently paused',
+          paused: true 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  } catch (pauseCheckError) {
+    console.error('❌ Error checking pause status:', pauseCheckError);
+  }
+  
   try {
     // ==============================================
     // CONCURRENCY CONTROL: Enhanced check with cleanup
@@ -281,7 +307,7 @@ serve(async (req) => {
 // ==============================================
 // CORE SYNC LOGIC (extracted to separate function)
 // ==============================================
-async function performIncrementalSync(supabase: any, logger: any, hubspotToken: string, startTime: number) {
+async function performIncrementalSync(supabase: any, logger: any, hubspotToken: string, startTime: number, syncControl?: any) {
   // Track HubSpot API calls
   let hubspotApiCallCount = 0;
   // Get the last sync timestamp from global metadata row

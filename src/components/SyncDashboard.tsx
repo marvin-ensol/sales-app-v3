@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SyncMonitor } from './SyncMonitor';
 import { SyncStatusWidget } from './SyncStatusWidget';
+import { SyncControlPanel } from './SyncControlPanel';
 import { Button } from '@/components/ui/button';
 import { Download, RefreshCw } from 'lucide-react';
 import { useCacheMonitoring } from '@/hooks/useCacheMonitoring';
@@ -189,7 +190,18 @@ export const SyncDashboard = () => {
         </Card>
       </div>
 
-      <SyncMonitor />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <SyncControlPanel />
+        
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Real-time Monitor</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SyncMonitor />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

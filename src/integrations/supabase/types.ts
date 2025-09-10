@@ -199,6 +199,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_control: {
+        Row: {
+          created_at: string
+          custom_sync_timestamp: string | null
+          id: string
+          is_paused: boolean
+          notes: string | null
+          paused_at: string | null
+          paused_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_sync_timestamp?: string | null
+          id?: string
+          is_paused?: boolean
+          notes?: string | null
+          paused_at?: string | null
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_sync_timestamp?: string | null
+          id?: string
+          is_paused?: boolean
+          notes?: string | null
+          paused_at?: string | null
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sync_executions: {
         Row: {
           completed_at: string | null
