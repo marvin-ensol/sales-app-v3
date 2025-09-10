@@ -241,22 +241,35 @@ serve(async (req) => {
     if (allTasks.length === 0) {
       console.log('✅ No tasks modified since last sync');
       
-      // Update sync metadata
+      // Update sync metadata for no-tasks case
       const currentTimestamp = new Date().toISOString();
-      const { error: metadataUpdateError } = await supabase
+      
+      // Get existing metadata record for proper WHERE clause
+      const { data: existingMetadata } = await supabase
         .from('sync_metadata')
-        .update({
-          last_sync_timestamp: currentTimestamp,
-          last_sync_success: true,
-          sync_type: 'incremental',
-          sync_duration: Math.round((Date.now() - startTime) / 1000),
-          tasks_added: 0,
-          tasks_updated: 0,
-          tasks_deleted: 0,
-          error_message: null,
-          updated_at: currentTimestamp
-        })
+        .select('id')
+        .limit(1)
         .single();
+      
+      let metadataUpdateError = null;
+      
+      if (existingMetadata) {
+        const { error } = await supabase
+          .from('sync_metadata')
+          .update({
+            last_sync_timestamp: currentTimestamp,
+            last_sync_success: true,
+            sync_type: 'incremental',
+            sync_duration: Math.round((Date.now() - startTime) / 1000),
+            tasks_added: 0,
+            tasks_updated: 0,
+            tasks_deleted: 0,
+            error_message: null,
+            updated_at: currentTimestamp
+          })
+          .eq('id', existingMetadata.id);
+        metadataUpdateError = error;
+      }
 
       if (metadataUpdateError) {
         console.error('Error updating sync metadata:', metadataUpdateError);
@@ -546,13 +559,24 @@ serve(async (req) => {
       }
     }
 
+    // Deduplicate contacts before upsert to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+    const uniqueContacts = [];
+    const seenContactIds = new Set();
+    
+    for (const contact of contactsToUpsert) {
+      if (!seenContactIds.has(contact.hs_object_id)) {
+        seenContactIds.add(contact.hs_object_id);
+        uniqueContacts.push(contact);
+      }
+    }
+
     // Upsert contacts first
-    if (contactsToUpsert.length > 0) {
-      console.log(`📝 Upserting ${contactsToUpsert.length} contacts...`);
+    if (uniqueContacts.length > 0) {
+      console.log(`📝 Upserting ${uniqueContacts.length} contacts...`);
       
       const { data: upsertedContacts, error: contactUpsertError } = await supabase
         .from('hs_contacts')
-        .upsert(contactsToUpsert, { 
+        .upsert(uniqueContacts, { 
           onConflict: 'hs_object_id',
           count: 'exact'
         });
@@ -561,18 +585,34 @@ serve(async (req) => {
         console.error('Error upserting contacts:', contactUpsertError);
         result.errors.push(`Failed to upsert contacts: ${contactUpsertError.message}`);
       } else {
-        result.contactsUpdated = contactsToUpsert.length;
-        console.log(`✅ Successfully upserted ${contactsToUpsert.length} contacts`);
+        result.contactsUpdated = uniqueContacts.length;
+        console.log(`✅ Successfully upserted ${uniqueContacts.length} contacts`);
+      }
+    }
+
+    // Filter out tasks with missing contact references to avoid foreign key violations
+    const validTasks = [];
+    const invalidTasks = [];
+    
+    for (const task of tasksToUpsert) {
+      if (task.associated_contact_id && !seenContactIds.has(task.associated_contact_id)) {
+        // Contact is missing from our batch - skip this task or set contact to null
+        invalidTasks.push(task);
+        console.warn(`⚠️ Task ${task.hs_object_id} references missing contact ${task.associated_contact_id}`);
+        // Still add task but without contact reference
+        validTasks.push({ ...task, associated_contact_id: null });
+      } else {
+        validTasks.push(task);
       }
     }
 
     // Upsert tasks
-    if (tasksToUpsert.length > 0) {
-      console.log(`📝 Upserting ${tasksToUpsert.length} tasks...`);
+    if (validTasks.length > 0) {
+      console.log(`📝 Upserting ${validTasks.length} tasks...`);
       
       const { data: upsertedTasks, error: taskUpsertError } = await supabase
         .from('hs_tasks')
-        .upsert(tasksToUpsert, { 
+        .upsert(validTasks, { 
           onConflict: 'hs_object_id',
           count: 'exact'
         });
@@ -581,8 +621,13 @@ serve(async (req) => {
         console.error('Error upserting tasks:', taskUpsertError);
         result.errors.push(`Failed to upsert tasks: ${taskUpsertError.message}`);
       } else {
-        result.tasksUpdated = tasksToUpsert.length;
-        console.log(`✅ Successfully upserted ${tasksToUpsert.length} tasks`);
+        result.tasksUpdated = validTasks.length;
+        console.log(`✅ Successfully upserted ${validTasks.length} tasks`);
+        
+        if (invalidTasks.length > 0) {
+          console.warn(`⚠️ ${invalidTasks.length} tasks had missing contact references and were saved without contact links`);
+          result.errors.push(`${invalidTasks.length} tasks had missing contact references`);
+        }
       }
     }
 
@@ -595,22 +640,51 @@ serve(async (req) => {
     console.log(`📊 Errors: ${result.errors.length}`);
     console.log(`⏱️ Duration: ${syncDuration}ms`);
 
-    // Update sync metadata (global row only)
+    // Update sync metadata (ensure we have a record first)
     const currentTimestamp = new Date().toISOString();
-    const { error: finalUpdateError } = await supabase
+    
+    // First try to get existing metadata record
+    const { data: existingMetadata } = await supabase
       .from('sync_metadata')
-      .update({
-        last_sync_timestamp: currentTimestamp,
-        last_sync_success: result.errors.length === 0,
-        sync_type: 'incremental',
-        sync_duration: Math.round(syncDuration / 1000), // Convert to seconds
-        tasks_added: result.tasksAdded,
-        tasks_updated: result.tasksUpdated,
-        tasks_deleted: result.tasksDeleted,
-        error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
-        updated_at: currentTimestamp
-      })
+      .select('id')
+      .limit(1)
       .single();
+    
+    let finalUpdateError = null;
+    
+    if (existingMetadata) {
+      // Update existing record
+      const { error } = await supabase
+        .from('sync_metadata')
+        .update({
+          last_sync_timestamp: currentTimestamp,
+          last_sync_success: result.errors.length === 0,
+          sync_type: 'incremental',
+          sync_duration: Math.round(syncDuration / 1000),
+          tasks_added: result.tasksAdded,
+          tasks_updated: result.tasksUpdated,
+          tasks_deleted: result.tasksDeleted,
+          error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
+          updated_at: currentTimestamp
+        })
+        .eq('id', existingMetadata.id);
+      finalUpdateError = error;
+    } else {
+      // Insert new record if none exists
+      const { error } = await supabase
+        .from('sync_metadata')
+        .insert({
+          last_sync_timestamp: currentTimestamp,
+          last_sync_success: result.errors.length === 0,
+          sync_type: 'incremental',
+          sync_duration: Math.round(syncDuration / 1000),
+          tasks_added: result.tasksAdded,
+          tasks_updated: result.tasksUpdated,
+          tasks_deleted: result.tasksDeleted,
+          error_message: result.errors.length > 0 ? result.errors.join('; ') : null
+        });
+      finalUpdateError = error;
+    }
 
     if (finalUpdateError) {
       console.error('❌ Failed to update sync metadata:', finalUpdateError);
@@ -633,19 +707,32 @@ serve(async (req) => {
   } catch (error) {
     console.error('Incremental sync error:', error);
     
-    // Update sync metadata with error (global row only) - PRESERVE last_sync_timestamp on failure
+    // Update sync metadata with error - PRESERVE last_sync_timestamp on failure
     const currentTimestamp = new Date().toISOString();
-    const { error: errorUpdateError } = await supabase
+    
+    // Get existing metadata record for proper WHERE clause
+    const { data: existingMetadata } = await supabase
       .from('sync_metadata')
-      .update({
-        // DO NOT update last_sync_timestamp on failure - preserve it to prevent data loss
-        last_sync_success: false,
-        sync_type: 'incremental',
-        sync_duration: Math.round((Date.now() - startTime) / 1000),
-        error_message: error.message,
-        updated_at: currentTimestamp
-      })
+      .select('id')
+      .limit(1)
       .single();
+    
+    let errorUpdateError = null;
+    
+    if (existingMetadata) {
+      const { error } = await supabase
+        .from('sync_metadata')
+        .update({
+          // DO NOT update last_sync_timestamp on failure - preserve it to prevent data loss
+          last_sync_success: false,
+          sync_type: 'incremental',
+          sync_duration: Math.round((Date.now() - startTime) / 1000),
+          error_message: error.message,
+          updated_at: currentTimestamp
+        })
+        .eq('id', existingMetadata.id);
+      errorUpdateError = error;
+    }
 
     if (errorUpdateError) {
       console.error('❌ Failed to update sync metadata with error:', errorUpdateError);
