@@ -605,11 +605,11 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   logger.info('📋 Processing and upserting tasks...');
   
   // First, check which tasks already exist to distinguish created vs updated
-  const taskIds = allModifiedTasks.map((task: HubSpotTask) => task.id);
+  const allTaskIds = allModifiedTasks.map((task: HubSpotTask) => task.id);
   const { data: existingTasks } = await supabase
     .from('hs_tasks')
     .select('hs_object_id')
-    .in('hs_object_id', taskIds);
+    .in('hs_object_id', allTaskIds);
   
   const existingTaskIds = new Set(existingTasks?.map(t => t.hs_object_id) || []);
   
