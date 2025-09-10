@@ -298,48 +298,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sync_metadata: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          id: string
-          last_sync_success: boolean
-          last_sync_timestamp: string
-          sync_duration: number | null
-          sync_type: string
-          tasks_added: number | null
-          tasks_deleted: number | null
-          tasks_updated: number | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          last_sync_success?: boolean
-          last_sync_timestamp?: string
-          sync_duration?: number | null
-          sync_type?: string
-          tasks_added?: number | null
-          tasks_deleted?: number | null
-          tasks_updated?: number | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          last_sync_success?: boolean
-          last_sync_timestamp?: string
-          sync_duration?: number | null
-          sync_type?: string
-          tasks_added?: number | null
-          tasks_deleted?: number | null
-          tasks_updated?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       task_categories: {
         Row: {
           color: string | null

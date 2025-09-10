@@ -37,16 +37,17 @@ export const useConflictResolution = (options: ConflictResolutionOptions = { str
       // In a real implementation, you'd compare with HubSpot API data
       const detectedConflicts: SyncConflict[] = [];
 
-      // Check for assignment conflicts (local vs sync metadata)
-      // Note: Since we simplified sync_metadata to a single global row,
-      // we'll get the general sync status instead of owner-specific data
-      const { data: syncMeta } = await supabase
-        .from('sync_metadata')
-        .select('*')
-        .single();
+      // Check for assignment conflicts using sync_executions instead of sync_metadata
+      const { data: lastExecution } = await supabase
+        .from('sync_executions')
+        .select('completed_at')
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (syncMeta && syncMeta.last_sync_timestamp) {
-        const lastSync = new Date(syncMeta.last_sync_timestamp);
+      if (lastExecution && lastExecution.completed_at) {
+        const lastSync = new Date(lastExecution.completed_at);
         const taskUpdated = new Date(localTask.updated_at);
 
         if (taskUpdated > lastSync) {
