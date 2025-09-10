@@ -439,12 +439,6 @@ async function performIncrementalSync(logger: SyncLogger, executionId: string): 
     // Track fetched task IDs
     data.results.forEach((task: any) => {
       fetchedTaskIds.push(task.id);
-      taskSyncAttempts.push({
-        taskHubspotId: task.id,
-        status: 'success',
-        stage: 'fetch',
-        hubspotResponse: { properties: task.properties }
-      });
     });
     
     logger.info(`📦 Received ${data.results.length} tasks on page ${page}`);
@@ -483,21 +477,21 @@ async function performIncrementalSync(logger: SyncLogger, executionId: string): 
         .eq('id', existingMetadata.id);
     }
 
-    return { 
-      contactsUpdated: 0,
-      tasksUpdated: 0,
-      tasksProcessed: 0,
-      tasksFailed: 0,
-      errors: 0,
-      duration: Date.now() - startTime,
-      taskDetails: {
-        fetchedTaskIds: [],
-        processedTaskIds: [],
-        updatedTaskIds: [],
-        failedTaskIds: [],
-        failedDetails: []
-      },
-      taskSyncAttempts: []
+      return { 
+        contactsUpdated: 0,
+        tasksUpdated: 0,
+        tasksProcessed: 0,
+        tasksFailed: 0,
+        errors: 0,
+        duration: Date.now() - startTime,
+        taskDetails: {
+          fetchedTaskIds: [],
+          processedTaskIds: [],
+          updatedTaskIds: [],
+          failedTaskIds: [],
+          failedDetails: []
+        },
+        taskSyncAttempts: [] // No tasks = no sync attempts
     };
   }
 
@@ -797,14 +791,6 @@ async function performIncrementalSync(logger: SyncLogger, executionId: string): 
         if (contactId) {
           logger.warn(`⚠️ Task ${task.hs_object_id} references missing contact ${contactId}`);
           warningCount++;
-          // Add to task sync attempts as a processing note, not a failure
-          taskSyncAttempts.push({
-            taskHubspotId: task.hs_object_id,
-            status: 'success',
-            stage: 'process',
-            errorMessage: `Warning: Task references missing contact ${contactId}`,
-            hubspotResponse: { associatedContactId: contactId }
-          });
         }
       }
     });
@@ -830,13 +816,6 @@ async function performIncrementalSync(logger: SyncLogger, executionId: string): 
             error: tasksError.message,
             stage: 'upsert_task'
           });
-          taskSyncAttempts.push({
-            taskHubspotId: task.hs_object_id,
-            status: 'failed',
-            stage: 'upsert_task',
-            errorMessage: tasksError.message,
-            errorDetails: tasksError
-          });
         });
         
         throw tasksError;
@@ -846,11 +825,6 @@ async function performIncrementalSync(logger: SyncLogger, executionId: string): 
       if (tasksData) {
         tasksData.forEach(task => {
           updatedTaskIds.push(task.hs_object_id);
-          taskSyncAttempts.push({
-            taskHubspotId: task.hs_object_id,
-            status: 'success',
-            stage: 'upsert_task'
-          });
         });
       }
 
@@ -867,6 +841,44 @@ async function performIncrementalSync(logger: SyncLogger, executionId: string): 
   }
 
   const duration = Date.now() - startTime;
+
+  // Create consolidated task sync attempts (one record per task per execution)
+  logger.info('📝 Creating consolidated task sync records...');
+  allModifiedTasks.forEach(task => {
+    const taskId = task.id;
+    const isSuccess = updatedTaskIds.includes(taskId);
+    const isFailed = failedTaskIds.includes(taskId);
+    
+    // Determine final status and stage
+    let status: 'success' | 'failed' = 'success';
+    let stage = 'complete';
+    let errorMessage: string | undefined;
+    
+    if (isFailed) {
+      status = 'failed';
+      const failureDetail = failedDetails.find(f => f.taskId === taskId);
+      stage = failureDetail?.stage || 'upsert_task';
+      errorMessage = failureDetail?.error;
+    }
+    
+    // Check for warnings (missing contact references)
+    const warnings: string[] = [];
+    if (task.properties?.hubspot_owner_assigneddate && 
+        task.associations?.contacts?.results?.some((contact: any) => 
+          !processedContactIds.includes(contact.id))) {
+      warnings.push('Missing contact reference in database');
+    }
+    
+    taskSyncAttempts.push({
+      taskHubspotId: taskId,
+      status,
+      stage,
+      errorMessage,
+      hubspotResponse: { properties: task.properties },
+      supabaseData: isSuccess ? { upserted: true } : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined
+    });
+  });
 
   logger.info('=== INCREMENTAL SYNC COMPLETE ===');
   logger.info(`📊 Contacts updated: ${contactsUpdated}`);
