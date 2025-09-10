@@ -22,6 +22,8 @@ interface SyncResult {
   tasksDeleted: number;
   contactsAdded: number;
   contactsUpdated: number;
+  tasksFetched?: number;
+  hubspotApiCalls?: number;
   errors: string[];
 }
 
@@ -217,7 +219,9 @@ serve(async (req) => {
         duration_ms: Date.now() - startTime,
         tasks_processed: result.tasksProcessed,
         tasks_updated: result.tasksUpdated,
-        tasks_failed: result.errors.length
+        tasks_failed: result.errors.length,
+        tasks_fetched: result.tasksFetched || 0,
+        hubspot_api_calls: result.hubspotApiCalls || 0
       })
       .eq('execution_id', executionId);
 
@@ -278,6 +282,8 @@ serve(async (req) => {
 // CORE SYNC LOGIC (extracted to separate function)
 // ==============================================
 async function performIncrementalSync(supabase: any, logger: any, hubspotToken: string, startTime: number) {
+  // Track HubSpot API calls
+  let hubspotApiCallCount = 0;
   // Get the last sync timestamp from global metadata row
   const { data: syncMetadata, error: syncError } = await supabase
     .from('sync_metadata')
@@ -365,6 +371,7 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
       },
       body: JSON.stringify(bodyWithPaging),
     });
+    hubspotApiCallCount++; // Track API call
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -424,6 +431,8 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
       tasksProcessed: 0,
       tasksUpdated: 0,
       contactsUpdated: 0,
+      tasksFetched: 0,
+      hubspotApiCalls: hubspotApiCallCount,
       errors: [],
       syncDuration: Date.now() - startTime
     };
@@ -461,6 +470,7 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
             inputs: batchTaskIds.map(id => ({ id }))
           }),
         });
+        hubspotApiCallCount++; // Track API call
 
         if (associationResponse.ok) {
           const associationData = await associationResponse.json();
@@ -507,6 +517,7 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
             inputs: batchTaskIds.map(id => ({ id }))
           }),
         });
+        hubspotApiCallCount++; // Track API call
 
         if (taskDealResponse.ok) {
           const taskDealData = await taskDealResponse.json();
@@ -551,6 +562,7 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
               inputs: batchDealIds.map(id => ({ id }))
             }),
           });
+          hubspotApiCallCount++; // Track API call
 
           if (dealContactResponse.ok) {
             const dealContactData = await dealContactResponse.json();
@@ -603,6 +615,7 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
             properties: ['firstname', 'lastname', 'email', 'company', 'hs_object_id', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage', 'createdate', 'lastmodifieddate']
           }),
         });
+        hubspotApiCallCount++; // Track API call
 
         if (contactResponse.ok) {
           const contactData = await contactResponse.json();
@@ -834,6 +847,8 @@ async function performIncrementalSync(supabase: any, logger: any, hubspotToken: 
     tasksProcessed: allTasks.length,
     tasksUpdated: result.tasksUpdated,
     contactsUpdated: result.contactsUpdated,
+    tasksFetched: allTasks.length,
+    hubspotApiCalls: hubspotApiCallCount,
     errors: result.errors,
     syncDuration
   };
