@@ -686,6 +686,14 @@ serve(async (req) => {
               // Helper function to safely parse contact timestamps
               const parseContactTimestamp = (value: any): string | null => {
                 if (!value || value === '' || value === 'null' || value === '0') return null;
+                
+                // Handle ISO 8601 strings (e.g., "2025-09-09T20:10:54.324Z")
+                if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+                  const date = new Date(value);
+                  return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+                }
+                
+                // Handle numeric timestamps
                 const timestamp = parseInt(String(value));
                 if (isNaN(timestamp) || timestamp === 0) return null;
                 const date = new Date(timestamp);
