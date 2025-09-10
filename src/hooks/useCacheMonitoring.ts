@@ -25,17 +25,38 @@ export interface SyncStatus {
 
 export const useCacheMonitoring = () => {
   const fetchSyncMetadata = async (): Promise<SyncMetadata | null> => {
+    // Get latest sync execution (completed or failed) for metadata
     const { data, error } = await supabase
-      .from('sync_metadata')
+      .from('sync_executions')
       .select('*')
-      .single();
+      .in('status', ['completed', 'failed'])
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error) {
-      console.error('Error fetching sync metadata:', error);
+      console.error('Error fetching sync metadata from executions:', error);
       return null;
     }
 
-    return data as SyncMetadata;
+    if (!data) {
+      return null;
+    }
+
+    // Transform sync_execution data to match SyncMetadata interface
+    return {
+      id: data.id,
+      sync_type: data.sync_type,
+      last_sync_timestamp: data.completed_at || data.started_at,
+      last_sync_success: data.status === 'completed',
+      sync_duration: data.duration_ms ? Math.floor(data.duration_ms / 1000) : 0,
+      tasks_added: data.sync_type === 'full' ? data.tasks_processed : 0,
+      tasks_updated: data.tasks_updated || 0,
+      tasks_deleted: 0, // Not tracked separately
+      error_message: data.error_message,
+      created_at: data.created_at,
+      updated_at: data.updated_at
+    } as SyncMetadata;
   };
 
   const triggerIncrementalSync = async (): Promise<any> => {
@@ -70,8 +91,16 @@ export const useCacheMonitoring = () => {
         return { isRunning: false };
       }
 
+      // Check for currently running syncs
+      const { data: runningSync } = await supabase
+        .from('sync_executions')
+        .select('id')
+        .eq('status', 'running')
+        .limit(1)
+        .maybeSingle();
+
       return {
-        isRunning: false, // We'd need to check if any sync is currently running
+        isRunning: !!runningSync,
         lastSync: new Date(metadata.last_sync_timestamp),
         lastSyncType: metadata.sync_type,
         lastSyncSuccess: metadata.last_sync_success,
