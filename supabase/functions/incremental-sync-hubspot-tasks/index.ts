@@ -627,10 +627,11 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   let tasksFailed = 0;
   let errors = contactErrors;
   let warningCount = 0;
+  let tasksToUpsert: any[] = [];
 
   if (allModifiedTasks.length > 0) {
     // Process all tasks and prepare for upsert
-    const tasksToUpsert = allModifiedTasks.map((task: HubSpotTask) => {
+    tasksToUpsert = allModifiedTasks.map((task: HubSpotTask) => {
       processedTaskIds.push(task.id);
 
       const contactId = taskContactMap[task.id];
