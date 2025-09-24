@@ -82,14 +82,34 @@ Deno.serve(async (req) => {
 
         if (!hubspotResponse.ok) {
           const errorText = await hubspotResponse.text();
-          console.error(`❌ HubSpot API error for batch ${batchNumber}:`, errorText);
+          console.error(`❌ HubSpot API error for batch ${batchNumber}: ${hubspotResponse.status} ${hubspotResponse.statusText}`, errorText);
           errors.push(`Batch ${batchNumber}: ${hubspotResponse.status} ${errorText}`);
           totalErrors += batch.length;
           continue;
         }
 
-        const hubspotResult = await hubspotResponse.json();
-        console.log(`✅ Batch ${batchNumber} deleted successfully`);
+        // Handle successful responses - HubSpot may return 204 No Content with empty body
+        const contentType = hubspotResponse.headers.get('content-type');
+        let hubspotResult = null;
+        
+        if (hubspotResponse.status === 204 || !contentType?.includes('application/json')) {
+          // 204 No Content or non-JSON response - this is expected for successful deletions
+          console.log(`✅ Batch ${batchNumber} deleted successfully (${hubspotResponse.status} ${hubspotResponse.statusText})`);
+        } else {
+          // Try to parse JSON only if we expect JSON content
+          const responseText = await hubspotResponse.text();
+          if (responseText.trim()) {
+            try {
+              hubspotResult = JSON.parse(responseText);
+              console.log(`✅ Batch ${batchNumber} deleted successfully with response`);
+            } catch (parseError) {
+              console.error(`⚠️ Could not parse response for batch ${batchNumber}, but request was successful (${hubspotResponse.status})`);
+            }
+          } else {
+            console.log(`✅ Batch ${batchNumber} deleted successfully (empty response)`);
+          }
+        }
+        
         totalDeleted += batch.length;
 
         // Small delay between batches to be respectful to HubSpot API
