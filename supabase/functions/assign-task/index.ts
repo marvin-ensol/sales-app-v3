@@ -112,7 +112,7 @@ serve(async (req) => {
     console.error('❌ [ASSIGNMENT] Assignment error:', error);
     return new Response(
       JSON.stringify({ 
-        error: `Assignment failed: ${error.message}`, 
+        error: `Assignment failed: ${(error as Error)?.message || 'Unknown error'}`, 
         success: false 
       }),
       { 

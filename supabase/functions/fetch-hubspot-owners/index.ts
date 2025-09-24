@@ -71,7 +71,7 @@ serve(async (req) => {
     console.error('❌ [ERROR] Edge function error:', error);
     return new Response(
       JSON.stringify({ 
-        error: `Edge function failed: ${error.message}`, 
+        error: `Edge function failed: ${(error as Error)?.message || 'Unknown error'}`, 
         success: false 
       }),
       { 

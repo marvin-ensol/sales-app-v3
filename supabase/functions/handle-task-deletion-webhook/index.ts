@@ -127,7 +127,7 @@ serve(async (req: Request) => {
         results.push({
           taskId,
           status: 'error',
-          error: taskError.message
+          error: (taskError as Error)?.message || 'Unknown error'
         });
       }
     }
@@ -161,7 +161,7 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         error: 'Webhook processing failed',
-        message: error.message
+        message: (error as Error)?.message || 'Unknown error'
       }),
       { 
         status: 500, 

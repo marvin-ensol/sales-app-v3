@@ -65,7 +65,7 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
+      error: (error as Error)?.message || 'Unknown error',
       message: 'Scheduled incremental sync failed'
     }), {
       status: 500,

@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     console.error('❌ Cleanup failed:', error);
     
     return new Response(JSON.stringify({
-      error: error.message,
+      error: (error as Error)?.message || 'Unknown error',
       duration_ms: Date.now() - startTime
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

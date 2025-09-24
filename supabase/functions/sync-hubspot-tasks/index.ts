@@ -82,21 +82,30 @@ serve(async (req) => {
 
     // Create a ReadableStream for Server-Sent Events
     const stream = new ReadableStream({
-      start(controller) {
-        const encoder = new TextEncoder();
-        
-        const sendEvent = (data: any) => {
-          const chunk = encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
-          controller.enqueue(chunk);
-        };
+    start(controller) {
+      const encoder = new TextEncoder();
+      const startTime = Date.now(); // Track sync start time
+      
+      const sendEvent = (data: any) => {
+        const chunk = encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+        controller.enqueue(chunk);
+      };
 
-        const sendOperationUpdate = (operationId: string, status: string, message?: string, count?: number) => {
-          const operations = [
-            { id: 'tasks', name: 'Fetching Tasks', status: operationId === 'tasks' ? status : 'pending' },
-            { id: 'associations', name: 'Task Associations', status: operationId === 'associations' ? status : (operationId === 'tasks' && status === 'complete') ? 'pending' : 'pending' },
-            { id: 'contacts', name: 'Fetching Contacts', status: operationId === 'contacts' ? status : (operationId === 'associations' && status === 'complete') ? 'pending' : 'pending' },
-            { id: 'database', name: 'Writing to Database', status: operationId === 'database' ? status : (operationId === 'contacts' && status === 'complete') ? 'pending' : 'pending' }
-          ];
+      interface Operation {
+        id: string;
+        name: string;
+        status: string;
+        message?: string;
+        count?: number;
+      }
+
+      const sendOperationUpdate = (operationId: string, status: string, message?: string, count?: number) => {
+        const operations: Operation[] = [
+          { id: 'tasks', name: 'Fetching Tasks', status: operationId === 'tasks' ? status : 'pending' },
+          { id: 'associations', name: 'Task Associations', status: operationId === 'associations' ? status : (operationId === 'tasks' && status === 'complete') ? 'pending' : 'pending' },
+          { id: 'contacts', name: 'Fetching Contacts', status: operationId === 'contacts' ? status : (operationId === 'associations' && status === 'complete') ? 'pending' : 'pending' },
+          { id: 'database', name: 'Writing to Database', status: operationId === 'database' ? status : (operationId === 'contacts' && status === 'complete') ? 'pending' : 'pending' }
+        ];
 
           // Update based on current progress
           if (operationId === 'associations' && status === 'running') {
@@ -923,7 +932,7 @@ serve(async (req) => {
                 last_sync_timestamp: new Date().toISOString(),
                 last_sync_success: false,
                 sync_duration: syncDuration,
-                error_message: error.message,
+                error_message: (error as Error)?.message || 'Unknown error',
                 updated_at: new Date().toISOString()
               })
               .single();
@@ -942,7 +951,7 @@ serve(async (req) => {
               phase: 'error', 
               operations: errorOperations, 
               message: 'Sync failed', 
-              error: error.message || 'Unknown error occurred' 
+              error: (error as Error)?.message || 'Unknown error occurred'
             });
             controller.close();
           }
@@ -965,7 +974,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Unknown error occurred',
+        error: (error as Error)?.message || 'Unknown error occurred',
         totalRecords: 0
       }),
       { 
