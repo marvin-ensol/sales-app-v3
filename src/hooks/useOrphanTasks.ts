@@ -27,7 +27,7 @@ export const useOrphanTasks = () => {
     setStats(prev => ({ ...prev, loading: true, error: undefined }));
 
     try {
-      const { data, error } = await supabase
+      const { count, error } = await supabase
         .from('hs_tasks')
         .select('*', { count: 'exact', head: true })
         .is('associated_contact_id', null)
@@ -40,7 +40,7 @@ export const useOrphanTasks = () => {
       }
 
       setStats({
-        count: data?.length || 0,
+        count: count || 0,
         loading: false
       });
     } catch (error: any) {
