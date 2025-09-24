@@ -789,13 +789,27 @@ serve(async (req) => {
             const batchSize = 100;
             let insertedCount = 0;
 
-            // Process all tasks (including those without direct contact associations but with deal associations)
-            console.log(`📊 Processing all ${allTasks.length} tasks (preserving deal associations and orphan tasks)`);
-            
-            for (let i = 0; i < allTasks.length; i += batchSize) {
-              const batch = allTasks.slice(i, i + batchSize);
+            // Filter out orphan tasks (those with no contact, deal, or company associations)
+            console.log('🔍 Filtering out orphan tasks...');
+            const tasksWithAssociations = allTasks.filter(task => {
+              const hasContact = finalTaskContactMap[task.id];
+              const hasDeal = taskDealMap[task.id];
+              const hasCompany = taskCompanyMap[task.id];
               
-              console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allTasks.length / batchSize)} (${batch.length} records)...`);
+              if (!hasContact && !hasDeal && !hasCompany) {
+                console.log(`⚠️ Skipping orphan task ${task.id}: no contact, deal, or company associations`);
+                return false;
+              }
+              
+              return true;
+            });
+            
+            console.log(`📊 Processing ${tasksWithAssociations.length} tasks with associations (${allTasks.length - tasksWithAssociations.length} orphan tasks skipped)`);
+            
+            for (let i = 0; i < tasksWithAssociations.length; i += batchSize) {
+              const batch = tasksWithAssociations.slice(i, i + batchSize);
+              
+              console.log(`📝 Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(tasksWithAssociations.length / batchSize)} (${batch.length} records)...`);
               
               // Helper function to safely parse timestamps
               const parseTimestamp = (value: any): string | null => {
@@ -854,14 +868,15 @@ serve(async (req) => {
               }
 
               insertedCount += batch.length;
-              console.log(`✅ Inserted batch successfully. Total inserted: ${insertedCount}/${allTasks.length}`);
+              console.log(`✅ Inserted batch successfully. Total inserted: ${insertedCount}/${tasksWithAssociations.length}`);
               
               // Update progress during insertion (55% to 95%)
-              const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / allTasks.length) * 40));
-              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${allTasks.length} records...`);
+              const insertProgress = Math.min(95, 55 + Math.floor((insertedCount / tasksWithAssociations.length) * 40));
+              sendOperationUpdate('database', 'running', `Inserted ${insertedCount}/${tasksWithAssociations.length} records...`);
             }
 
             console.log(`🎉 Sync completed successfully! Total records: ${insertedCount}`);
+            console.log(`🚫 Orphan tasks skipped: ${allTasks.length - tasksWithAssociations.length}`);
             
             // Update sync metadata on successful completion
             const endTime = Date.now();
@@ -891,7 +906,7 @@ serve(async (req) => {
               console.log('✅ Sync metadata updated successfully');
             }
             
-            sendOperationUpdate('database', 'complete', `Successfully synced ${insertedCount} records`, insertedCount);
+            sendOperationUpdate('database', 'complete', `Successfully synced ${insertedCount} records (${allTasks.length - tasksWithAssociations.length} orphans skipped)`, insertedCount);
 
             controller.close();
           } catch (error) {

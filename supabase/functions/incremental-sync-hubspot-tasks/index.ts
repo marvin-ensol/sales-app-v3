@@ -48,6 +48,7 @@ interface SyncResult {
     updatedTaskIds: string[];
     failedTaskIds: string[];
     failedDetails: Array<{ taskId: string; error: string; stage: string }>;
+    skippedOrphanTasks?: number;
   };
   taskSyncAttempts: TaskSyncAttempt[];
 }
@@ -468,18 +469,23 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     };
   }
 
-  // ==== FETCH TASK-CONTACT ASSOCIATIONS ====
-  logger.info('🔗 Fetching task-contact associations...');
+  // ==== FETCH TASK ASSOCIATIONS (CONTACTS, DEALS, COMPANIES) ====
+  logger.info('🔗 Fetching task associations...');
   
   const taskIds = allModifiedTasks.map(task => task.id);
   const taskContactMap: { [taskId: string]: string } = {};
+  const taskDealMap: { [taskId: string]: string } = {};
+  const taskCompanyMap: { [taskId: string]: string } = {};
 
   if (taskIds.length > 0) {
     const batchSize = 100;
+    
+    // Fetch task-contact associations
+    logger.info('📞 Fetching task-contact associations...');
     for (let i = 0; i < taskIds.length; i += batchSize) {
       const batchTaskIds = taskIds.slice(i, i + batchSize);
       
-      logger.info(`📞 Fetching associations batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(taskIds.length / batchSize)}...`);
+      logger.info(`📞 Fetching contact associations batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(taskIds.length / batchSize)}...`);
 
       try {
         const associationResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/read', {
@@ -498,36 +504,290 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
         if (associationResponse.ok) {
           const associationData = await associationResponse.json();
           
-          for (const result of associationData.results) {
+          // Store task-contact associations (taking first contact if multiple)
+          associationData.results.forEach((result: any) => {
             if (result.to && result.to.length > 0) {
-              taskContactMap[result.from.id] = result.to[0].toObjectId;
+              taskContactMap[result.from.id] = result.to[0].id;
             }
-          }
+          });
         } else {
-          logger.warn(`Failed to fetch associations batch: ${associationResponse.status}`);
+          logger.warn(`Failed to fetch task-contact associations: ${associationResponse.status}`);
         }
       } catch (error) {
-        logger.warn('Error fetching association batch:', error);
+        logger.warn('Error fetching task-contact associations:', error);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    // Fetch task-deal associations
+    logger.info('🔗 Fetching task-deal associations...');
+    for (let i = 0; i < taskIds.length; i += batchSize) {
+      const batchTaskIds = taskIds.slice(i, i + batchSize);
+      
+      logger.info(`📞 Fetching deal associations batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(taskIds.length / batchSize)}...`);
+
+      try {
+        const dealAssociationResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/deals/batch/read', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batchTaskIds.map(id => ({ id }))
+          }),
+        });
+
+        hubspotApiCallCount++;
+
+        if (dealAssociationResponse.ok) {
+          const dealAssociationData = await dealAssociationResponse.json();
+          
+          // Store task-deal associations (taking first deal if multiple)
+          dealAssociationData.results.forEach((result: any) => {
+            if (result.to && result.to.length > 0) {
+              taskDealMap[result.from.id] = result.to[0].id;
+            }
+          });
+        } else {
+          logger.warn(`Failed to fetch task-deal associations: ${dealAssociationResponse.status}`);
+        }
+      } catch (error) {
+        logger.warn('Error fetching task-deal associations:', error);
+      }
+
+      // Respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    // Fetch task-company associations
+    logger.info('🔗 Fetching task-company associations...');
+    for (let i = 0; i < taskIds.length; i += batchSize) {
+      const batchTaskIds = taskIds.slice(i, i + batchSize);
+      
+      logger.info(`📞 Fetching company associations batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(taskIds.length / batchSize)}...`);
+
+      try {
+        const companyAssociationResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/companies/batch/read', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batchTaskIds.map(id => ({ id }))
+          }),
+        });
+
+        hubspotApiCallCount++;
+
+        if (companyAssociationResponse.ok) {
+          const companyAssociationData = await companyAssociationResponse.json();
+          
+          // Store task-company associations (taking first company if multiple)
+          companyAssociationData.results.forEach((result: any) => {
+            if (result.to && result.to.length > 0) {
+              taskCompanyMap[result.from.id] = result.to[0].id;
+            }
+          });
+        } else {
+          logger.warn(`Failed to fetch task-company associations: ${companyAssociationResponse.status}`);
+        }
+      } catch (error) {
+        logger.warn('Error fetching task-company associations:', error);
+      }
+
+      // Respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
 
   logger.info(`🔗 Found ${Object.keys(taskContactMap).length} task-contact associations`);
+  logger.info(`🔗 Found ${Object.keys(taskDealMap).length} task-deal associations`);
+  logger.info(`🔗 Found ${Object.keys(taskCompanyMap).length} task-company associations`);
+
+  // ==== RESOLVE CONTACT ASSOCIATIONS VIA DEALS ====
+  logger.info('🔗 Resolving contact associations via deals...');
+  
+  const finalTaskContactMap = { ...taskContactMap };
+  const dealContactMap: { [dealId: string]: string } = {};
+  
+  // Get unique deal IDs that don't already have direct contact associations
+  const dealsNeedingContactResolution = Object.entries(taskDealMap)
+    .filter(([taskId]) => !taskContactMap[taskId])
+    .map(([, dealId]) => dealId);
+  
+  const uniqueDealIds = [...new Set(dealsNeedingContactResolution)];
+  
+  if (uniqueDealIds.length > 0) {
+    logger.info(`🔗 Fetching contact associations for ${uniqueDealIds.length} deals...`);
+    
+    // Fetch deal-contact associations
+    const dealBatchSize = 100;
+    for (let i = 0; i < uniqueDealIds.length; i += dealBatchSize) {
+      const batchDealIds = uniqueDealIds.slice(i, i + dealBatchSize);
+      
+      logger.info(`📞 Fetching deal-contact associations batch ${Math.floor(i / dealBatchSize) + 1}/${Math.ceil(uniqueDealIds.length / dealBatchSize)}...`);
+
+      try {
+        const dealContactResponse = await fetch('https://api.hubapi.com/crm/v4/associations/deals/contacts/batch/read', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: batchDealIds.map(id => ({ id }))
+          }),
+        });
+
+        hubspotApiCallCount++;
+
+        if (dealContactResponse.ok) {
+          const dealContactData = await dealContactResponse.json();
+          
+          // Store deal-contact associations
+          dealContactData.results.forEach((result: any) => {
+            if (result.to && result.to.length > 0) {
+              dealContactMap[result.from.id] = result.to[0].id;
+            }
+          });
+        } else {
+          logger.warn(`Failed to fetch deal-contact associations: ${dealContactResponse.status}`);
+        }
+      } catch (error) {
+        logger.warn('Error fetching deal-contact associations:', error);
+      }
+
+      // Respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    // Resolve task-contact associations via deals
+    let resolvedTaskContacts = 0;
+    for (const [taskId, dealId] of Object.entries(taskDealMap)) {
+      if (!taskContactMap[taskId] && dealContactMap[dealId]) {
+        finalTaskContactMap[taskId] = dealContactMap[dealId];
+        resolvedTaskContacts++;
+      }
+    }
+    
+    logger.info(`✅ Resolved ${resolvedTaskContacts} additional task-contact relationships via deals`);
+    
+    // Create missing task-contact associations in HubSpot
+    if (resolvedTaskContacts > 0) {
+      logger.info(`🔗 Creating ${resolvedTaskContacts} missing task-contact associations in HubSpot...`);
+      
+      const associationsToCreate = [];
+      for (const [taskId, dealId] of Object.entries(taskDealMap)) {
+        if (!taskContactMap[taskId]) {
+          const contactId = dealContactMap[dealId];
+          if (contactId) {
+            associationsToCreate.push({
+              types: [{
+                associationCategory: "HUBSPOT_DEFINED",
+                associationTypeId: 204 // Task to Contact association type
+              }],
+              from: { id: taskId },
+              to: { id: contactId }
+            });
+          }
+        }
+      }
+      
+      // Create associations in batches of 100
+      const createBatchSize = 100;
+      let createdAssociations = 0;
+      
+      for (let i = 0; i < associationsToCreate.length; i += createBatchSize) {
+        const batchAssociations = associationsToCreate.slice(i, i + createBatchSize);
+        logger.info(`🔗 Creating associations batch ${Math.floor(i / createBatchSize) + 1}/${Math.ceil(associationsToCreate.length / createBatchSize)}...`);
+
+        try {
+          const createResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/contacts/batch/create', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${hubspotToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: batchAssociations
+            }),
+          });
+
+          hubspotApiCallCount++;
+
+          if (createResponse.ok) {
+            const createData = await createResponse.json();
+            createdAssociations += createData.results ? createData.results.length : batchAssociations.length;
+            logger.info(`✅ Created ${batchAssociations.length} task-contact associations`);
+          } else {
+            logger.warn(`Failed to create associations batch: ${createResponse.status}`);
+          }
+        } catch (error) {
+          logger.warn('Error creating associations batch:', error);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      logger.info(`🎉 Created ${createdAssociations} new task-contact associations in HubSpot`);
+    }
+  }
+
+  // ==== FILTER OUT ORPHAN TASKS ====
+  logger.info('🔍 Filtering out orphan tasks (no contact, deal, or company associations)...');
+  
+  const tasksWithAssociations = allModifiedTasks.filter(task => {
+    const hasContact = finalTaskContactMap[task.id];
+    const hasDeal = taskDealMap[task.id];
+    const hasCompany = taskCompanyMap[task.id];
+    
+    if (!hasContact && !hasDeal && !hasCompany) {
+      logger.warn(`⚠️ Skipping orphan task ${task.id}: no contact, deal, or company associations`);
+      taskSyncAttempts.push({
+        taskHubspotId: task.id,
+        status: 'success',
+        stage: 'filtered',
+        actionType: 'skipped',
+        warnings: ['Task skipped - no associations found']
+      });
+      return false;
+    }
+    
+    return true;
+  });
+  
+  logger.info(`🎯 Processing ${tasksWithAssociations.length} tasks with associations (${allModifiedTasks.length - tasksWithAssociations.length} orphan tasks skipped)`);
 
   // ==== FETCH CONTACT DETAILS ====
-  const contactIds = Array.from(new Set(Object.values(taskContactMap).filter(Boolean)));
-  logger.info(`👥 Fetching details for ${contactIds.length} unique contacts...`);
-
-  const contactsMap: { [contactId: string]: any } = {};
-
-  if (contactIds.length > 0) {
+  const uniqueContactIds = [...new Set(Object.values(finalTaskContactMap))];
+  logger.info(`👥 Fetching details for ${uniqueContactIds.length} unique contacts...`);
+  
+  interface HubSpotContact {
+    id: string;
+    properties: {
+      firstname?: string;
+      lastname?: string;
+      createdate?: string;
+      lastmodifieddate?: string;
+      mobilephone?: string;
+      ensol_source_group?: string;
+      hs_lead_status?: string;
+      lifecyclestage?: string;
+    };
+  }
+  
+  let allContacts: HubSpotContact[] = [];
+  if (uniqueContactIds.length > 0) {
+    // Fetch contact details in batches of 100
     const contactBatchSize = 100;
-    for (let i = 0; i < contactIds.length; i += contactBatchSize) {
-      const batchContactIds = contactIds.slice(i, i + contactBatchSize);
+    for (let i = 0; i < uniqueContactIds.length; i += contactBatchSize) {
+      const batchContactIds = uniqueContactIds.slice(i, i + contactBatchSize);
       
-      logger.info(`👤 Fetching contacts batch ${Math.floor(i / contactBatchSize) + 1}/${Math.ceil(contactIds.length / contactBatchSize)}...`);
+      logger.info(`👤 Fetching contacts batch ${Math.floor(i / contactBatchSize) + 1}/${Math.ceil(uniqueContactIds.length / contactBatchSize)}...`);
 
       try {
         const contactResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
@@ -538,7 +798,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           },
           body: JSON.stringify({
             inputs: batchContactIds.map(id => ({ id })),
-            properties: ['firstname', 'lastname', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage', 'createdate', 'lastmodifieddate']
+            properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
           }),
         });
 
@@ -546,10 +806,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
 
         if (contactResponse.ok) {
           const contactData = await contactResponse.json();
-          
-          for (const contact of contactData.results) {
-            contactsMap[contact.id] = contact;
-          }
+          allContacts = allContacts.concat(contactData.results);
         } else {
           logger.warn(`Failed to fetch contacts batch: ${contactResponse.status}`);
         }
@@ -557,11 +814,12 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
         logger.warn('Error fetching contact batch:', error);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
 
-  logger.info(`👥 Fetched details for ${Object.keys(contactsMap).length} contacts`);
+  logger.info(`👥 Fetched details for ${allContacts.length} contacts`);
 
   // ==== PROCESS AND UPSERT CONTACTS ====
   logger.info('💾 Processing and upserting contacts...');
@@ -569,8 +827,25 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   let contactsUpdated = 0;
   let contactErrors = 0;
 
-  if (Object.keys(contactsMap).length > 0) {
-    const contactsToUpsert = Object.values(contactsMap).map((contact: any) => ({
+  if (allContacts.length > 0) {
+    // Helper function to safely parse contact timestamps
+    const parseContactTimestamp = (value: any): string | null => {
+      if (!value || value === '' || value === 'null' || value === '0') return null;
+      
+      // Handle ISO 8601 strings (e.g., "2025-09-09T20:10:54.324Z")
+      if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+        const date = new Date(value);
+        return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+      }
+      
+      // Handle numeric timestamps
+      const timestamp = parseInt(String(value));
+      if (isNaN(timestamp) || timestamp === 0) return null;
+      const date = new Date(timestamp);
+      return date.getFullYear() > 1970 ? date.toISOString() : null;
+    };
+
+    const contactsToUpsert = allContacts.map((contact: any) => ({
       hs_object_id: contact.id,
       firstname: contact.properties?.firstname || null,
       lastname: contact.properties?.lastname || null,
@@ -578,8 +853,8 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       ensol_source_group: contact.properties?.ensol_source_group || null,
       hs_lead_status: contact.properties?.hs_lead_status || null,
       lifecyclestage: contact.properties?.lifecyclestage || null,
-      createdate: contact.properties?.createdate ? new Date(contact.properties.createdate).toISOString() : null,
-      lastmodifieddate: contact.properties?.lastmodifieddate ? new Date(contact.properties.lastmodifieddate).toISOString() : null,
+      createdate: parseContactTimestamp(contact.properties?.createdate),
+      lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
       updated_at: new Date().toISOString()
     }));
 
@@ -606,8 +881,36 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   // ==== PROCESS AND UPSERT TASKS ====
   logger.info('📋 Processing and upserting tasks...');
   
+  let tasksCreated = 0;
+  let tasksUpdated = 0;
+  let warnings = 0;
+  
+  if (tasksWithAssociations.length === 0) {
+    logger.warn('⚠️ No tasks with associations found');
+    
+    return {
+      contactsUpdated: 0,
+      tasksCreated: 0,
+      tasksUpdated: 0,
+      tasksFetched: allModifiedTasks.length,
+      tasksFailed: 0,
+      errors: 0,
+      duration: Date.now() - startTime,
+      hubspotApiCalls: hubspotApiCallCount,
+      taskDetails: {
+        fetchedTaskIds,
+        createdTaskIds: [],
+        updatedTaskIds: [],
+        failedTaskIds: [],
+        failedDetails: [],
+        skippedOrphanTasks: allModifiedTasks.length - tasksWithAssociations.length
+      },
+      taskSyncAttempts
+    };
+  }
+
   // First, check which tasks already exist to distinguish created vs updated
-  const allTaskIds = allModifiedTasks.map((task: HubSpotTask) => task.id);
+  const allTaskIds = tasksWithAssociations.map((task: HubSpotTask) => task.id);
   const { data: existingTasks } = await supabase
     .from('hs_tasks')
     .select('hs_object_id')
@@ -615,81 +918,120 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   
   const existingTaskIds = new Set(existingTasks?.map(t => t.hs_object_id) || []);
   
-  let tasksCreated = 0;
-  let tasksUpdated = 0;
-  let tasksFetched = allModifiedTasks.length;
   let tasksFailed = 0;
   let errors = contactErrors;
-  let warningCount = 0;
   let tasksToUpsert: any[] = [];
 
-  if (allModifiedTasks.length > 0) {
-    // Process all tasks and prepare for upsert
-    tasksToUpsert = allModifiedTasks.map((task: HubSpotTask) => {
+  logger.info(`📝 Upserting ${tasksWithAssociations.length} tasks...`);
+  
+  // Process tasks in batches
+  const taskBatchSize = 100;
+  for (let i = 0; i < tasksWithAssociations.length; i += taskBatchSize) {
+    const batchTasks = tasksWithAssociations.slice(i, i + taskBatchSize);
+    
+    // Check for missing contacts and warn
+    const missingContactWarnings = batchTasks
+      .filter(task => {
+        const contactId = finalTaskContactMap[task.id];
+        if (!contactId) {
+          warnings++;
+          logger.warn(`⚠️ Task ${task.id} has no associated contact`);
+          taskSyncAttempts.push({
+            taskHubspotId: task.id,
+            status: 'success',
+            stage: 'validation',
+            actionType: 'updated',
+            warnings: ['Missing contact association']
+          });
+          return true;
+        }
+        
+        const contactExists = allContacts.some(c => c.id === contactId);
+        if (!contactExists) {
+          warnings++;
+          logger.warn(`⚠️ Task ${task.id} references missing contact ${contactId}`);
+          taskSyncAttempts.push({
+            taskHubspotId: task.id,
+            status: 'success',
+            stage: 'validation',
+            actionType: 'updated',
+            warnings: [`Missing contact ${contactId}`]
+          });
+          return true;
+        }
+        
+        return false;
+      });
+
+    // Transform tasks for database
+    const batchTasksToUpsert = batchTasks.map((task: HubSpotTask) => {
       processedTaskIds.push(task.id);
 
-      const contactId = taskContactMap[task.id];
+      // Helper function to safely parse timestamps
+      const parseTimestamp = (value: any): string | null => {
+        if (!value || value === '' || value === 'null' || value === '0') return null;
+        
+        // Handle ISO 8601 strings (e.g., "2025-09-05T07:00:11.629Z")
+        if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+          const date = new Date(value);
+          return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+        }
+        
+        // Handle numeric timestamps
+        const timestamp = parseInt(String(value));
+        if (isNaN(timestamp) || timestamp === 0) return null;
+        const date = new Date(timestamp);
+        return date.getFullYear() > 1970 ? date.toISOString() : null;
+      };
       
       return {
         hs_object_id: task.id,
-        hs_createdate: task.properties?.hs_createdate ? new Date(task.properties.hs_createdate).toISOString() : null,
-        hs_lastmodifieddate: task.properties?.hs_lastmodifieddate ? new Date(task.properties.hs_lastmodifieddate).toISOString() : null,
+        hs_createdate: parseTimestamp(task.properties?.hs_createdate),
+        hs_lastmodifieddate: parseTimestamp(task.properties?.hs_lastmodifieddate),
         hs_body_preview: task.properties?.hs_body_preview || null,
         hs_created_by_user_id: task.properties?.hs_created_by_user_id || null,
         hs_queue_membership_ids: task.properties?.hs_queue_membership_ids || null,
         hs_task_body: task.properties?.hs_task_body || null,
         hs_task_completion_count: task.properties?.hs_task_completion_count ? parseInt(task.properties.hs_task_completion_count) : 0,
-        hs_task_completion_date: task.properties?.hs_task_completion_date ? new Date(task.properties.hs_task_completion_date).toISOString() : null,
+        hs_task_completion_date: parseTimestamp(task.properties?.hs_task_completion_date),
         hs_task_for_object_type: task.properties?.hs_task_for_object_type || null,
         hs_task_is_all_day: task.properties?.hs_task_is_all_day === 'true',
         hs_task_is_overdue: task.properties?.hs_task_is_overdue === 'true',
-        hs_task_last_contact_outreach: task.properties?.hs_task_last_contact_outreach ? new Date(task.properties.hs_task_last_contact_outreach).toISOString() : null,
+        hs_task_last_contact_outreach: parseTimestamp(task.properties?.hs_task_last_contact_outreach),
         hs_task_priority: task.properties?.hs_task_priority || null,
         hs_task_status: task.properties?.hs_task_status || null,
         hs_task_subject: task.properties?.hs_task_subject || null,
         hs_task_type: task.properties?.hs_task_type || null,
         hs_duration: task.properties?.hs_duration || null,
-        hs_timestamp: task.properties?.hs_timestamp ? new Date(task.properties.hs_timestamp).toISOString() : null,
+        hs_timestamp: parseTimestamp(task.properties?.hs_timestamp),
         hs_updated_by_user_id: task.properties?.hs_updated_by_user_id || null,
-        hubspot_owner_assigneddate: task.properties?.hubspot_owner_assigneddate ? new Date(task.properties.hubspot_owner_assigneddate).toISOString() : null,
+        hubspot_owner_assigneddate: parseTimestamp(task.properties?.hubspot_owner_assigneddate),
         hubspot_owner_id: task.properties?.hubspot_owner_id || null,
         hubspot_team_id: task.properties?.hubspot_team_id || null,
-        associated_contact_id: contactId || null,
-        associated_deal_id: null, // Could be enhanced later
         archived: task.archived || false,
+        associated_contact_id: finalTaskContactMap[task.id] || null,
+        associated_deal_id: taskDealMap[task.id] || null,
+        associated_company_id: taskCompanyMap[task.id] || null,
         updated_at: new Date().toISOString()
       };
     });
 
-    // Check for tasks with missing contact references
-    tasksToUpsert.forEach(task => {
-      const contactId = task.associated_contact_id;
-      if (contactId) {
-        if (contactId) {
-          logger.warn(`⚠️ Task ${task.hs_object_id} references missing contact ${contactId}`);
-          warningCount++;
-        }
-      }
-    });
-
-    logger.info(`📝 Upserting ${tasksToUpsert.length} tasks...`);
-
     try {
       const { data: tasksData, error: tasksError } = await supabase
         .from('hs_tasks')
-        .upsert(tasksToUpsert, { 
+        .upsert(batchTasksToUpsert, { 
           onConflict: 'hs_object_id',
           ignoreDuplicates: false 
         })
         .select('hs_object_id');
 
       if (tasksError) {
-        logger.error('Error upserting tasks:', tasksError);
+        logger.error('Error upserting tasks batch:', tasksError);
         errors++;
-        tasksFailed = tasksToUpsert.length;
+        tasksFailed += batchTasksToUpsert.length;
         
         // Add all tasks to failed list
-        tasksToUpsert.forEach(task => {
+        batchTasksToUpsert.forEach(task => {
           failedTaskIds.push(task.hs_object_id);
           failedDetails.push({
             taskId: task.hs_object_id,
@@ -697,34 +1039,36 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
             stage: 'upsert_task'
           });
         });
+      } else {
+        // Track successful updates and count created vs updated
+        if (tasksData) {
+          tasksData.forEach(task => {
+            updatedTaskIds.push(task.hs_object_id);
+            if (existingTaskIds.has(task.hs_object_id)) {
+              tasksUpdated++;
+            } else {
+              tasksCreated++;
+            }
+          });
+        }
         
-        throw tasksError;
+        const upsertedCount = tasksData?.length || 0;
+        logger.info(`✅ Upserted batch: ${upsertedCount} tasks`);
       }
-
-      // Track successful updates and count created vs updated
-      if (tasksData) {
-        tasksData.forEach(task => {
-          updatedTaskIds.push(task.hs_object_id);
-          if (existingTaskIds.has(task.hs_object_id)) {
-            tasksUpdated++;
-          } else {
-            tasksCreated++;
-          }
-        });
-      }
-
-      logger.info(`✅ Upserted ${tasksData?.length || 0} tasks (${tasksCreated} created, ${tasksUpdated} updated)`);
 
     } catch (error) {
-      logger.error('Failed to upsert tasks:', error);
+      logger.error('Failed to upsert tasks batch:', error);
       // Error already handled above
     }
 
-    // Errors are already tracked in the execution record - no additional metadata update needed
-    logger.info(`⚠️ Sync completed with ${errors} errors out of ${tasksFetched} tasks fetched`);
+    // Respect rate limits between batches
+    if (i + taskBatchSize < tasksWithAssociations.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   }
 
   const duration = Date.now() - startTime;
+  const upsertedCount = tasksCreated + tasksUpdated;
 
   // Create consolidated task sync attempts (one record per task per execution)
   logger.info('📝 Creating consolidated task sync records...');
@@ -732,6 +1076,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     const taskId = task.id;
     const isSuccess = updatedTaskIds.includes(taskId);
     const isFailed = failedTaskIds.includes(taskId);
+    const isSkipped = !tasksWithAssociations.some(t => t.id === taskId);
     
     // Determine final status and stage
     let status: 'success' | 'failed' = 'success';
@@ -755,7 +1100,9 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     
     // Determine action type based on success and whether task existed
     let actionType = 'unknown';
-    if (isSuccess) {
+    if (isSkipped) {
+      actionType = 'skipped';
+    } else if (isSuccess) {
       // Check if task was completed since last sync (prioritize completion status)
       if (task.properties?.hs_task_completion_date) {
         const completionDate = new Date(task.properties.hs_task_completion_date);
@@ -773,28 +1120,33 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       actionType = 'failed';
     }
     
-    taskSyncAttempts.push({
-      taskHubspotId: taskId,
-      status,
-      stage,
-      errorMessage,
-      hubspotResponse: { properties: task.properties },
-      supabaseData: isSuccess ? { upserted: true } : undefined,
-      warnings: warnings.length > 0 ? warnings : undefined,
-      actionType
-    });
+    // Only add to attempts if not already added during processing
+    if (!taskSyncAttempts.some(a => a.taskHubspotId === taskId)) {
+      taskSyncAttempts.push({
+        taskHubspotId: taskId,
+        status,
+        stage,
+        errorMessage,
+        hubspotResponse: { properties: task.properties },
+        supabaseData: isSuccess ? { upserted: true } : undefined,
+        warnings: warnings.length > 0 ? warnings : undefined,
+        actionType
+      });
+    }
   });
 
   logger.info('=== INCREMENTAL SYNC COMPLETE ===');
   logger.info(`📊 Contacts updated: ${contactsUpdated}`);
   logger.info(`🆕 Tasks created: ${tasksCreated}`);
   logger.info(`📋 Tasks updated: ${tasksUpdated}`);
-  logger.info(`📦 Tasks fetched: ${tasksFetched}`);
+  logger.info(`📦 Tasks fetched: ${allModifiedTasks.length}`);
   logger.info(`❌ Tasks failed: ${tasksFailed}`);
-  logger.info(`⚠️ Warnings: ${warningCount}`);
+  logger.info(`⚠️ Warnings: ${warnings}`);
   logger.info(`🕒 Duration: ${Math.round(duration / 1000)}s`);
   logger.info(`📞 HubSpot API calls: ${hubspotApiCallCount}`);
-
+  logger.info(`⚠️ Sync completed with ${tasksFailed} errors out of ${allModifiedTasks.length} tasks fetched`);
+  logger.info(`🚫 Orphan tasks skipped: ${allModifiedTasks.length - tasksWithAssociations.length}`);
+  
   // Execution record already updated with all details - no additional metadata update needed
   logger.info('✅ Sync execution record contains all necessary tracking information');
 
@@ -802,17 +1154,21 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     contactsUpdated,
     tasksCreated,
     tasksUpdated,
-    tasksFetched,
+    tasksFetched: allModifiedTasks.length,
     tasksFailed,
-    errors,
+    errors: tasksFailed,
     duration,
     hubspotApiCalls: hubspotApiCallCount,
     taskDetails: {
       fetchedTaskIds,
-      createdTaskIds: tasksToUpsert.filter(task => !existingTaskIds.has(task.hs_object_id)).map(task => task.hs_object_id),
+      createdTaskIds: processedTaskIds.filter(id => {
+        const attempt = taskSyncAttempts.find(a => a.taskHubspotId === id);
+        return attempt?.actionType === 'created';
+      }),
       updatedTaskIds,
       failedTaskIds,
-      failedDetails
+      failedDetails,
+      skippedOrphanTasks: allModifiedTasks.length - tasksWithAssociations.length
     },
     taskSyncAttempts
   };
