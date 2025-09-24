@@ -1,8 +1,9 @@
 
 import { useState } from "react";
-import { Search, RefreshCw, X } from "lucide-react";
+import { Search, RefreshCw, X, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useNavigate } from "react-router-dom";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import OwnerSelector from "./OwnerSelector";
 import { PerformanceIndicator } from "./PerformanceIndicator";
@@ -32,6 +33,7 @@ const KanbanHeader = ({
   isLoading,
   taskCount = 0
 }: KanbanHeaderProps) => {
+  const navigate = useNavigate();
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
 
   const handleClearSearch = () => {
@@ -57,6 +59,15 @@ const KanbanHeader = ({
           taskCount={taskCount}
           mode="database"
         />
+
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={() => navigate('/settings')}
+          title="Paramètres"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
 
         <Button 
           variant="outline" 
