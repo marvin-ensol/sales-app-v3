@@ -21,18 +21,7 @@ interface HubSpotDeletionEvent {
   subscriptionType: string;
 }
 
-interface WebhookPayload {
-  context: any;
-  event: {
-    body: HubSpotDeletionEvent[];
-    client_ip: string;
-    headers: Record<string, string>;
-    method: string;
-    path: string;
-    query: Record<string, any>;
-    url: string;
-  };
-}
+// HubSpot sends the deletion events directly as an array
 
 serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -48,13 +37,13 @@ serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Parse webhook payload
-    const webhookPayload: WebhookPayload = await req.json();
+    // Parse webhook payload - HubSpot sends deletion events directly as an array
+    const webhookPayload: HubSpotDeletionEvent[] = await req.json();
     
     console.log('📥 Received webhook payload:', JSON.stringify(webhookPayload, null, 2));
 
     // Extract deletion events from payload
-    const deletionEvents = webhookPayload.event.body.filter(
+    const deletionEvents = webhookPayload.filter(
       event => event.changeFlag === 'DELETED' && event.objectTypeId === '0-27' // 0-27 is HubSpot's task object type
     );
 
