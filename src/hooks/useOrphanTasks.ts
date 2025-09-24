@@ -33,7 +33,8 @@ export const useOrphanTasks = () => {
         .is('associated_contact_id', null)
         .is('associated_deal_id', null)
         .is('associated_company_id', null)
-        .eq('archived', false);
+        .eq('archived', false)
+        .neq('hs_task_status', 'DELETED');
 
       if (error) {
         throw new Error(error.message);

@@ -31,7 +31,8 @@ Deno.serve(async (req) => {
       .is('associated_contact_id', null)
       .is('associated_deal_id', null)
       .is('associated_company_id', null)
-      .eq('archived', false);
+      .eq('archived', false)
+      .neq('hs_task_status', 'DELETED');
 
     if (queryError) {
       console.error('❌ Error querying orphan tasks:', queryError);
