@@ -135,32 +135,6 @@ serve(async (req) => {
   try {
     logger.info('Starting global incremental sync', { triggerSource });
 
-    // Check if syncing is paused via sync_control
-    const { data: syncControl, error: syncControlError } = await supabase
-      .from('sync_control')
-      .select('is_paused, paused_at, paused_by, notes')
-      .single();
-
-    if (syncControlError && syncControlError.code !== 'PGRST116') {
-      throw new Error(`Failed to check sync control: ${syncControlError.message}`);
-    }
-
-    if (syncControl?.is_paused) {
-      const pausedSince = syncControl.paused_at ? new Date(syncControl.paused_at).toLocaleString() : 'unknown';
-      const pausedBy = syncControl.paused_by || 'unknown';
-      const pauseReason = syncControl.notes ? ` (${syncControl.notes})` : '';
-      
-      return new Response(JSON.stringify({
-        success: false,
-        skipped: true,
-        message: `Sync is currently paused since ${pausedSince} by ${pausedBy}${pauseReason}`
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    logger.info('✅ Sync control check passed - proceeding with sync');
-
     // ==== CONCURRENCY CONTROL: Check for existing running syncs ====
     logger.info('🔒 Checking for existing running sync executions...');
     
