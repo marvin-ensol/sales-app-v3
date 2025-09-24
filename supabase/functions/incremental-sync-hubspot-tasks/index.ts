@@ -390,15 +390,33 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       "hs_updated_by_user_id", "hubspot_owner_assigneddate", "hubspot_owner_id",
       "hubspot_team_id", "hs_lastmodifieddate"
     ],
-    filterGroups: [{
-      filters: [
-        {
-          propertyName: "hs_lastmodifieddate",
-          operator: "GTE",
-          value: lastSyncTimestamp
-        }
-      ]
-    }]
+    filterGroups: [
+      {
+        // Group 1: Non-completed tasks modified since last sync
+        filters: [
+          {
+            propertyName: "hs_lastmodifieddate",
+            operator: "GTE",
+            value: lastSyncTimestamp
+          },
+          {
+            propertyName: "hs_task_status",
+            operator: "NEQ",
+            value: "COMPLETED"
+          }
+        ]
+      },
+      {
+        // Group 2: Tasks completed since last sync (to catch new completions)
+        filters: [
+          {
+            propertyName: "hs_task_completion_date",
+            operator: "GTE",
+            value: lastSyncTimestamp
+          }
+        ]
+      }
+    ]
   };
 
   let allModifiedTasks: HubSpotTask[] = [];
