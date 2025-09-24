@@ -298,7 +298,7 @@ export type Database = {
           duration_ms: number | null
           error_details: Json | null
           error_message: string | null
-          execution_id: string
+          execution_id: string | null
           hubspot_response: Json | null
           id: string
           started_at: string
@@ -313,7 +313,7 @@ export type Database = {
           duration_ms?: number | null
           error_details?: Json | null
           error_message?: string | null
-          execution_id: string
+          execution_id?: string | null
           hubspot_response?: Json | null
           id?: string
           started_at?: string
@@ -328,7 +328,7 @@ export type Database = {
           duration_ms?: number | null
           error_details?: Json | null
           error_message?: string | null
-          execution_id?: string
+          execution_id?: string | null
           hubspot_response?: Json | null
           id?: string
           started_at?: string
