@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle, RefreshCw, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useOrphanTasks } from "@/hooks/useOrphanTasks";
 
 
 interface SyncOperation {
@@ -39,6 +40,7 @@ const Data = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [isOwnersSyncing, setIsOwnersSyncing] = useState(false);
   const { toast } = useToast();
+  const { stats: orphanStats, isDeleting, deleteOrphanTasks } = useOrphanTasks();
 
   const handleSyncData = async () => {
     setIsRunning(true);
@@ -190,6 +192,10 @@ const Data = () => {
     }
   };
 
+  const handleDeleteOrphanTasks = async () => {
+    await deleteOrphanTasks();
+  };
+
   const getStatusIcon = (status: SyncOperation['status']) => {
     switch (status) {
       case 'pending':
@@ -336,6 +342,67 @@ const Data = () => {
                   </>
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Orphan Task Cleanup
+              </CardTitle>
+              <CardDescription>
+                Delete tasks that have no associated contact, deal, or company. These orphaned tasks are typically created by automation errors.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        Orphan Tasks Found
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Tasks with no contact, deal, or company associations
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-lg font-semibold text-amber-600">
+                    {orphanStats.loading ? '...' : orphanStats.count}
+                  </div>
+                </div>
+
+                {orphanStats.error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {orphanStats.error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <Button 
+                  onClick={handleDeleteOrphanTasks}
+                  disabled={isDeleting || orphanStats.count === 0 || orphanStats.loading}
+                  className="w-full"
+                  size="lg"
+                  variant="destructive"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4 animate-pulse" />
+                      Deleting Orphan Tasks...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete {orphanStats.count} Orphan Tasks
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
