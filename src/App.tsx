@@ -6,8 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Data from "./pages/Data";
-import Architecture from "./pages/Architecture";
-import SyncDebug from "./pages/SyncDebug";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,8 +22,6 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/data" element={<Data />} />
-          <Route path="/architecture" element={<Architecture />} />
-          <Route path="/sync-debug" element={<SyncDebug />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         </BrowserRouter>
