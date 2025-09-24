@@ -323,6 +323,7 @@ serve(async (req) => {
             console.log(`🔍 Fetching task-deal associations for all ${allTasks.length} tasks...`);
             
             const taskDealMap: { [taskId: string]: string } = {};
+            const taskCompanyMap: { [taskId: string]: string } = {};
             const finalTaskContactMap = { ...taskContactMap };
             
             // 🔍 DEBUG: Focus on task 285193363680
@@ -425,8 +426,6 @@ serve(async (req) => {
 
               // 🏢 Fetch task-company associations
               sendOperationUpdate('task-company-associations', 'running', `Fetching task-company associations for ${allTaskIds.length} tasks...`);
-              
-              const taskCompanyMap: { [taskId: string]: string } = {};
               
               // Batch fetch task-company associations
               for (let i = 0; i < allTaskIds.length; i += taskDealBatchSize) {
