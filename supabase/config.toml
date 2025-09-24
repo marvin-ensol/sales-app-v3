@@ -38,6 +38,15 @@ verify_jwt = false
 [functions.handle-task-deletion-webhook]
 verify_jwt = false
 
+[functions.delete-hubspot-task]
+verify_jwt = false
+
+[functions.assign-task]
+verify_jwt = false
+
+[functions.fetch-hubspot-owners]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324

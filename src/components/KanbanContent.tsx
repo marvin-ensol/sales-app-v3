@@ -19,6 +19,7 @@ interface KanbanContentProps {
   tasksLoading: boolean;
   ownerSelectionInitialized: boolean;
   onTaskAssigned?: () => void;
+  onTaskDeleted?: () => void;
   selectedOwnerId: string;
   lockedColumns: string[];
   lockedExpandableColumns?: string[]; // New prop for expansion locking
@@ -34,6 +35,7 @@ const KanbanContent = ({
   tasksLoading,
   ownerSelectionInitialized,
   onTaskAssigned,
+  onTaskDeleted,
   selectedOwnerId,
   lockedColumns,
   lockedExpandableColumns = []
@@ -132,6 +134,7 @@ const KanbanContent = ({
                 onFrameUrlChange={onFrameUrlChange}
                 showOwner={false}
                 onTaskAssigned={onTaskAssigned}
+                onTaskDeleted={onTaskDeleted}
                 selectedOwnerId={selectedOwnerId}
               />
             ))}

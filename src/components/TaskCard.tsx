@@ -1,9 +1,10 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus, Trash2 } from "lucide-react";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
+import { useTaskDeletion } from "@/hooks/useTaskDeletion";
 import { getFrenchWeekday } from "@/lib/dateUtils";
 
 interface TaskCardProps {
@@ -13,12 +14,14 @@ interface TaskCardProps {
   showOwner?: boolean;
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
+  onTaskDeleted?: () => void;
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
   const { isAssigning, assignTask } = useTaskAssignment();
+  const { isDeleting, deleteTask } = useTaskDeletion();
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -91,6 +94,15 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
     );
   };
 
+  const handleDeleteTask = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    await deleteTask(
+      task.hubspotId,
+      onTaskDeleted
+    );
+  };
+
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
   const cursorStyle = task.isUnassigned ? "cursor-default" : "cursor-pointer";
 
@@ -110,6 +122,20 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
             title="Modifier la tâche"
           >
             <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
+          </button>
+        </div>
+      )}
+
+      {/* Delete icon in bottom right corner - hidden for unassigned tasks */}
+      {!task.isUnassigned && (
+        <div className="absolute bottom-2 right-2 z-0">
+          <button
+            onClick={handleDeleteTask}
+            disabled={isDeleting}
+            className="p-1 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
+            title="Supprimer la tâche"
+          >
+            <Trash2 className={`h-3 w-3 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
           </button>
         </div>
       )}

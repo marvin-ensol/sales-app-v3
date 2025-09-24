@@ -63,6 +63,11 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     refetch();
   };
 
+  const handleTaskDeleted = () => {
+    console.log('Task deleted, refetching...');
+    refetch();
+  };
+
   const handleSearchChange = (term: string) => {
     console.log('Search term changed:', term);
     setSearchTerm(term);
@@ -131,6 +136,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         tasksLoading={tasksLoading}
         ownerSelectionInitialized={ownerSelectionInitialized}
         onTaskAssigned={handleTaskAssigned}
+        onTaskDeleted={handleTaskDeleted}
         selectedOwnerId={selectedOwnerId}
         lockedColumns={lockedColumns}
         lockedExpandableColumns={lockedExpandableColumns}
