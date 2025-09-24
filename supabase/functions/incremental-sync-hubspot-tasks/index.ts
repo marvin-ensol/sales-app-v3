@@ -210,14 +210,14 @@ serve(async (req) => {
     // ==== Perform incremental sync with timeout ====
     const SYNC_TIMEOUT = 25 * 60 * 1000; // 25 minutes
     
-    let result;
+    let result: SyncResult;
     try {
       result = await Promise.race([
-        performIncrementalSync(supabase, hubspotToken, logger, executionId, requestBody.sinceOverride),
-        new Promise((_, reject) => 
+        performIncrementalSync(supabase, hubspotToken, logger, executionId, requestBody?.sinceOverride),
+        new Promise<SyncResult>((_, reject) => 
           setTimeout(() => reject(new Error('Sync timeout after 25 minutes')), SYNC_TIMEOUT)
         )
-      ]);
+      ]) as SyncResult;
       
       // Update execution record with success
       await supabase
@@ -245,7 +245,7 @@ serve(async (req) => {
         .from('sync_executions')
         .update({
           status: 'failed',
-          error_message: syncError.message,
+          error_message: (syncError as Error)?.message || 'Unknown sync error',
           completed_at: new Date().toISOString(),
           duration_ms: Date.now() - startTime
         })
@@ -261,7 +261,7 @@ serve(async (req) => {
       const { error: attemptsError } = await supabase
         .from('task_sync_attempts')
         .insert(
-          result.taskSyncAttempts.map(attempt => ({
+          result.taskSyncAttempts.map((attempt: TaskSyncAttempt) => ({
             execution_id: executionId,
             task_hubspot_id: attempt.taskHubspotId,
             status: attempt.status,
@@ -292,7 +292,7 @@ serve(async (req) => {
       .from('sync_executions')
       .update({
         status: 'failed',
-        error_message: error.message,
+        error_message: (error as Error)?.message || 'Unknown error',
         completed_at: new Date().toISOString(),
         duration_ms: Date.now() - startTime
       })
@@ -303,7 +303,7 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
+      error: (error as Error)?.message || 'Unknown error',
       message: 'Incremental sync failed'
     }), {
       status: 500,
@@ -750,11 +750,16 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       logger.warn(`⚠️ Skipping orphan task ${task.id}: no contact, deal, or company associations`);
       taskSyncAttempts.push({
         taskHubspotId: task.id,
-        status: 'success',
+        status: 'success' as const,
         stage: 'filtered',
-        actionType: 'skipped',
+        actionType: 'skipped' as const,
         warnings: ['Task skipped - no associations found'],
-        errorDetails: { reason: 'no_associations', hasContact: !!hasContact, hasDeal: !!hasDeal, hasCompany: !!hasCompany }
+        errorDetails: { 
+          reason: 'no_associations', 
+          hasContact: !!hasContact, 
+          hasDeal: !!hasDeal, 
+          hasCompany: !!hasCompany 
+        }
       });
       return false;
     }
@@ -873,7 +878,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       contactErrors++;
     } else {
       contactsUpdated = contactsData?.length || 0;
-      contactsData?.forEach(contact => {
+      contactsData?.forEach((contact: any) => {
         processedContactIds.push(contact.hs_object_id);
       });
       logger.info(`✅ Upserted ${contactsUpdated} contacts`);
@@ -918,7 +923,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     .select('hs_object_id')
     .in('hs_object_id', allTaskIds);
   
-  const existingTaskIds = new Set(existingTasks?.map(t => t.hs_object_id) || []);
+  const existingTaskIds = new Set(existingTasks?.map((t: any) => t.hs_object_id) || []);
   
   let tasksFailed = 0;
   let errors = contactErrors;
@@ -1044,9 +1049,9 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       } else {
         // Track successful updates and count created vs updated
         if (tasksData) {
-          tasksData.forEach(task => {
-            updatedTaskIds.push(task.hs_object_id);
-            if (existingTaskIds.has(task.hs_object_id)) {
+          tasksData.forEach((task: HubSpotTask) => {
+            updatedTaskIds.push(task.id);
+            if (existingTaskIds.has(task.id)) {
               tasksUpdated++;
             } else {
               tasksCreated++;
@@ -1132,7 +1137,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
         hubspotResponse: { properties: task.properties },
         supabaseData: isSuccess ? { upserted: true } : undefined,
         warnings: warnings.length > 0 ? warnings : undefined,
-        actionType
+        actionType: actionType as TaskSyncAttempt['actionType']
       });
     }
   });
