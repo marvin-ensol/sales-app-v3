@@ -422,6 +422,56 @@ serve(async (req) => {
                 console.log(`🎯 [DEBUG] PROBLEM - Target task ${debugTaskId} has NO deal mapping in taskDealMap`);
                 console.log(`🎯 [DEBUG] Full taskDealMap:`, taskDealMap);
               }
+
+              // 🏢 Fetch task-company associations
+              sendOperationUpdate('task-company-associations', 'running', `Fetching task-company associations for ${allTaskIds.length} tasks...`);
+              
+              const taskCompanyMap: { [taskId: string]: string } = {};
+              
+              // Batch fetch task-company associations
+              for (let i = 0; i < allTaskIds.length; i += taskDealBatchSize) {
+                const batchTaskIds = allTaskIds.slice(i, i + taskDealBatchSize);
+                console.log(`🏢 Fetching task-company associations batch ${Math.floor(i / taskDealBatchSize) + 1}/${Math.ceil(allTaskIds.length / taskDealBatchSize)} (${batchTaskIds.length} tasks)...`);
+
+                try {
+                  const taskCompanyResponse = await fetch('https://api.hubapi.com/crm/v4/associations/tasks/companies/batch/read', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${hubspotToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      inputs: batchTaskIds.map(id => ({ id }))
+                    }),
+                  });
+
+                  if (taskCompanyResponse.ok) {
+                    const taskCompanyData = await taskCompanyResponse.json();
+                    
+                    for (const result of taskCompanyData.results) {
+                      if (result.to && result.to.length > 0) {
+                        // Get the first company ID (as requested by user)
+                        const companyId = result.to[0].toObjectId;
+                        if (companyId && String(companyId).trim()) {
+                          taskCompanyMap[result.from.id] = companyId;
+                          if (result.to.length > 1) {
+                            console.log(`🏢 Task ${result.from.id} has ${result.to.length} associated companies, using first one: ${companyId}`);
+                          }
+                        }
+                      }
+                    }
+                  } else {
+                    console.warn(`Failed to fetch task-company associations batch: ${taskCompanyResponse.status}`);
+                  }
+                } catch (error) {
+                  console.warn('Error fetching task-company association batch:', error);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+              
+              console.log(`🏢 Found ${Object.keys(taskCompanyMap).length} task-company associations`);
+              sendOperationUpdate('task-company-associations', 'complete', `Found ${Object.keys(taskCompanyMap).length} task-company associations`)
               
               // Identify tasks without direct contact associations to enhance via deal chains
               const tasksWithoutContacts = allTasks.filter(task => !taskContactMap[task.id]);
@@ -792,6 +842,7 @@ serve(async (req) => {
                 archived: task.archived || false,
                 associated_contact_id: finalTaskContactMap[task.id] || null,
                 associated_deal_id: taskDealMap[task.id] || null,
+                associated_company_id: taskCompanyMap[task.id] || null,
               }));
 
               const { error: insertError } = await supabase

@@ -59,6 +59,7 @@ export type Database = {
       hs_tasks: {
         Row: {
           archived: boolean | null
+          associated_company_id: string | null
           associated_contact_id: string | null
           associated_deal_id: string | null
           created_at: string
@@ -89,6 +90,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean | null
+          associated_company_id?: string | null
           associated_contact_id?: string | null
           associated_deal_id?: string | null
           created_at?: string
@@ -119,6 +121,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean | null
+          associated_company_id?: string | null
           associated_contact_id?: string | null
           associated_deal_id?: string | null
           created_at?: string
