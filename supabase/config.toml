@@ -32,6 +32,9 @@ verify_jwt = false
 [functions.incremental-sync-hubspot-tasks]
 verify_jwt = false
 
+[functions.cleanup-old-sync-data]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324
