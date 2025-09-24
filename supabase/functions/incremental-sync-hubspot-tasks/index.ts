@@ -213,7 +213,7 @@ serve(async (req) => {
     let result;
     try {
       result = await Promise.race([
-        performIncrementalSync(supabase, hubspotToken, logger, executionId),
+        performIncrementalSync(supabase, hubspotToken, logger, executionId, requestBody.sinceOverride),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Sync timeout after 25 minutes')), SYNC_TIMEOUT)
         )
@@ -315,7 +315,7 @@ serve(async (req) => {
 // ==============================================
 // CORE SYNC LOGIC (extracted to separate function)
 // ==============================================
-async function performIncrementalSync(supabase: any, hubspotToken: string, logger: any, executionId: string): Promise<SyncResult> {
+async function performIncrementalSync(supabase: any, hubspotToken: string, logger: any, executionId: string, sinceOverride?: string): Promise<SyncResult> {
   const startTime = Date.now();
   
   // ==== Get last successful sync timestamp from sync_executions ====
@@ -334,9 +334,10 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     throw new Error(`Failed to fetch last sync: ${lastSyncError.message}`);
   }
 
-  // Use last successful sync or default to 24 hours ago
-  const lastSyncTimestamp = lastSync?.completed_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  logger.info(`📅 Last sync timestamp: ${lastSyncTimestamp}`);
+  // Use last successful sync or default to 24 hours ago; allow manual override
+  const defaultSince = lastSync?.completed_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const effectiveSince = sinceOverride || defaultSince;
+  logger.info(`📅 Last sync timestamp: ${effectiveSince}${sinceOverride ? ' (override)' : ''}`);
   
   // Initialize tracking arrays
   const fetchedTaskIds: string[] = [];
@@ -372,7 +373,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           {
             propertyName: "hs_lastmodifieddate",
             operator: "GTE",
-            value: lastSyncTimestamp
+            value: effectiveSince
           },
           {
             propertyName: "hs_task_status",
@@ -387,7 +388,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           {
             propertyName: "hs_task_completion_date",
             operator: "GTE",
-            value: lastSyncTimestamp
+            value: effectiveSince
           }
         ]
       }
@@ -507,7 +508,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           // Store task-contact associations (taking first contact if multiple)
           associationData.results.forEach((result: any) => {
             if (result.to && result.to.length > 0) {
-              taskContactMap[result.from.id] = result.to[0].id;
+              taskContactMap[result.from.id] = result.to[0].toObjectId;
             }
           });
         } else {
@@ -548,7 +549,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           // Store task-deal associations (taking first deal if multiple)
           dealAssociationData.results.forEach((result: any) => {
             if (result.to && result.to.length > 0) {
-              taskDealMap[result.from.id] = result.to[0].id;
+              taskDealMap[result.from.id] = result.to[0].toObjectId;
             }
           });
         } else {
@@ -589,7 +590,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           // Store task-company associations (taking first company if multiple)
           companyAssociationData.results.forEach((result: any) => {
             if (result.to && result.to.length > 0) {
-              taskCompanyMap[result.from.id] = result.to[0].id;
+              taskCompanyMap[result.from.id] = result.to[0].toObjectId;
             }
           });
         } else {
@@ -651,7 +652,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
           // Store deal-contact associations
           dealContactData.results.forEach((result: any) => {
             if (result.to && result.to.length > 0) {
-              dealContactMap[result.from.id] = result.to[0].id;
+              dealContactMap[result.from.id] = result.to[0].toObjectId;
             }
           });
         } else {
@@ -752,7 +753,8 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
         status: 'success',
         stage: 'filtered',
         actionType: 'skipped',
-        warnings: ['Task skipped - no associations found']
+        warnings: ['Task skipped - no associations found'],
+        errorDetails: { reason: 'no_associations', hasContact: !!hasContact, hasDeal: !!hasDeal, hasCompany: !!hasCompany }
       });
       return false;
     }
@@ -1106,7 +1108,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       // Check if task was completed since last sync (prioritize completion status)
       if (task.properties?.hs_task_completion_date) {
         const completionDate = new Date(task.properties.hs_task_completion_date);
-        const lastSyncDate = new Date(lastSyncTimestamp);
+        const lastSyncDate = new Date(effectiveSince);
         
         if (completionDate >= lastSyncDate) {
           actionType = 'completed';
