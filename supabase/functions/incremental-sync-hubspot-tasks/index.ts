@@ -30,7 +30,7 @@ interface TaskSyncAttempt {
   hubspotResponse?: any;
   supabaseData?: any;
   warnings?: string[];
-  actionType: 'created' | 'updated' | 'skipped' | 'failed' | 'unknown' | 'completed';
+  actionType: 'created' | 'updated' | 'skipped' | 'failed' | 'unknown';
 }
 
 interface SyncResult {
@@ -352,29 +352,21 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
   // ==== FETCH MODIFIED TASKS FROM HUBSPOT ====
   logger.info('🔍 Fetching modified tasks from HubSpot...');
   
-  const commonProperties = [
-    "hs_body_preview", "hs_created_by_user_id", "hs_createdate", "hs_timestamp",
-    "hs_duration", "hs_object_id", "hs_queue_membership_ids", "hs_task_body",
-    "hs_task_completion_count", "hs_task_completion_date", "hs_task_for_object_type",
-    "hs_task_is_all_day", "hs_task_is_overdue", "hs_task_last_contact_outreach",
-    "hs_task_priority", "hs_task_status", "hs_task_subject", "hs_task_type",
-    "hs_updated_by_user_id", "hubspot_owner_assigneddate", "hubspot_owner_id",
-    "hubspot_team_id", "hs_lastmodifieddate"
-  ];
-
-  // Track which tasks came from which query for action_type determination
-  const taskOriginMap: { [taskId: string]: 'modified' | 'completed' } = {};
-  let allModifiedTasks: HubSpotTask[] = [];
-
-  // ==== QUERY 1: Non-completed tasks modified since last sync ====
-  logger.info('🔄 Fetching modified (non-completed) tasks...');
-  
-  const modifiedRequestBody = {
+  const requestBody = {
     limit: 100,
     sorts: [{ propertyName: "hs_lastmodifieddate", direction: "DESCENDING" }],
-    properties: commonProperties,
+    properties: [
+      "hs_body_preview", "hs_created_by_user_id", "hs_createdate", "hs_timestamp",
+      "hs_duration", "hs_object_id", "hs_queue_membership_ids", "hs_task_body",
+      "hs_task_completion_count", "hs_task_completion_date", "hs_task_for_object_type",
+      "hs_task_is_all_day", "hs_task_is_overdue", "hs_task_last_contact_outreach",
+      "hs_task_priority", "hs_task_status", "hs_task_subject", "hs_task_type",
+      "hs_updated_by_user_id", "hubspot_owner_assigneddate", "hubspot_owner_id",
+      "hubspot_team_id", "hs_lastmodifieddate"
+    ],
     filterGroups: [
       {
+        // Group 1: Non-completed tasks modified since last sync
         filters: [
           {
             propertyName: "hs_lastmodifieddate",
@@ -387,68 +379,9 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
             value: "COMPLETED"
           }
         ]
-      }
-    ]
-  };
-
-  let hasMoreModified = true;
-  let afterModified: string | undefined;
-  let pageModified = 0;
-
-  while (hasMoreModified && pageModified < 100) {
-    pageModified++;
-    logger.info(`📄 Fetching modified tasks page ${pageModified}${afterModified ? ` (after: ${afterModified})` : ''}...`);
-
-    const bodyWithPaging = afterModified ? { ...modifiedRequestBody, after: afterModified } : modifiedRequestBody;
-
-    const response = await fetch('https://api.hubapi.com/crm/v3/objects/tasks/search', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(bodyWithPaging),
-    });
-
-    hubspotApiCallCount++;
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(`HubSpot API error for modified tasks (${response.status}):`, errorText);
-      throw new Error(`HubSpot API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    // Track fetched task IDs and their origin
-    data.results.forEach((task: any) => {
-      fetchedTaskIds.push(task.id);
-      taskOriginMap[task.id] = 'modified';
-    });
-    
-    logger.info(`📦 Received ${data.results.length} modified tasks on page ${pageModified}`);
-    
-    allModifiedTasks = allModifiedTasks.concat(data.results);
-
-    hasMoreModified = !!data.paging?.next?.after;
-    afterModified = data.paging?.next?.after;
-
-    if (hasMoreModified) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  }
-
-  logger.info(`🔄 Total modified tasks fetched: ${allModifiedTasks.length}`);
-
-  // ==== QUERY 2: Tasks completed since last sync ====
-  logger.info('✅ Fetching completed tasks...');
-  
-  const completedRequestBody = {
-    limit: 100,
-    sorts: [{ propertyName: "hs_task_completion_date", direction: "DESCENDING" }],
-    properties: commonProperties,
-    filterGroups: [
       {
+        // Group 2: Tasks completed since last sync (to catch new completions)
         filters: [
           {
             propertyName: "hs_task_completion_date",
@@ -460,16 +393,16 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     ]
   };
 
-  let hasMoreCompleted = true;
-  let afterCompleted: string | undefined;
-  let pageCompleted = 0;
-  let completedTasksCount = 0;
+  let allModifiedTasks: HubSpotTask[] = [];
+  let hasMore = true;
+  let after: string | undefined;
+  let page = 0;
 
-  while (hasMoreCompleted && pageCompleted < 100) {
-    pageCompleted++;
-    logger.info(`📄 Fetching completed tasks page ${pageCompleted}${afterCompleted ? ` (after: ${afterCompleted})` : ''}...`);
+  while (hasMore && page < 100) { // Safety limit
+    page++;
+    logger.info(`📄 Fetching page ${page}${after ? ` (after: ${after})` : ''}...`);
 
-    const bodyWithPaging = afterCompleted ? { ...completedRequestBody, after: afterCompleted } : completedRequestBody;
+    const bodyWithPaging = after ? { ...requestBody, after } : requestBody;
 
     const response = await fetch('https://api.hubapi.com/crm/v3/objects/tasks/search', {
       method: 'POST',
@@ -484,36 +417,31 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(`HubSpot API error for completed tasks (${response.status}):`, errorText);
+      logger.error(`HubSpot API error (${response.status}):`, errorText);
       throw new Error(`HubSpot API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     
+    // Track fetched task IDs
     data.results.forEach((task: any) => {
-      // Check if we already have this task from the modified query
-      if (!taskOriginMap[task.id]) {
-        // New task, add to our collection
-        fetchedTaskIds.push(task.id);
-        allModifiedTasks.push(task);
-      }
-      // Always mark as completed (this takes precedence for action_type)
-      taskOriginMap[task.id] = 'completed';
-      completedTasksCount++;
+      fetchedTaskIds.push(task.id);
     });
     
-    logger.info(`📦 Received ${data.results.length} completed tasks on page ${pageCompleted}`);
+    logger.info(`📦 Received ${data.results.length} tasks on page ${page}`);
+    
+    allModifiedTasks = allModifiedTasks.concat(data.results);
 
-    hasMoreCompleted = !!data.paging?.next?.after;
-    afterCompleted = data.paging?.next?.after;
+    hasMore = !!data.paging?.next?.after;
+    after = data.paging?.next?.after;
 
-    if (hasMoreCompleted) {
+    // Respect API rate limits
+    if (hasMore) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
 
-  logger.info(`✅ Total completed tasks fetched: ${completedTasksCount} (${completedTasksCount - (allModifiedTasks.length - (allModifiedTasks.length - completedTasksCount))} unique)`);
-  logger.info(`🎯 Total unique tasks fetched: ${allModifiedTasks.length}`);
+  logger.info(`🎯 Total modified tasks fetched: ${allModifiedTasks.length}`);
 
   if (allModifiedTasks.length === 0) {
     logger.info('✅ No modified tasks found - sync complete');
@@ -825,15 +753,10 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       warnings.push('Missing contact reference in database');
     }
     
-    // Determine action type based on task origin and success status
+    // Determine action type based on success and whether task existed
     let actionType = 'unknown';
     if (isSuccess) {
-      // Check if this task came from the completed tasks query
-      if (taskOriginMap[taskId] === 'completed') {
-        actionType = 'completed';
-      } else {
-        actionType = existingTaskIds.has(taskId) ? 'updated' : 'created';
-      }
+      actionType = existingTaskIds.has(taskId) ? 'updated' : 'created';
     } else {
       actionType = 'failed';
     }
