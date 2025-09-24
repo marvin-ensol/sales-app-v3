@@ -30,7 +30,7 @@ interface TaskSyncAttempt {
   hubspotResponse?: any;
   supabaseData?: any;
   warnings?: string[];
-  actionType: 'created' | 'updated' | 'skipped' | 'failed' | 'unknown';
+  actionType: 'created' | 'updated' | 'skipped' | 'failed' | 'unknown' | 'completed';
 }
 
 interface SyncResult {
@@ -756,7 +756,19 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
     // Determine action type based on success and whether task existed
     let actionType = 'unknown';
     if (isSuccess) {
-      actionType = existingTaskIds.has(taskId) ? 'updated' : 'created';
+      // Check if task was completed since last sync (prioritize completion status)
+      if (task.properties?.hs_task_completion_date) {
+        const completionDate = new Date(task.properties.hs_task_completion_date);
+        const lastSyncDate = new Date(lastSyncTimestamp);
+        
+        if (completionDate >= lastSyncDate) {
+          actionType = 'completed';
+        } else {
+          actionType = existingTaskIds.has(taskId) ? 'updated' : 'created';
+        }
+      } else {
+        actionType = existingTaskIds.has(taskId) ? 'updated' : 'created';
+      }
     } else {
       actionType = 'failed';
     }
