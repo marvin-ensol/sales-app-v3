@@ -464,6 +464,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      cleanup_old_sync_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_all_tasks: {
         Args: Record<PropertyKey, never>
         Returns: {
