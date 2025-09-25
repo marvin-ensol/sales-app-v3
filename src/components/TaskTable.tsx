@@ -59,14 +59,14 @@ const TaskTable = ({
   return (
     <div className="mx-4 pt-3">
       {groupedTasksByDate.map((dateGroup, groupIndex) => (
-        <div key={dateGroup.dateKey} className="bg-gray-50 rounded-lg mb-3 p-3">
+        <div key={dateGroup.dateKey} className="bg-white rounded-lg mb-3 p-3">
           {dateGroup.tasks.map((task, taskIndex) => {
             const shouldShowDivider = taskIndex > 0;
 
             return (
-              <div key={`${task.id}-${task.queue}`}>
+              <div key={`${task.id}-${task.queue}`} className="bg-gray-50">
                 {shouldShowDivider && (
-                  <div className="border-t border-gray-200 my-2 ml-20"></div>
+                  <div className="border-t border-gray-200 my-2 ml-28"></div>
                 )}
                 <TaskRow
                   task={task}

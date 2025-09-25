@@ -92,9 +92,9 @@ const TaskRow = ({
   
   const getRowBgClass = () => {
     if (isHovered && categoryColors) {
-      return "transition-colors";
+      return "transition-colors bg-gray-50";
     }
-    return isHovered ? "bg-gray-50 transition-colors" : "bg-white hover:bg-gray-50 transition-colors";
+    return "bg-gray-50 transition-colors";
   };
 
   const getRowBgStyle = () => {
