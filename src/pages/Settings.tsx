@@ -118,8 +118,9 @@ const Settings = () => {
     }
   };
 
-  const handleDelete = async (id: number, isSystemDefault: boolean) => {
-    if (isSystemDefault) {
+  const handleDelete = async (id: number, hs_queue_id: string | null) => {
+    // Prevent deletion of "Autres" category (fallback category with null hs_queue_id)
+    if (hs_queue_id === null) {
       return;
     }
 
@@ -145,10 +146,8 @@ const Settings = () => {
     }
   };
 
-  const handleReorder = async (id: number, direction: 'up' | 'down', isSystemDefault: boolean) => {
-    if (isSystemDefault) {
-      return;
-    }
+  const handleReorder = async (id: number, direction: 'up' | 'down') => {
+    // Allow reordering for all categories, including "Autres"
 
     // Optimistic update
     const currentCategories = localCategories.length > 0 ? localCategories : categories;
@@ -252,17 +251,27 @@ const Settings = () => {
                         /* Edit Mode */
                          <div className="space-y-3">
                            <div className="grid grid-cols-1 gap-3">
-                             <div>
-                               <div className="flex items-center gap-3 mb-2">
-                                 <div className="flex-1">
-                                   <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
-                                   <Input
-                                     id={`edit-label-${category.id}`}
-                                     value={editForm.label}
-                                     onChange={(e) => setEditForm({...editForm, label: e.target.value})}
-                                     placeholder="Nom de la catégorie"
-                                   />
-                                 </div>
+                              <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                  <div className="flex-1">
+                                    <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
+                                    {category.hs_queue_id === null ? (
+                                      // Read-only name for "Autres" category
+                                      <div className="px-3 py-2 border border-input bg-muted text-muted-foreground rounded-md">
+                                        {editForm.label}
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                          Catégorie de secours - nom non modifiable
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <Input
+                                        id={`edit-label-${category.id}`}
+                                        value={editForm.label}
+                                        onChange={(e) => setEditForm({...editForm, label: e.target.value})}
+                                        placeholder="Nom de la catégorie"
+                                      />
+                                    )}
+                                  </div>
                                  <div className="text-sm text-gray-500">
                                    ID: {category.id}
                                  </div>
@@ -375,26 +384,24 @@ const Settings = () => {
                             </div>
                             <div className="flex gap-2">
                               {/* Reorder buttons */}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReorder(category.id, 'up', category.system_default)}
-                                disabled={isSubmitting}
-                                className={category.system_default ? "opacity-50 cursor-not-allowed" : ""}
-                                title={category.system_default ? "Impossible de modifier l'ordre des catégories par défaut" : "Déplacer vers le haut"}
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReorder(category.id, 'down', category.system_default)}
-                                disabled={isSubmitting}
-                                className={category.system_default ? "opacity-50 cursor-not-allowed" : ""}
-                                title={category.system_default ? "Impossible de modifier l'ordre des catégories par défaut" : "Déplacer vers le bas"}
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleReorder(category.id, 'up')}
+                                 disabled={isSubmitting}
+                                 title="Déplacer vers le haut"
+                               >
+                                 <ArrowUp className="h-4 w-4" />
+                               </Button>
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleReorder(category.id, 'down')}
+                                 disabled={isSubmitting}
+                                 title="Déplacer vers le bas"
+                               >
+                                 <ArrowDown className="h-4 w-4" />
+                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -403,16 +410,16 @@ const Settings = () => {
                               >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDelete(category.id, category.system_default)}
-                                disabled={isSubmitting}
-                                className={category.system_default ? "opacity-50 cursor-not-allowed text-gray-400" : "text-red-600 hover:text-red-700"}
-                                title={category.system_default ? "Impossible de supprimer une catégorie par défaut" : "Supprimer cette catégorie"}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => handleDelete(category.id, category.hs_queue_id)}
+                                 disabled={isSubmitting}
+                                 className={category.hs_queue_id === null ? "opacity-50 cursor-not-allowed text-gray-400" : "text-red-600 hover:text-red-700"}
+                                 title={category.hs_queue_id === null ? "Impossible de supprimer la catégorie de secours" : "Supprimer cette catégorie"}
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
                             </div>
                           </div>
 
