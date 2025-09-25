@@ -453,7 +453,7 @@ const Settings = () => {
                                    <div className="text-sm text-gray-500 mb-1">Visibilité</div>
                                    <div className="text-sm">
                                      {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                       "Tous"
+                                       "Personne"
                                      ) : category.visible_team_ids.length === teams.length ? (
                                        "Tous"
                                      ) : (
