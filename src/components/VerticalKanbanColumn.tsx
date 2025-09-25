@@ -2,10 +2,11 @@
 import { ReactNode } from "react";
 import { ChevronDown, ChevronRight, Lock, Clock, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { generateCategoryColors } from "@/lib/colorUtils";
 
 interface VerticalKanbanColumnProps {
   title: string;
-  color: string;
+  color: string; // Now expects hex color
   count: number;
   completedCount: number;
   children: ReactNode;
@@ -30,6 +31,7 @@ const VerticalKanbanColumn = ({
 }: VerticalKanbanColumnProps) => {
   // Column can be expanded if it has content and is not locked from expansion
   const canExpand = hasContent && !isLockedFromExpansion;
+  const colors = generateCategoryColors(color);
   
   const handleToggle = () => {
     console.log(`=== TOGGLE DEBUG FOR ${title} ===`);
@@ -55,7 +57,11 @@ const VerticalKanbanColumn = ({
   return (
     <div className="border-b border-gray-200">
       <div 
-        className={`p-3 transition-colors ${color} ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 bg-white z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
+        className={`p-3 transition-colors border-l-4 ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
+        style={{
+          borderLeftColor: colors.border,
+          backgroundColor: isExpanded && hasContent ? colors.expandedBg : colors.lightBg
+        }}
         onClick={handleToggle}
       >
         <div className="flex items-center justify-between">
@@ -106,7 +112,10 @@ const VerticalKanbanColumn = ({
       </div>
       
       {isExpanded && hasContent && (
-        <div className="px-1 pb-3">
+        <div 
+          className="px-1 pb-3"
+          style={{ backgroundColor: colors.expandedBg }}
+        >
           <div className="space-y-2">
             {children}
           </div>
