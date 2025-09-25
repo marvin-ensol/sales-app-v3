@@ -1,6 +1,6 @@
 import { useState } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
-import TaskCard from "./TaskCard";
+import TaskTable from "./TaskTable";
 import { Task, TaskQueue } from "@/types/task";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
 import { sortTasksByDisplayOrder } from "@/utils/taskSorting";
@@ -144,19 +144,15 @@ const KanbanContent = ({
             isLockedFromExpansion={isLockedFromExpansion}
             hasContent={hasContent}
           >
-            {columnTasks.map((task) => (
-              <TaskCard
-                key={`${task.id}-${task.queue}`}
-                task={task}
-                onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
-                onFrameUrlChange={onFrameUrlChange}
-                showOwner={false}
-                onTaskAssigned={onTaskAssigned}
-                onTaskDeleted={onTaskDeleted}
-                selectedOwnerId={selectedOwnerId}
-                categoryColor={column.color}
-              />
-            ))}
+            <TaskTable
+              tasks={columnTasks}
+              onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
+              onFrameUrlChange={onFrameUrlChange}
+              onTaskAssigned={onTaskAssigned}
+              onTaskDeleted={onTaskDeleted}
+              selectedOwnerId={selectedOwnerId}
+              categoryColor={column.color}
+            />
             {columnTasks.length === 0 && !tasksLoading && ownerSelectionInitialized && (
               <div className="text-center text-gray-500 py-8">
                 No tasks

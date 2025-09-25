@@ -60,6 +60,56 @@ export function getFrenchWeekday(dateString: string): string {
 }
 
 /**
+ * Get French month abbreviation (3 letters)
+ */
+export function getFrenchMonthAbbreviation(dateString: string): string {
+  if (!dateString) return "";
+  
+  const [datePart] = dateString.split(' à ');
+  if (!datePart) return "";
+  
+  const [, month] = datePart.split('/');
+  if (!month) return "";
+  
+  const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+  const monthIndex = parseInt(month) - 1;
+  return monthNames[monthIndex] || "";
+}
+
+/**
+ * Extract day number from date string
+ */
+export function extractDay(dateString: string): string {
+  if (!dateString) return "";
+  
+  const [datePart] = dateString.split(' à ');
+  if (!datePart) return "";
+  
+  const [day] = datePart.split('/');
+  return day || "";
+}
+
+/**
+ * Extract time (HH:mm) from date string
+ */
+export function extractTime(dateString: string): string {
+  if (!dateString) return "";
+  
+  const [, timePart] = dateString.split(' à ');
+  return timePart || "";
+}
+
+/**
+ * Get date key for grouping (DD/MM format)
+ */
+export function getDateKey(dateString: string): string {
+  if (!dateString) return "";
+  
+  const [datePart] = dateString.split(' à ');
+  return datePart || "";
+}
+
+/**
  * Parse date string to Date object (handles "DD/MM à HH:MM" format) - creates date in Paris time
  */
 export function parseTaskDate(dateString: string): Date {
