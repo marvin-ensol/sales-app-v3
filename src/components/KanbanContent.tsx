@@ -23,6 +23,7 @@ interface KanbanContentProps {
   selectedOwnerId: string;
   lockedColumns: string[];
   lockedExpandableColumns?: string[]; // New prop for expansion locking
+  userTeamId?: string | null;
 }
 
 const KanbanContent = ({
@@ -38,10 +39,11 @@ const KanbanContent = ({
   onTaskDeleted,
   selectedOwnerId,
   lockedColumns,
-  lockedExpandableColumns = []
+  lockedExpandableColumns = [],
+  userTeamId
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
-  const { categories: kanbanColumns, loading: categoriesLoading, error: categoriesError } = useTaskCategories();
+  const { categories: kanbanColumns, loading: categoriesLoading, error: categoriesError } = useTaskCategories(userTeamId);
   
   console.log('KanbanContent render - Categories:', kanbanColumns.length, 'Loading:', categoriesLoading, 'Error:', categoriesError);
 

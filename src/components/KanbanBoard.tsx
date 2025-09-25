@@ -140,6 +140,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         selectedOwnerId={selectedOwnerId}
         lockedColumns={lockedColumns}
         lockedExpandableColumns={lockedExpandableColumns}
+        userTeamId={owners.find(owner => owner.id === selectedOwnerId)?.teamId || null}
       />
     </div>
   );

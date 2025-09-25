@@ -485,7 +485,7 @@ export type Database = {
         }[]
       }
       get_task_categories: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never> | { team_id_param?: string }
         Returns: {
           color: string
           hs_queue_id: string

@@ -19,7 +19,7 @@ const FALLBACK_CATEGORIES: TaskCategory[] = [
   { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400", queueId: "other", order: 6 }
 ];
 
-export const useTaskCategories = () => {
+export const useTaskCategories = (userTeamId?: string | null) => {
   const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +29,10 @@ export const useTaskCategories = () => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching task categories from database...');
-      const { data, error: queryError } = await supabase.rpc('get_task_categories');
+      console.log('Fetching task categories from database with team filter:', userTeamId);
+      const { data, error: queryError } = await supabase.rpc('get_task_categories', { 
+        team_id_param: userTeamId || null 
+      });
 
       if (queryError) {
         console.error('Database query error:', queryError);
@@ -80,7 +82,7 @@ export const useTaskCategories = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [userTeamId]);
 
   return {
     categories,
