@@ -26,6 +26,7 @@ export const generateCategoryColors = (hexColor: string) => {
   return {
     border: hexColor,
     lightBg: generateLightBg(hexColor, 0.12),
-    expandedBg: generateLightBg(hexColor, 0.06)
+    expandedBg: generateLightBg(hexColor, 0.06),
+    hoverBg: generateLightBg(hexColor, 0.08)
   };
 };

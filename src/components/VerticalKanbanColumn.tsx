@@ -57,10 +57,10 @@ const VerticalKanbanColumn = ({
   return (
     <div className="border-b border-gray-200">
       <div 
-        className={`p-3 transition-colors border-l-4 ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 z-20 border-b border-gray-200' : ''} ${isLocked ? 'opacity-75' : ''}`}
+        className={`p-3 transition-colors border-l-4 ${canExpand ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} ${isExpanded && hasContent ? 'sticky top-0 z-20 border-b border-gray-200 bg-white' : ''} ${isLocked ? 'opacity-75' : ''}`}
         style={{
           borderLeftColor: colors.border,
-          backgroundColor: isExpanded && hasContent ? colors.expandedBg : 'white'
+          backgroundColor: isExpanded && hasContent ? 'white' : (isExpanded ? colors.expandedBg : 'white')
         }}
         onClick={handleToggle}
       >

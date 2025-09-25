@@ -60,6 +60,23 @@ export function getFrenchWeekday(dateString: string): string {
 }
 
 /**
+ * Get French day of week abbreviation (lowercase)
+ */
+export function getFrenchDayOfWeek(dateString: string): string {
+  if (!dateString) return "";
+  
+  const [datePart] = dateString.split(' à ');
+  if (!datePart) return "";
+  
+  const [day, month] = datePart.split('/');
+  const currentYear = new Date().getFullYear();
+  const date = new Date(currentYear, parseInt(month) - 1, parseInt(day));
+  
+  const weekdays = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  return weekdays[date.getDay()];
+}
+
+/**
  * Get French month abbreviation (3 letters)
  */
 export function getFrenchMonthAbbreviation(dateString: string): string {

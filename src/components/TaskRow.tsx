@@ -4,7 +4,8 @@ import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
 import { useTaskDeletion } from "@/hooks/useTaskDeletion";
-import { getFrenchMonthAbbreviation, extractDay, extractTime } from "@/lib/dateUtils";
+import { getFrenchMonthAbbreviation, extractDay, extractTime, getFrenchDayOfWeek } from "@/lib/dateUtils";
+import { generateCategoryColors } from "@/lib/colorUtils";
 
 interface TaskRowProps {
   task: Task;
@@ -34,6 +35,7 @@ const TaskRow = ({
 
   const monthAbbr = getFrenchMonthAbbreviation(task.dueDate);
   const day = extractDay(task.dueDate);
+  const dayOfWeek = getFrenchDayOfWeek(task.dueDate);
   const time = extractTime(task.dueDate);
 
   const handleRowClick = () => {
@@ -85,25 +87,37 @@ const TaskRow = ({
     );
   };
 
-  const rowBgClass = isOverdue 
-    ? "bg-red-50 hover:bg-red-100" 
-    : isHovered 
-    ? "bg-gray-50" 
-    : "bg-white hover:bg-gray-50";
+  // Generate category-based hover colors
+  const categoryColors = categoryColor ? generateCategoryColors(categoryColor) : null;
+  
+  const getRowBgClass = () => {
+    if (isHovered && categoryColors) {
+      return "transition-colors";
+    }
+    return isHovered ? "bg-gray-50 transition-colors" : "bg-white hover:bg-gray-50 transition-colors";
+  };
+
+  const getRowBgStyle = () => {
+    if (isHovered && categoryColors) {
+      return { backgroundColor: categoryColors.hoverBg };
+    }
+    return {};
+  };
 
   const cursorStyle = task.isUnassigned ? "cursor-default" : "cursor-pointer";
 
   return (
     <div
-      className={`${rowBgClass} transition-colors ${cursorStyle} border-l-2 group`}
+      className={`${getRowBgClass()} ${cursorStyle} border-l-2 group`}
       style={{
-        borderLeftColor: categoryColor || "#d1d5db"
+        borderLeftColor: categoryColor || "#d1d5db",
+        ...getRowBgStyle()
       }}
       onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="grid grid-cols-[40px_32px_48px_1fr_1fr_auto] items-center py-2 px-3 gap-3 relative">
+      <div className="grid grid-cols-[40px_32px_32px_48px_200px_1fr_auto] items-center py-2 px-3 gap-3 relative">
         {/* Month Column */}
         <div className="text-xs font-medium text-gray-600">
           {showDateColumns ? monthAbbr : ''}
@@ -114,22 +128,28 @@ const TaskRow = ({
           {showDateColumns ? day : ''}
         </div>
         
+        {/* Day of Week Column */}
+        <div className="text-xs text-gray-500">
+          {showDateColumns ? dayOfWeek : ''}
+        </div>
+        
         {/* Time Column */}
         <div className="text-xs text-gray-600">
           {time}
         </div>
         
         {/* Contact Column */}
-        <div className="min-w-0">
+        <div className="min-w-0 max-w-[200px]">
           {task.isUnassigned && task.queue === 'new' ? (
             <div 
               className={`font-medium text-sm text-gray-900 truncate transition-all duration-200 hover:text-green-700 ${
                 isAssigning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               }`}
               onClick={handleUnassignedContactClick}
+              title={task.contact}
             >
               <span className="inline-flex items-center gap-1">
-                {task.contact}
+                {task.contact.length > 20 ? `${task.contact.substring(0, 17)}...` : task.contact}
                 <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               </span>
             </div>
@@ -141,8 +161,9 @@ const TaskRow = ({
                   : ''
               }`}
               onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
+              title={task.contact}
             >
-              {task.contact}
+              {task.contact.length > 20 ? `${task.contact.substring(0, 17)}...` : task.contact}
             </div>
           )}
         </div>
@@ -150,7 +171,11 @@ const TaskRow = ({
         {/* Task Title Column */}
         <div className="min-w-0 text-left">
           {!task.isUnassigned && (
-            <div className="text-sm text-gray-700 truncate">
+            <div className={`text-sm truncate ${
+              isOverdue 
+                ? 'font-bold text-red-600' 
+                : 'text-gray-700'
+            }`}>
               {task.title}
             </div>
           )}
