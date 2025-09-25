@@ -246,61 +246,58 @@ const Settings = () => {
                     <div key={category.id} className="p-4 border rounded-lg bg-white">
                       {editingId === category.id ? (
                         /* Edit Mode */
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-1 gap-3">
-                            <div>
-                              <div className="flex items-center gap-3 mb-2">
-                                <ColorPreview color={editForm.color} />
-                                <div className="flex-1">
-                                  <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
-                                  <Input
-                                    id={`edit-label-${category.id}`}
-                                    value={editForm.label}
-                                    onChange={(e) => setEditForm({...editForm, label: e.target.value})}
-                                    placeholder="Nom de la catégorie"
-                                  />
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  ID: {category.id}
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <Label htmlFor={`edit-color-${category.id}`}>Couleur</Label>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  id={`edit-color-${category.id}`}
-                                  type="color"
-                                  value={editForm.color}
-                                  onChange={(e) => setEditForm({...editForm, color: e.target.value})}
-                                  className="w-16 h-10 p-1 cursor-pointer"
-                                />
-                                <Input
-                                  value={editForm.color}
-                                  onChange={(e) => setEditForm({...editForm, color: e.target.value})}
-                                  placeholder="#000000"
-                                  className="flex-1"
-                                />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                                <Input
-                                  id={`edit-queue-${category.id}`}
-                                  value={editForm.hs_queue_id}
-                                  onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                  placeholder="ID de la queue HubSpot"
-                                />
-                              </div>
-                              <div>
-                                <TeamSelector
-                                  selectedTeamIds={editForm.visible_team_ids}
-                                  onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
-                                />
-                              </div>
-                            </div>
-                          </div>
+                         <div className="space-y-3">
+                           <div className="grid grid-cols-1 gap-3">
+                             <div>
+                               <div className="flex items-center gap-3 mb-2">
+                                 <div className="flex-1">
+                                   <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
+                                   <Input
+                                     id={`edit-label-${category.id}`}
+                                     value={editForm.label}
+                                     onChange={(e) => setEditForm({...editForm, label: e.target.value})}
+                                     placeholder="Nom de la catégorie"
+                                   />
+                                 </div>
+                                 <div className="text-sm text-gray-500">
+                                   ID: {category.id}
+                                 </div>
+                               </div>
+                             </div>
+                             <div>
+                               <Label htmlFor={`edit-color-${category.id}`}>Couleur</Label>
+                               <div className="flex items-center gap-2">
+                                 <Input
+                                   id={`edit-color-${category.id}`}
+                                   type="color"
+                                   value={editForm.color}
+                                   onChange={(e) => setEditForm({...editForm, color: e.target.value})}
+                                   className="w-16 h-10 p-1 cursor-pointer"
+                                 />
+                                 <Input
+                                   value={editForm.color}
+                                   onChange={(e) => setEditForm({...editForm, color: e.target.value})}
+                                   placeholder="#000000"
+                                   className="flex-1"
+                                 />
+                               </div>
+                             </div>
+                             <div>
+                               <TeamSelector
+                                 selectedTeamIds={editForm.visible_team_ids}
+                                 onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
+                               />
+                             </div>
+                             <div>
+                               <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                               <Input
+                                 id={`edit-queue-${category.id}`}
+                                 value={editForm.hs_queue_id}
+                                 onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                 placeholder="ID de la queue HubSpot"
+                               />
+                             </div>
+                           </div>
                           <div className="flex gap-2">
                             <Button
                               size="sm"
@@ -380,16 +377,16 @@ const Settings = () => {
                               <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                              <div className="text-sm">
-                                {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                  "Toutes les équipes"
-                                ) : category.visible_team_ids.length === teams.length ? (
-                                  "Toutes les équipes"
-                                ) : (
-                                  `${category.visible_team_ids.length} sélection${category.visible_team_ids.length > 1 ? 's' : ''}`
-                                )}
-                              </div>
+                               <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                               <div className="text-sm">
+                                 {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
+                                   "Aucun utilisateur"
+                                 ) : category.visible_team_ids.length === teams.length ? (
+                                   "Toutes les équipes"
+                                 ) : (
+                                   `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                 )}
+                               </div>
                             </div>
                           </div>
                         </div>

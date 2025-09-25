@@ -38,15 +38,15 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
 
   const getDisplayText = () => {
     if (selectedTeamIds.length === 0) {
-      return "Toutes les équipes et sans équipe";
+      return "Aucun utilisateur";
     }
     if (selectedTeamIds.length === teams.length) {
       return "Toutes les équipes et sans équipe";
     }
     if (selectedTeamIds.length === 1) {
-      return selectedTeams[0]?.name || "1 sélection";
+      return selectedTeams[0]?.name || "1 équipe";
     }
-    return `${selectedTeamIds.length} sélections`;
+    return `${selectedTeamIds.length} équipes`;
   };
 
   if (loading) {
