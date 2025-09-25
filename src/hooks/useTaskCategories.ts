@@ -80,6 +80,9 @@ export const useTaskCategories = (userTeamId?: string | null) => {
       case '22859490': return 'attempted';
       case '22934016': return 'simulations';
       case '22934015': return 'communications';
+      case '22697278': return 'upsell';
+      case '22839689': return 'securisation';
+      case 'other': return 'other';
       default: return 'other';
     }
   };
