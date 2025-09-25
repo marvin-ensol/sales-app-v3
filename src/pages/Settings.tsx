@@ -243,9 +243,9 @@ const Settings = () => {
             {!loading && !error && (
               <>
                 {/* Categories List */}
-                <div className="space-y-3">
-                  {(localCategories.length > 0 ? localCategories : categories).map((category) => (
-                    <div key={category.id} className="p-4 border rounded-lg bg-white">
+                 <div className="space-y-3">
+                   {(localCategories.length > 0 ? localCategories : categories).map((category) => (
+                     <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
                       {editingId === category.id ? (
                         /* Edit Mode */
                          <div className="space-y-3">
@@ -387,41 +387,31 @@ const Settings = () => {
                             </div>
                           </div>
 
-                           {/* Second row - Queue ID and Visibility */}
-                           <div className="grid grid-cols-2 gap-4">
-                             <div>
-                               <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
-                               <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
-                             </div>
-                             <div>
-                                <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                                <div className="text-sm">
-                                  {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                    "Aucun utilisateur"
-                                  ) : category.visible_team_ids.length === teams.length ? (
-                                    "Toutes les équipes"
-                                  ) : (
-                                    `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
-                                  )}
+                            {/* Second row - Queue ID, Visibility, and Locking Setting */}
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
+                                <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
+                              </div>
+                              <div>
+                                 <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                 <div className="text-sm">
+                                   {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
+                                     "Aucun utilisateur"
+                                   ) : category.visible_team_ids.length === teams.length ? (
+                                     "Toutes les équipes"
+                                   ) : (
+                                     `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                   )}
+                                 </div>
+                              </div>
+                              <div>
+                                <div className="text-sm text-gray-500 mb-1">Verrouillage des catégories inférieures</div>
+                                <div className={`text-xs px-2 py-1 rounded inline-block ${category.locks_lower_categories ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                  {category.locks_lower_categories ? 'Activé' : 'Désactivé'}
                                 </div>
-                             </div>
-                           </div>
-
-                           {/* Third row - Locking Setting */}
-                           <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                             <div className="flex-1">
-                               <div className="text-sm font-medium">Verrouillage des catégories inférieures</div>
-                               <div className="text-xs text-gray-500">
-                                 {category.locks_lower_categories 
-                                   ? "Verrouille les catégories en dessous quand des tâches sont présentes"
-                                   : "Aucun verrouillage automatique"
-                                 }
-                               </div>
-                             </div>
-                             <div className={`text-xs px-2 py-1 rounded ${category.locks_lower_categories ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
-                               {category.locks_lower_categories ? 'Activé' : 'Désactivé'}
-                             </div>
-                           </div>
+                              </div>
+                            </div>
                         </div>
                       )}
                     </div>
