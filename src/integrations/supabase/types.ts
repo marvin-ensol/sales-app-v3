@@ -487,16 +487,6 @@ export type Database = {
           title: string
         }[]
       }
-      get_task_categories: {
-        Args: Record<PropertyKey, never> | { team_id_param?: string }
-        Returns: {
-          color: string
-          hs_queue_id: string
-          id: number
-          label: string
-          order_column: number
-        }[]
-      }
       get_valid_owner_ids: {
         Args: Record<PropertyKey, never>
         Returns: string[]
