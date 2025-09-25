@@ -257,10 +257,12 @@ const Settings = () => {
                                     <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
                                     {category.hs_queue_id === null ? (
                                       // Read-only name for "Autres" category
-                                      <div className="px-3 py-2 border border-input bg-muted text-muted-foreground rounded-md">
-                                        {editForm.label}
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                          Catégorie de secours - nom non modifiable
+                                      <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                        <div className="flex-1">
+                                          <div className="font-medium">{editForm.label}</div>
+                                          <div className="text-xs text-gray-500 mt-1">
+                                            Catégorie de dernier ressort ; son nom est non modifiable.
+                                          </div>
                                         </div>
                                       </div>
                                     ) : (
@@ -313,45 +315,48 @@ const Settings = () => {
                                     />
                                   </div>
                                 )}
-                               <div className="space-y-3">
-                                 <div>
-                                   <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
-                                   <RadioGroup
-                                     value={editForm.task_display_order}
-                                     onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
-                                     className="mt-2"
-                                   >
-                                     <div className="flex items-center space-x-2">
-                                       <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
-                                       <Label htmlFor={`newest-${category.id}`} className="text-sm">Échéance plus récente</Label>
-                                     </div>
-                                     <div className="flex items-center space-x-2">
-                                       <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
-                                       <Label htmlFor={`oldest-${category.id}`} className="text-sm">Échéance plus ancienne</Label>
-                                     </div>
-                                   </RadioGroup>
-                                   <div className="text-xs text-gray-500 mt-1">
-                                     {editForm.task_display_order === 'newest_tasks_first' 
-                                       ? "Les tâches dont l'échéance est la moins lointaine apparaissent en haut / en premier"
-                                       : "Les tâches dont l'échéance est la plus lointaine apparaissent en haut / en premier"}
-                                   </div>
-                                 </div>
-                                 <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                                   <div className="flex-1">
-                                     <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
-                                       Verrouiller les catégories en dessous
-                                     </Label>
-                                     <div className="text-xs text-gray-500 mt-1">
-                                       Quand cette catégorie comporte au moins une tâche à faire
-                                     </div>
-                                   </div>
-                                   <Switch
-                                     id={`edit-locks-${category.id}`}
-                                     checked={editForm.locks_lower_categories}
-                                     onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
-                                   />
-                                 </div>
-                               </div>
+                                <div className="space-y-3">
+                                  <div>
+                                    <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
+                                    <RadioGroup
+                                      value={editForm.task_display_order}
+                                      onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
+                                      className="mt-2"
+                                    >
+                                      <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
+                                        <Label htmlFor={`newest-${category.id}`} className="text-sm">Échéance plus récente</Label>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
+                                        <Label htmlFor={`oldest-${category.id}`} className="text-sm">Échéance plus ancienne</Label>
+                                      </div>
+                                    </RadioGroup>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {editForm.task_display_order === 'newest_tasks_first' 
+                                        ? "Les tâches dont l'échéance est la moins lointaine apparaissent en haut / en premier"
+                                        : "Les tâches dont l'échéance est la plus lointaine apparaissent en haut / en premier"}
+                                    </div>
+                                  </div>
+                                  {/* Hide locking feature for "Autres" category */}
+                                  {category.hs_queue_id !== null && (
+                                    <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                      <div className="flex-1">
+                                        <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
+                                          Verrouiller les catégories en dessous
+                                        </Label>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          Quand cette catégorie comporte au moins une tâche à faire
+                                        </div>
+                                      </div>
+                                      <Switch
+                                        id={`edit-locks-${category.id}`}
+                                        checked={editForm.locks_lower_categories}
+                                        onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
                            </div>
                           <div className="flex gap-2">
                             <Button
@@ -423,34 +428,37 @@ const Settings = () => {
                             </div>
                           </div>
 
-                             {/* Second row - Queue ID (if not fallback), Visibility, and Locking Setting */}
-                             <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                               {/* Hide Queue ID field for the fallback "Autres" category */}
+                              {/* Second row - Queue ID (if not fallback), Visibility, and Locking Setting (if not fallback) */}
+                              <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                                {/* Hide Queue ID field for the fallback "Autres" category */}
+                                {category.hs_queue_id !== null && (
+                                  <div>
+                                    <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
+                                    <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
+                                  </div>
+                                )}
+                               <div>
+                                  <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                  <div className="text-sm">
+                                    {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
+                                      "Aucun utilisateur"
+                                    ) : category.visible_team_ids.length === teams.length ? (
+                                      "Toutes les équipes"
+                                    ) : (
+                                      `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                    )}
+                                  </div>
+                               </div>
+                               {/* Hide locking setting for "Autres" category */}
                                {category.hs_queue_id !== null && (
                                  <div>
-                                   <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
-                                   <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
+                                   <div className="text-sm text-gray-500 mb-1">Verrouillage des catégories inférieures</div>
+                                   <div className={`text-xs px-2 py-1 rounded inline-block ${category.locks_lower_categories ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                     {category.locks_lower_categories ? 'Activé' : 'Désactivé'}
+                                   </div>
                                  </div>
                                )}
-                              <div>
-                                 <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                                 <div className="text-sm">
-                                   {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                     "Aucun utilisateur"
-                                   ) : category.visible_team_ids.length === teams.length ? (
-                                     "Toutes les équipes"
-                                   ) : (
-                                     `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
-                                   )}
-                                 </div>
-                              </div>
-                              <div>
-                                <div className="text-sm text-gray-500 mb-1">Verrouillage des catégories inférieures</div>
-                                <div className={`text-xs px-2 py-1 rounded inline-block ${category.locks_lower_categories ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
-                                  {category.locks_lower_categories ? 'Activé' : 'Désactivé'}
-                                </div>
-                              </div>
-                            </div>
+                             </div>
                         </div>
                       )}
                     </div>
