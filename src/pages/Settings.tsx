@@ -249,13 +249,21 @@ const Settings = () => {
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 gap-3">
                             <div>
-                              <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
-                              <Input
-                                id={`edit-label-${category.id}`}
-                                value={editForm.label}
-                                onChange={(e) => setEditForm({...editForm, label: e.target.value})}
-                                placeholder="Nom de la catégorie"
-                              />
+                              <div className="flex items-center gap-3 mb-2">
+                                <ColorPreview color={editForm.color} />
+                                <div className="flex-1">
+                                  <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
+                                  <Input
+                                    id={`edit-label-${category.id}`}
+                                    value={editForm.label}
+                                    onChange={(e) => setEditForm({...editForm, label: e.target.value})}
+                                    placeholder="Nom de la catégorie"
+                                  />
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {category.id}
+                                </div>
+                              </div>
                             </div>
                             <div>
                               <Label htmlFor={`edit-color-${category.id}`}>Couleur</Label>
@@ -275,20 +283,22 @@ const Settings = () => {
                                 />
                               </div>
                             </div>
-                            <div>
-                              <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                              <Input
-                                id={`edit-queue-${category.id}`}
-                                value={editForm.hs_queue_id}
-                                onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                placeholder="ID de la queue HubSpot"
-                              />
-                            </div>
-                            <div>
-                              <TeamSelector
-                                selectedTeamIds={editForm.visible_team_ids}
-                                onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
-                              />
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                <Input
+                                  id={`edit-queue-${category.id}`}
+                                  value={editForm.hs_queue_id}
+                                  onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                  placeholder="ID de la queue HubSpot"
+                                />
+                              </div>
+                              <div>
+                                <TeamSelector
+                                  selectedTeamIds={editForm.visible_team_ids}
+                                  onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
+                                />
+                              </div>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -314,10 +324,10 @@ const Settings = () => {
                       ) : (
                         /* View Mode */
                         <div className="space-y-3">
-                          {/* Top row - Nom */}
+                          {/* Top row - Category name with color square */}
                           <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="text-sm text-gray-500 mb-1">Nom</div>
+                            <div className="flex items-center gap-3 flex-1">
+                              <ColorPreview color={category.color} />
                               <div className="font-medium text-lg">{category.label || "Sans nom"}</div>
                             </div>
                             <div className="flex gap-2">
@@ -363,36 +373,23 @@ const Settings = () => {
                             </div>
                           </div>
 
-                          {/* Second row - 3 columns */}
+                          {/* Second row - Queue ID and Visibility */}
                           <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <div className="text-sm text-gray-500 mb-1">Couleur</div>
-                              <div className="flex items-center gap-2">
-                                <ColorPreview color={category.color} />
-                                <span className="font-mono text-xs">{category.color || "#9ca3af"}</span>
-                              </div>
-                            </div>
                             <div>
                               <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
                               <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
                             </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mt-4">
                             <div>
-                              <div className="text-sm text-gray-500 mb-1">Équipes visibles</div>
+                              <div className="text-sm text-gray-500 mb-1">Visibilité</div>
                               <div className="text-sm">
                                 {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
                                   "Toutes les équipes"
                                 ) : category.visible_team_ids.length === teams.length ? (
                                   "Toutes les équipes"
                                 ) : (
-                                  `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''} sélectionnée${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                  `${category.visible_team_ids.length} sélection${category.visible_team_ids.length > 1 ? 's' : ''}`
                                 )}
                               </div>
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-500 mb-1">Identifiant interne</div>
-                              <div className="font-mono text-sm">{category.id}</div>
                             </div>
                           </div>
                         </div>
@@ -408,13 +405,18 @@ const Settings = () => {
                       <h3 className="font-medium">Nouvelle Catégorie</h3>
                       <div className="grid grid-cols-1 gap-3">
                         <div>
-                          <Label htmlFor="create-label">Nom</Label>
-                          <Input
-                            id="create-label"
-                            value={createForm.label}
-                            onChange={(e) => setCreateForm({...createForm, label: e.target.value})}
-                            placeholder="Nom de la catégorie"
-                          />
+                          <div className="flex items-center gap-3 mb-2">
+                            <ColorPreview color={createForm.color} />
+                            <div className="flex-1">
+                              <Label htmlFor="create-label">Nom</Label>
+                              <Input
+                                id="create-label"
+                                value={createForm.label}
+                                onChange={(e) => setCreateForm({...createForm, label: e.target.value})}
+                                placeholder="Nom de la catégorie"
+                              />
+                            </div>
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="create-color">Couleur</Label>
@@ -434,20 +436,22 @@ const Settings = () => {
                             />
                           </div>
                         </div>
-                        <div>
-                          <Label htmlFor="create-queue">Queue ID HubSpot</Label>
-                          <Input
-                            id="create-queue"
-                            value={createForm.hs_queue_id}
-                            onChange={(e) => setCreateForm({...createForm, hs_queue_id: e.target.value})}
-                            placeholder="ID de la queue HubSpot"
-                          />
-                        </div>
-                        <div>
-                          <TeamSelector
-                            selectedTeamIds={createForm.visible_team_ids}
-                            onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
-                          />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="create-queue">Queue ID HubSpot</Label>
+                            <Input
+                              id="create-queue"
+                              value={createForm.hs_queue_id}
+                              onChange={(e) => setCreateForm({...createForm, hs_queue_id: e.target.value})}
+                              placeholder="ID de la queue HubSpot"
+                            />
+                          </div>
+                          <div>
+                            <TeamSelector
+                              selectedTeamIds={createForm.visible_team_ids}
+                              onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
+                            />
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
