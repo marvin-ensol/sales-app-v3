@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement } from "@/hooks/useTaskCategoriesManagement";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ interface CategoryFormData {
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory } = useTaskCategoriesManagement();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder } = useTaskCategoriesManagement();
   
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "" });
@@ -103,11 +103,6 @@ const Settings = () => {
 
   const handleDelete = async (id: number, isSystemDefault: boolean) => {
     if (isSystemDefault) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer une catégorie système",
-        variant: "destructive"
-      });
       return;
     }
 
@@ -126,6 +121,29 @@ const Settings = () => {
       toast({
         title: "Erreur",
         description: "Impossible de supprimer la catégorie",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReorder = async (id: number, direction: 'up' | 'down', isSystemDefault: boolean) => {
+    if (isSystemDefault) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateCategoryOrder(id, direction);
+      toast({
+        title: "Succès",
+        description: "Ordre mis à jour avec succès"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier l'ordre",
         variant: "destructive"
       });
     } finally {
@@ -252,54 +270,72 @@ const Settings = () => {
                       ) : (
                         /* View Mode */
                         <div className="space-y-3">
-                          <div className="grid grid-cols-1 gap-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="text-sm text-gray-500">ID</div>
-                                <div className="font-mono text-sm">{category.id}</div>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditStart(category)}
-                                  disabled={isSubmitting}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                {!category.system_default && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleDelete(category.id, category.system_default)}
-                                    disabled={isSubmitting}
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
+                          {/* Top row - Nom */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-sm text-gray-500 mb-1">Nom</div>
+                              <div className="font-medium text-lg">{category.label || "Sans nom"}</div>
                             </div>
-                            <div>
-                              <div className="text-sm text-gray-500">Nom</div>
-                              <div className="font-medium">{category.label || "Sans nom"}</div>
+                            <div className="flex gap-2">
+                              {/* Reorder buttons */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReorder(category.id, 'up', category.system_default)}
+                                disabled={isSubmitting}
+                                className={category.system_default ? "opacity-50 cursor-not-allowed" : ""}
+                                title={category.system_default ? "Impossible de modifier l'ordre des catégories par défaut" : "Déplacer vers le haut"}
+                              >
+                                <ArrowUp className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReorder(category.id, 'down', category.system_default)}
+                                disabled={isSubmitting}
+                                className={category.system_default ? "opacity-50 cursor-not-allowed" : ""}
+                                title={category.system_default ? "Impossible de modifier l'ordre des catégories par défaut" : "Déplacer vers le bas"}
+                              >
+                                <ArrowDown className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditStart(category)}
+                                disabled={isSubmitting}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(category.id, category.system_default)}
+                                disabled={isSubmitting}
+                                className={category.system_default ? "opacity-50 cursor-not-allowed text-gray-400" : "text-red-600 hover:text-red-700"}
+                                title={category.system_default ? "Impossible de supprimer une catégorie par défaut" : "Supprimer cette catégorie"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
+                          </div>
+
+                          {/* Second row - 3 columns */}
+                          <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <div className="text-sm text-gray-500">Couleur</div>
+                              <div className="text-sm text-gray-500 mb-1">Couleur</div>
                               <div className="flex items-center gap-2">
                                 <ColorPreview color={category.color} />
-                                <span className="font-mono text-sm">{category.color || "#9ca3af"}</span>
+                                <span className="font-mono text-xs">{category.color || "#9ca3af"}</span>
                               </div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-500">Queue ID HubSpot</div>
-                              <div className="font-mono text-sm">{category.hs_queue_id || "Non défini"}</div>
+                              <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
+                              <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
                             </div>
-                            {category.system_default && (
-                              <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                                Catégorie système (non supprimable)
-                              </div>
-                            )}
+                            <div>
+                              <div className="text-sm text-gray-500 mb-1">Identifiant interne</div>
+                              <div className="font-mono text-sm">{category.id}</div>
+                            </div>
                           </div>
                         </div>
                       )}

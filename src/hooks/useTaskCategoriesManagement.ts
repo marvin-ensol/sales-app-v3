@@ -132,6 +132,40 @@ export const useTaskCategoriesManagement = () => {
     }
   };
 
+  const updateCategoryOrder = async (id: number, direction: 'up' | 'down') => {
+    try {
+      const currentIndex = categories.findIndex(cat => cat.id === id);
+      if (currentIndex === -1) return;
+
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= categories.length) return;
+
+      const currentCategory = categories[currentIndex];
+      const targetCategory = categories[targetIndex];
+
+      // Swap order_column values
+      const { error: updateError1 } = await supabase
+        .from('task_categories')
+        .update({ order_column: targetCategory.order_column })
+        .eq('id', currentCategory.id);
+
+      if (updateError1) throw updateError1;
+
+      const { error: updateError2 } = await supabase
+        .from('task_categories')
+        .update({ order_column: currentCategory.order_column })
+        .eq('id', targetCategory.id);
+
+      if (updateError2) throw updateError2;
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error updating category order:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -143,6 +177,7 @@ export const useTaskCategoriesManagement = () => {
     refetch: fetchCategories,
     createCategory,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    updateCategoryOrder
   };
 };
