@@ -108,11 +108,8 @@ const TaskRow = ({
 
   return (
     <div
-      className={`${getRowBgClass()} ${cursorStyle} border-l-2 group`}
-      style={{
-        borderLeftColor: categoryColor || "#d1d5db",
-        ...getRowBgStyle()
-      }}
+      className={`${getRowBgClass()} ${cursorStyle} group`}
+      style={getRowBgStyle()}
       onClick={handleRowClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

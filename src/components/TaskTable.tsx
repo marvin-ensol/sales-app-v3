@@ -61,7 +61,7 @@ const TaskTable = ({
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-0 mx-4">
       {groupedTasks.map((task, index) => {
         const isFirstTask = index === 0;
         const prevTask = index > 0 ? groupedTasks[index - 1] : null;
@@ -72,7 +72,7 @@ const TaskTable = ({
         return (
           <div key={`${task.id}-${task.queue}`}>
             {shouldShowSeparator && (
-              <div className="border-t border-gray-200 my-1"></div>
+              <div className="border-t border-gray-200 my-3"></div>
             )}
             <TaskRow
               task={task}
