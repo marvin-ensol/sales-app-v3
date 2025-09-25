@@ -8,16 +8,17 @@ export interface TaskCategory {
   queueId: string | null;
   order: number;
   locks_lower_categories: boolean;
+  task_display_order?: string;
 }
 
 // Fallback categories in case database fetch fails
 const FALLBACK_CATEGORIES: TaskCategory[] = [
-  { id: "rappels", title: "Rappels & RDV", color: "border-l-4 border-l-purple-400", queueId: "22933271", order: 1, locks_lower_categories: false },
-  { id: "new", title: "New", color: "border-l-4 border-l-blue-400", queueId: "22859489", order: 2, locks_lower_categories: true },
-  { id: "simulations", title: "Simulations", color: "border-l-4 border-l-green-400", queueId: "22934016", order: 3, locks_lower_categories: false },
-  { id: "communications", title: "Communications", color: "border-l-4 border-l-yellow-400", queueId: "22934015", order: 4, locks_lower_categories: false },
-  { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400", queueId: "22859490", order: 5, locks_lower_categories: false },
-  { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400", queueId: "other", order: 6, locks_lower_categories: false }
+  { id: "rappels", title: "Rappels & RDV", color: "border-l-4 border-l-purple-400", queueId: "22933271", order: 1, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "new", title: "New", color: "border-l-4 border-l-blue-400", queueId: "22859489", order: 2, locks_lower_categories: true, task_display_order: "oldest_tasks_first" },
+  { id: "simulations", title: "Simulations", color: "border-l-4 border-l-green-400", queueId: "22934016", order: 3, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "communications", title: "Communications", color: "border-l-4 border-l-yellow-400", queueId: "22934015", order: 4, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400", queueId: "22859490", order: 5, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400", queueId: "other", order: 6, locks_lower_categories: false, task_display_order: "oldest_tasks_first" }
 ];
 
 export const useTaskCategories = (userTeamId?: string | null) => {
@@ -49,7 +50,8 @@ export const useTaskCategories = (userTeamId?: string | null) => {
         color: `border-l-4` + (category.color ? ` border-l-[${category.color}]` : ' border-l-gray-400'),
         queueId: category.hs_queue_id,
         order: category.order_column || 999,
-        locks_lower_categories: category.locks_lower_categories || false
+        locks_lower_categories: category.locks_lower_categories || false,
+        task_display_order: category.task_display_order || 'oldest_tasks_first'
       }));
 
       console.log('Transformed categories:', transformedCategories);

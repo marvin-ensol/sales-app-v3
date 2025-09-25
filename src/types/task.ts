@@ -18,4 +18,5 @@ export interface Task {
   queueIds: string[];
   isUnassigned?: boolean;
   completionDate?: Date | null;
+  hsTimestamp?: Date | null;
 }

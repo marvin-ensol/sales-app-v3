@@ -6,6 +6,7 @@ import { Task, TaskQueue } from "@/types/task";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
+import { sortTasksByDisplayOrder } from "@/utils/taskSorting";
 
 interface KanbanContentProps {
   filteredTasks: Task[];
@@ -52,8 +53,16 @@ const KanbanContent = ({
     const uniqueTasks = tasks.filter((task, index, arr) => 
       arr.findIndex(t => t.id === task.id) === index
     );
-    console.log(`Queue ${queue}: ${tasks.length} tasks (${uniqueTasks.length} unique)`);
-    return uniqueTasks;
+    
+    // Find the category for this queue to get the display order setting
+    const category = kanbanColumns.find(col => col.id === queue);
+    const displayOrder = category?.task_display_order || 'oldest_tasks_first';
+    
+    // Sort tasks based on the category's display order setting
+    const sortedTasks = sortTasksByDisplayOrder(uniqueTasks, displayOrder);
+    
+    console.log(`Queue ${queue}: ${tasks.length} tasks (${uniqueTasks.length} unique), sorted by ${displayOrder}`);
+    return sortedTasks;
   };
 
   const getCompletedTasksByQueue = (queue: TaskQueue) => {
