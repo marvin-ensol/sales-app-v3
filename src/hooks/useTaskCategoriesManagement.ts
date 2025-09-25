@@ -143,20 +143,40 @@ export const useTaskCategoriesManagement = () => {
       const currentCategory = categories[currentIndex];
       const targetCategory = categories[targetIndex];
 
-      // Swap order_column values
-      const { error: updateError1 } = await supabase
+      // Use a three-step atomic swap to avoid unique constraint violations
+      // Step 1: Move current category to a temporary negative value
+      const tempOrder = -Math.abs(currentCategory.order_column) - 1000;
+      const { error: tempError } = await supabase
         .from('task_categories')
-        .update({ order_column: targetCategory.order_column })
+        .update({ order_column: tempOrder })
         .eq('id', currentCategory.id);
 
-      if (updateError1) throw updateError1;
+      if (tempError) {
+        console.error('Error in temporary update:', tempError);
+        throw tempError;
+      }
 
-      const { error: updateError2 } = await supabase
+      // Step 2: Move target category to current category's position
+      const { error: updateError1 } = await supabase
         .from('task_categories')
         .update({ order_column: currentCategory.order_column })
         .eq('id', targetCategory.id);
 
-      if (updateError2) throw updateError2;
+      if (updateError1) {
+        console.error('Error updating target category:', updateError1);
+        throw updateError1;
+      }
+
+      // Step 3: Move current category to target category's position
+      const { error: updateError2 } = await supabase
+        .from('task_categories')
+        .update({ order_column: targetCategory.order_column })
+        .eq('id', currentCategory.id);
+
+      if (updateError2) {
+        console.error('Error updating current category:', updateError2);
+        throw updateError2;
+      }
 
       // Refresh categories list
       await fetchCategories();
