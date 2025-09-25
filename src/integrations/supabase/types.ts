@@ -273,6 +273,8 @@ export type Database = {
           id: number
           label: string | null
           order_column: number
+          system_default: boolean | null
+          visible_team_ids: Json | null
         }
         Insert: {
           color?: string | null
@@ -281,6 +283,8 @@ export type Database = {
           id?: number
           label?: string | null
           order_column: number
+          system_default?: boolean | null
+          visible_team_ids?: Json | null
         }
         Update: {
           color?: string | null
@@ -289,6 +293,8 @@ export type Database = {
           id?: number
           label?: string | null
           order_column?: number
+          system_default?: boolean | null
+          visible_team_ids?: Json | null
         }
         Relationships: []
       }

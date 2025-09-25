@@ -6,24 +6,21 @@ import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTaskCategoriesManagement } from "@/hooks/useTaskCategoriesManagement";
+import { useTaskCategoriesManagement, CategoryFormData } from "@/hooks/useTaskCategoriesManagement";
 import { useToast } from "@/hooks/use-toast";
-
-interface CategoryFormData {
-  label: string;
-  color: string;
-  hs_queue_id: string;
-}
+import { TeamSelector } from "@/components/TeamSelector";
+import { useTeams } from "@/hooks/useTeams";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { teams } = useTeams();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "" });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [] });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "" });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id) });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -33,18 +30,26 @@ const Settings = () => {
     setLocalCategories(categories);
   }, [categories]);
 
+  // Initialize create form with all teams when teams are loaded
+  useEffect(() => {
+    if (teams.length > 0 && createForm.visible_team_ids.length === 0) {
+      setCreateForm(prev => ({ ...prev, visible_team_ids: teams.map(team => team.id) }));
+    }
+  }, [teams, createForm.visible_team_ids.length]);
+
   const handleEditStart = (category: any) => {
     setEditingId(category.id);
     setEditForm({
       label: category.label || "",
       color: category.color || "#60a5fa",
-      hs_queue_id: category.hs_queue_id || ""
+      hs_queue_id: category.hs_queue_id || "",
+      visible_team_ids: category.visible_team_ids || teams.map(team => team.id)
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "" });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [] });
   };
 
   const handleEditSave = async () => {
@@ -63,7 +68,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "" });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [] });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -93,7 +98,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "" });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [] });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -279,6 +284,12 @@ const Settings = () => {
                                 placeholder="ID de la queue HubSpot"
                               />
                             </div>
+                            <div>
+                              <TeamSelector
+                                selectedTeamIds={editForm.visible_team_ids}
+                                onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
+                              />
+                            </div>
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -353,7 +364,7 @@ const Settings = () => {
                           </div>
 
                           {/* Second row - 3 columns */}
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 gap-4">
                             <div>
                               <div className="text-sm text-gray-500 mb-1">Couleur</div>
                               <div className="flex items-center gap-2">
@@ -364,6 +375,20 @@ const Settings = () => {
                             <div>
                               <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
                               <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                              <div className="text-sm text-gray-500 mb-1">Équipes visibles</div>
+                              <div className="text-sm">
+                                {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
+                                  "Toutes les équipes"
+                                ) : category.visible_team_ids.length === teams.length ? (
+                                  "Toutes les équipes"
+                                ) : (
+                                  `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''} sélectionnée${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                )}
+                              </div>
                             </div>
                             <div>
                               <div className="text-sm text-gray-500 mb-1">Identifiant interne</div>
@@ -418,6 +443,12 @@ const Settings = () => {
                             placeholder="ID de la queue HubSpot"
                           />
                         </div>
+                        <div>
+                          <TeamSelector
+                            selectedTeamIds={createForm.visible_team_ids}
+                            onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
+                          />
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -433,7 +464,7 @@ const Settings = () => {
                           variant="outline"
                           onClick={() => {
                             setShowCreateForm(false);
-                            setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "" });
+                            setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [] });
                           }}
                           disabled={isSubmitting}
                         >

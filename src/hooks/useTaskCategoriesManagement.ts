@@ -9,12 +9,14 @@ export interface TaskCategoryManagement {
   order_column: number;
   system_default?: boolean;
   created_at?: string;
+  visible_team_ids?: string[];
 }
 
-interface CategoryFormData {
+export interface CategoryFormData {
   label: string;
   color: string;
   hs_queue_id: string;
+  visible_team_ids: string[];
 }
 
 export const useTaskCategoriesManagement = () => {
@@ -37,7 +39,14 @@ export const useTaskCategoriesManagement = () => {
         throw queryError;
       }
 
-      setCategories(data || []);
+      // Transform the data to ensure visible_team_ids is properly typed
+      const transformedCategories = (data || []).map(category => ({
+        ...category,
+        visible_team_ids: Array.isArray(category.visible_team_ids) 
+          ? (category.visible_team_ids as string[])
+          : []
+      }));
+      setCategories(transformedCategories);
     } catch (err) {
       console.error('Error fetching task categories:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch task categories');
@@ -63,6 +72,7 @@ export const useTaskCategoriesManagement = () => {
           label: categoryData.label,
           color: categoryData.color,
           hs_queue_id: categoryData.hs_queue_id || null,
+          visible_team_ids: categoryData.visible_team_ids || [],
           order_column: nextOrder,
           system_default: false
         })
@@ -91,7 +101,8 @@ export const useTaskCategoriesManagement = () => {
         .update({
           label: categoryData.label,
           color: categoryData.color,
-          hs_queue_id: categoryData.hs_queue_id || null
+          hs_queue_id: categoryData.hs_queue_id || null,
+          visible_team_ids: categoryData.visible_team_ids || []
         })
         .eq('id', id)
         .select()
