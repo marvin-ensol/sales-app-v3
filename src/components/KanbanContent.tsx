@@ -1,12 +1,11 @@
-
 import { useState } from "react";
 import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
+import { sortTasksByDisplayOrder } from "@/utils/taskSorting";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
-import { sortTasksByDisplayOrder } from "@/utils/taskSorting";
 
 interface KanbanContentProps {
   filteredTasks: Task[];
@@ -54,7 +53,7 @@ const KanbanContent = ({
       arr.findIndex(t => t.id === task.id) === index
     );
     
-    // Find the category for this queue to get the display order setting
+    // Find the category for this queue to get its display order setting
     const category = kanbanColumns.find(col => col.id === queue);
     const displayOrder = category?.task_display_order || 'oldest_tasks_first';
     
