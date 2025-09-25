@@ -31,7 +31,7 @@ export const useTaskCategories = (userTeamId?: string | null) => {
       
       console.log('Fetching task categories from database with team filter:', userTeamId);
       const { data, error: queryError } = await supabase.rpc('get_task_categories', { 
-        team_id_param: userTeamId || null 
+        team_id_param: userTeamId 
       });
 
       if (queryError) {

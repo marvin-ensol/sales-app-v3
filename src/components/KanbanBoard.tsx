@@ -53,6 +53,11 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const { assignTask } = useTaskAssignment();
   console.log('Task assignment hook initialized');
 
+  // Get selected user's team ID for category filtering
+  const selectedUser = owners.find(owner => owner.id === selectedOwnerId);
+  const selectedUserTeamId = selectedUser?.teamId || null;
+  console.log('Selected user team ID:', selectedUserTeamId);
+
   const handleTaskMove = async (taskId: string, newQueue: TaskQueue) => {
     console.log(`Moving task ${taskId} to queue ${newQueue}`);
     // Implementation would go here
@@ -140,7 +145,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         selectedOwnerId={selectedOwnerId}
         lockedColumns={lockedColumns}
         lockedExpandableColumns={lockedExpandableColumns}
-        userTeamId={owners.find(owner => owner.id === selectedOwnerId)?.teamId || null}
+        selectedUserTeamId={selectedUserTeamId}
       />
     </div>
   );
