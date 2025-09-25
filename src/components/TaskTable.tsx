@@ -61,23 +61,18 @@ const TaskTable = ({
   }
 
   return (
-    <div className="space-y-0 mx-4 pt-3">
+    <div className="space-y-0 mx-4">
       {groupedTasks.map((task, index) => {
         const isFirstTask = index === 0;
         const prevTask = index > 0 ? groupedTasks[index - 1] : null;
         const currentDateKey = getDateKey(task.dueDate);
         const prevDateKey = prevTask ? getDateKey(prevTask.dueDate) : null;
-        const shouldShowTaskSeparator = !isFirstTask && currentDateKey === prevDateKey;
+        const shouldShowSeparator = !isFirstTask && currentDateKey !== prevDateKey;
 
         return (
           <div key={`${task.id}-${task.queue}`}>
-            {shouldShowTaskSeparator && (
-              <div className="grid grid-cols-[40px_32px_32px_48px_200px_1fr_auto] mx-3">
-                <div></div>
-                <div></div>
-                <div></div>
-                <div className="col-span-4 border-t border-gray-200 my-2"></div>
-              </div>
+            {shouldShowSeparator && (
+              <div className="border-t border-gray-200 my-3"></div>
             )}
             <TaskRow
               task={task}
