@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -18,9 +19,9 @@ const Settings = () => {
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [] });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id) });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -43,13 +44,14 @@ const Settings = () => {
       label: category.label || "",
       color: category.color || "#60a5fa",
       hs_queue_id: category.hs_queue_id || "",
-      visible_team_ids: category.visible_team_ids || teams.map(team => team.id)
+      visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
+      locks_lower_categories: category.locks_lower_categories || false
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [] });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
   };
 
   const handleEditSave = async () => {
@@ -68,7 +70,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [] });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -98,7 +100,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [] });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -288,15 +290,30 @@ const Settings = () => {
                                  onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
                                />
                              </div>
-                             <div>
-                               <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                               <Input
-                                 id={`edit-queue-${category.id}`}
-                                 value={editForm.hs_queue_id}
-                                 onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                 placeholder="ID de la queue HubSpot"
-                               />
-                             </div>
+                              <div>
+                                <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                <Input
+                                  id={`edit-queue-${category.id}`}
+                                  value={editForm.hs_queue_id}
+                                  onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                  placeholder="ID de la queue HubSpot"
+                                />
+                              </div>
+                              <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                <div className="flex-1">
+                                  <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
+                                    Verrouiller les catégories en dessous
+                                  </Label>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Quand cette catégorie comporte au moins une tâche à faire
+                                  </div>
+                                </div>
+                                <Switch
+                                  id={`edit-locks-${category.id}`}
+                                  checked={editForm.locks_lower_categories}
+                                  onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
+                                />
+                              </div>
                            </div>
                           <div className="flex gap-2">
                             <Button
@@ -370,25 +387,41 @@ const Settings = () => {
                             </div>
                           </div>
 
-                          {/* Second row - Queue ID and Visibility */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
-                              <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
-                            </div>
-                            <div>
-                               <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                               <div className="text-sm">
-                                 {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                   "Aucun utilisateur"
-                                 ) : category.visible_team_ids.length === teams.length ? (
-                                   "Toutes les équipes"
-                                 ) : (
-                                   `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
-                                 )}
+                           {/* Second row - Queue ID and Visibility */}
+                           <div className="grid grid-cols-2 gap-4">
+                             <div>
+                               <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
+                               <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
+                             </div>
+                             <div>
+                                <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                <div className="text-sm">
+                                  {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
+                                    "Aucun utilisateur"
+                                  ) : category.visible_team_ids.length === teams.length ? (
+                                    "Toutes les équipes"
+                                  ) : (
+                                    `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                  )}
+                                </div>
+                             </div>
+                           </div>
+
+                           {/* Third row - Locking Setting */}
+                           <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                             <div className="flex-1">
+                               <div className="text-sm font-medium">Verrouillage des catégories inférieures</div>
+                               <div className="text-xs text-gray-500">
+                                 {category.locks_lower_categories 
+                                   ? "Verrouille les catégories en dessous quand des tâches sont présentes"
+                                   : "Aucun verrouillage automatique"
+                                 }
                                </div>
-                            </div>
-                          </div>
+                             </div>
+                             <div className={`text-xs px-2 py-1 rounded ${category.locks_lower_categories ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                               {category.locks_lower_categories ? 'Activé' : 'Désactivé'}
+                             </div>
+                           </div>
                         </div>
                       )}
                     </div>
@@ -443,12 +476,27 @@ const Settings = () => {
                               placeholder="ID de la queue HubSpot"
                             />
                           </div>
-                          <div>
-                            <TeamSelector
-                              selectedTeamIds={createForm.visible_team_ids}
-                              onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
-                            />
-                          </div>
+                           <div>
+                             <TeamSelector
+                               selectedTeamIds={createForm.visible_team_ids}
+                               onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
+                             />
+                           </div>
+                           <div className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                             <div className="flex-1">
+                               <Label htmlFor="create-locks" className="text-sm font-medium">
+                                 Verrouiller les catégories en dessous
+                               </Label>
+                               <div className="text-xs text-gray-500 mt-1">
+                                 Quand cette catégorie comporte au moins une tâche à faire
+                               </div>
+                             </div>
+                             <Switch
+                               id="create-locks"
+                               checked={createForm.locks_lower_categories}
+                               onCheckedChange={(checked) => setCreateForm({...createForm, locks_lower_categories: checked})}
+                             />
+                           </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -465,7 +513,7 @@ const Settings = () => {
                           variant="outline"
                           onClick={() => {
                             setShowCreateForm(false);
-                            setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [] });
+                            setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
                           }}
                           disabled={isSubmitting}
                         >

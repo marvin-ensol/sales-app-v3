@@ -272,6 +272,7 @@ export type Database = {
           hs_queue_id: string | null
           id: number
           label: string | null
+          locks_lower_categories: boolean | null
           order_column: number
           system_default: boolean | null
           visible_team_ids: Json | null
@@ -282,6 +283,7 @@ export type Database = {
           hs_queue_id?: string | null
           id?: number
           label?: string | null
+          locks_lower_categories?: boolean | null
           order_column: number
           system_default?: boolean | null
           visible_team_ids?: Json | null
@@ -292,6 +294,7 @@ export type Database = {
           hs_queue_id?: string | null
           id?: number
           label?: string | null
+          locks_lower_categories?: boolean | null
           order_column?: number
           system_default?: boolean | null
           visible_team_ids?: Json | null

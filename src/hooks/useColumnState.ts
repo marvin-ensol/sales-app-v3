@@ -1,17 +1,20 @@
 
 import { useState, useEffect } from 'react';
 import { Task } from '@/types/task';
+import { TaskCategory } from '@/hooks/useTaskCategories';
 
 interface UseColumnStateProps {
   notStartedTasks: Task[];
   hasNewTasks: boolean;
   lockedColumns: string[];
+  categories: TaskCategory[];
 }
 
 export const useColumnState = ({
   notStartedTasks,
   hasNewTasks,
-  lockedColumns
+  lockedColumns,
+  categories
 }: UseColumnStateProps) => {
   const [expandedColumn, setExpandedColumn] = useState<string>("rappels");
   const [autoExpandInitialized, setAutoExpandInitialized] = useState(false);
@@ -55,13 +58,38 @@ export const useColumnState = ({
     }
   }, [hasNewTasks, previousHasNewTasks, autoExpandInitialized]);
 
-  // Get columns that should be locked (non-expandable)
+  // Update locked columns when categories or tasks change
+  useEffect(() => {
+    console.log('Categories for locking calculation:', categories);
+    console.log('Not started tasks for locking:', notStartedTasks.length);
+  }, [categories, notStartedTasks]);
+
+  // Get columns that should be locked (non-expandable) based on category locking settings
   const getLockedExpandableColumns = () => {
-    if (hasNewTasks) {
-      // When there are new tasks, lock all columns except "new" and "rappels"
-      return ["attempted", "other", "simulations", "communications"];
+    const lockedColumns: string[] = [];
+    
+    // Sort categories by order to check locking in sequence
+    const sortedCategories = [...categories].sort((a, b) => a.order - b.order);
+    
+    for (const category of sortedCategories) {
+      // Skip if this category doesn't have locking enabled
+      if (!category.locks_lower_categories) continue;
+      
+      // Check if this category has tasks
+      const categoryTasks = notStartedTasks.filter(task => task.queue === category.id);
+      
+      if (categoryTasks.length > 0) {
+        // Lock all categories with higher order (displayed lower)
+        const higherOrderCategories = sortedCategories.filter(cat => cat.order > category.order);
+        higherOrderCategories.forEach(cat => {
+          if (!lockedColumns.includes(cat.id)) {
+            lockedColumns.push(cat.id);
+          }
+        });
+      }
     }
-    return [];
+    
+    return lockedColumns;
   };
 
   const handleColumnToggle = (columnId: string) => {
@@ -69,6 +97,7 @@ export const useColumnState = ({
     console.log(`Toggling column: ${columnId}`);
     console.log(`Current expandedColumn: ${expandedColumn}`);
     console.log(`Has new tasks: ${hasNewTasks}`);
+    console.log(`Categories with locking:`, categories.filter(c => c.locks_lower_categories));
     
     const lockedExpandableColumns = getLockedExpandableColumns();
     

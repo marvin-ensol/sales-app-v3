@@ -8,6 +8,7 @@ import { useOwnerSelection } from "@/hooks/useOwnerSelection";
 import { useTaskFiltering } from "@/hooks/useTaskFiltering";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
 import { useColumnState } from "@/hooks/useColumnState";
+import { useTaskCategories } from "@/hooks/useTaskCategories";
 
 interface KanbanBoardProps {
   onFrameUrlChange: (url: string) => void;
@@ -32,6 +33,15 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const { tasks, loading: tasksLoading, error: tasksError, refetch } = useLocalTasks(selectedOwnerId);
   console.log('Tasks hook result:', { tasks: tasks?.length, tasksLoading, tasksError });
   
+  // Get selected user's team ID for category filtering
+  const selectedUser = owners.find(owner => owner.id === selectedOwnerId);
+  const selectedUserTeamId = selectedUser?.teamId || null;
+  console.log('Selected user team ID:', selectedUserTeamId);
+
+  // Get categories for the selected user's team
+  const { categories, loading: categoriesLoading } = useTaskCategories(selectedUserTeamId);
+  console.log('Categories result:', { categories: categories?.length, categoriesLoading });
+
   // Task filtering
   const { notStartedTasks, hasNewTasks, filteredTasks } = useTaskFiltering({
     tasks,
@@ -45,18 +55,14 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const { expandedColumn, handleColumnToggle, lockedExpandableColumns } = useColumnState({
     notStartedTasks,
     hasNewTasks,
-    lockedColumns
+    lockedColumns,
+    categories
   });
   console.log('Column state result:', { expandedColumn, lockedExpandableColumns });
   
   // Task assignment
   const { assignTask } = useTaskAssignment();
   console.log('Task assignment hook initialized');
-
-  // Get selected user's team ID for category filtering
-  const selectedUser = owners.find(owner => owner.id === selectedOwnerId);
-  const selectedUserTeamId = selectedUser?.teamId || null;
-  console.log('Selected user team ID:', selectedUserTeamId);
 
   const handleTaskMove = async (taskId: string, newQueue: TaskQueue) => {
     console.log(`Moving task ${taskId} to queue ${newQueue}`);
@@ -125,7 +131,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         searchTerm={searchTerm}
         onSearchChange={handleSearchChange}
         onRefresh={handleRefresh}
-        isLoading={tasksLoading || ownersLoading}
+        isLoading={tasksLoading || ownersLoading || categoriesLoading}
         taskCount={tasks.length}
       />
       

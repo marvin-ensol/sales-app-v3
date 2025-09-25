@@ -10,6 +10,7 @@ export interface TaskCategoryManagement {
   system_default?: boolean;
   created_at?: string;
   visible_team_ids?: string[];
+  locks_lower_categories?: boolean;
 }
 
 export interface CategoryFormData {
@@ -17,6 +18,7 @@ export interface CategoryFormData {
   color: string;
   hs_queue_id: string;
   visible_team_ids: string[];
+  locks_lower_categories: boolean;
 }
 
 export const useTaskCategoriesManagement = () => {
@@ -44,7 +46,8 @@ export const useTaskCategoriesManagement = () => {
         ...category,
         visible_team_ids: Array.isArray(category.visible_team_ids) 
           ? (category.visible_team_ids as string[])
-          : []
+          : [],
+        locks_lower_categories: category.locks_lower_categories ?? false
       }));
       setCategories(transformedCategories);
     } catch (err) {
@@ -74,7 +77,8 @@ export const useTaskCategoriesManagement = () => {
           hs_queue_id: categoryData.hs_queue_id || null,
           visible_team_ids: categoryData.visible_team_ids || [],
           order_column: nextOrder,
-          system_default: false
+          system_default: false,
+          locks_lower_categories: categoryData.locks_lower_categories ?? false
         })
         .select()
         .single();
@@ -102,7 +106,8 @@ export const useTaskCategoriesManagement = () => {
           label: categoryData.label,
           color: categoryData.color,
           hs_queue_id: categoryData.hs_queue_id || null,
-          visible_team_ids: categoryData.visible_team_ids || []
+          visible_team_ids: categoryData.visible_team_ids || [],
+          locks_lower_categories: categoryData.locks_lower_categories ?? false
         })
         .eq('id', id)
         .select()
