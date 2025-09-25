@@ -27,8 +27,8 @@ const TaskTable = ({
   categoryColor 
 }: TaskTableProps) => {
   
-  // Group tasks by date and mark first occurrence
-  const groupedTasks = useMemo(() => {
+  // Group tasks by date
+  const groupedTasksByDate = useMemo(() => {
     if (!tasks || tasks.length === 0) return [];
 
     const tasksByDate = new Map<string, Task[]>();
@@ -42,18 +42,14 @@ const TaskTable = ({
       tasksByDate.get(dateKey)!.push(task);
     });
 
-    // Create flat array with isFirstOfDate flag
-    const result: GroupedTask[] = [];
-    tasksByDate.forEach((dateTasks) => {
-      dateTasks.forEach((task, index) => {
-        result.push({
-          ...task,
-          isFirstOfDate: index === 0
-        });
-      });
-    });
-
-    return result;
+    // Return array of date groups
+    return Array.from(tasksByDate.entries()).map(([dateKey, dateTasks]) => ({
+      dateKey,
+      tasks: dateTasks.map((task, index) => ({
+        ...task,
+        isFirstOfDate: index === 0
+      }))
+    }));
   }, [tasks]);
 
   if (!tasks || tasks.length === 0) {
@@ -61,32 +57,32 @@ const TaskTable = ({
   }
 
   return (
-    <div className="space-y-0 mx-4">
-      {groupedTasks.map((task, index) => {
-        const isFirstTask = index === 0;
-        const prevTask = index > 0 ? groupedTasks[index - 1] : null;
-        const currentDateKey = getDateKey(task.dueDate);
-        const prevDateKey = prevTask ? getDateKey(prevTask.dueDate) : null;
-        const shouldShowSeparator = !isFirstTask && currentDateKey !== prevDateKey;
+    <div className="mx-4 pt-3">
+      {groupedTasksByDate.map((dateGroup, groupIndex) => (
+        <div key={dateGroup.dateKey} className="bg-gray-50 rounded-lg mb-3 p-3">
+          {dateGroup.tasks.map((task, taskIndex) => {
+            const shouldShowDivider = taskIndex > 0;
 
-        return (
-          <div key={`${task.id}-${task.queue}`}>
-            {shouldShowSeparator && (
-              <div className="border-t border-gray-200 my-3"></div>
-            )}
-            <TaskRow
-              task={task}
-              onMove={onMove}
-              onFrameUrlChange={onFrameUrlChange}
-              onTaskAssigned={onTaskAssigned}
-              selectedOwnerId={selectedOwnerId}
-              onTaskDeleted={onTaskDeleted}
-              categoryColor={categoryColor}
-              showDateColumns={task.isFirstOfDate}
-            />
-          </div>
-        );
-      })}
+            return (
+              <div key={`${task.id}-${task.queue}`}>
+                {shouldShowDivider && (
+                  <div className="border-t border-gray-200 my-2 ml-20"></div>
+                )}
+                <TaskRow
+                  task={task}
+                  onMove={onMove}
+                  onFrameUrlChange={onFrameUrlChange}
+                  onTaskAssigned={onTaskAssigned}
+                  selectedOwnerId={selectedOwnerId}
+                  onTaskDeleted={onTaskDeleted}
+                  categoryColor={categoryColor}
+                  showDateColumns={task.isFirstOfDate}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 };
