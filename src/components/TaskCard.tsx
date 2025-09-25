@@ -15,24 +15,29 @@ interface TaskCardProps {
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
   onTaskDeleted?: () => void;
+  categoryColor?: string; // New prop for category color
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, categoryColor }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.dueDate);
   const [showDescription, setShowDescription] = useState(false);
   const { isAssigning, assignTask } = useTaskAssignment();
   const { isDeleting, deleteTask } = useTaskDeletion();
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
+  const getLeftBorderColor = () => {
+    if (categoryColor) {
+      return categoryColor;
+    }
+    // Fallback to priority-based colors
+    switch (task.priority) {
       case "high":
-        return "border-l-red-500";
+        return "#ef4444";
       case "medium":
-        return "border-l-orange-500";
+        return "#f97316";
       case "low":
-        return "border-l-green-500";
+        return "#22c55e";
       default:
-        return "border-l-gray-300";
+        return "#d1d5db";
     }
   };
 
@@ -108,9 +113,10 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
 
   return (
     <div
-      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 ${getPriorityColor(
-        task.priority
-      )} p-3 m-2 hover:shadow-md transition-shadow ${cursorStyle} relative max-w-full`}
+      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 p-3 m-2 hover:shadow-md transition-shadow ${cursorStyle} relative max-w-full`}
+      style={{
+        borderLeftColor: getLeftBorderColor()
+      }}
       onClick={handleCardClick}
     >
       {/* Edit icon in top right corner - hidden for unassigned tasks */}

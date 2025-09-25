@@ -154,6 +154,7 @@ const KanbanContent = ({
                 onTaskAssigned={onTaskAssigned}
                 onTaskDeleted={onTaskDeleted}
                 selectedOwnerId={selectedOwnerId}
+                categoryColor={column.color}
               />
             ))}
             {columnTasks.length === 0 && !tasksLoading && ownerSelectionInitialized && (
