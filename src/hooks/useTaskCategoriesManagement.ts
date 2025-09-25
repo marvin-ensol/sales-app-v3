@@ -11,6 +11,7 @@ export interface TaskCategoryManagement {
   created_at?: string;
   visible_team_ids?: string[];
   locks_lower_categories?: boolean;
+  task_display_order?: string;
 }
 
 export interface CategoryFormData {
@@ -19,6 +20,7 @@ export interface CategoryFormData {
   hs_queue_id: string;
   visible_team_ids: string[];
   locks_lower_categories: boolean;
+  task_display_order: string;
 }
 
 export const useTaskCategoriesManagement = () => {
@@ -47,7 +49,8 @@ export const useTaskCategoriesManagement = () => {
         visible_team_ids: Array.isArray(category.visible_team_ids) 
           ? (category.visible_team_ids as string[])
           : [],
-        locks_lower_categories: category.locks_lower_categories ?? false
+        locks_lower_categories: category.locks_lower_categories ?? false,
+        task_display_order: category.task_display_order ?? 'oldest_tasks_first'
       }));
       setCategories(transformedCategories);
     } catch (err) {
@@ -78,7 +81,8 @@ export const useTaskCategoriesManagement = () => {
           visible_team_ids: categoryData.visible_team_ids || [],
           order_column: nextOrder,
           system_default: false,
-          locks_lower_categories: categoryData.locks_lower_categories ?? false
+          locks_lower_categories: categoryData.locks_lower_categories ?? false,
+          task_display_order: categoryData.task_display_order || 'oldest_tasks_first'
         })
         .select()
         .single();
@@ -107,7 +111,8 @@ export const useTaskCategoriesManagement = () => {
           color: categoryData.color,
           hs_queue_id: categoryData.hs_queue_id || null,
           visible_team_ids: categoryData.visible_team_ids || [],
-          locks_lower_categories: categoryData.locks_lower_categories ?? false
+          locks_lower_categories: categoryData.locks_lower_categories ?? false,
+          task_display_order: categoryData.task_display_order || 'oldest_tasks_first'
         })
         .eq('id', id)
         .select()

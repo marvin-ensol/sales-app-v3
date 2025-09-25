@@ -1,0 +1,31 @@
+-- Add task_display_order column to task_categories table
+ALTER TABLE public.task_categories 
+ADD COLUMN task_display_order text DEFAULT 'oldest_tasks_first';
+
+-- Drop and recreate the get_task_categories function with the new column
+DROP FUNCTION IF EXISTS public.get_task_categories(text);
+
+CREATE OR REPLACE FUNCTION public.get_task_categories(team_id_param text DEFAULT NULL::text)
+ RETURNS TABLE(id bigint, label text, color text, hs_queue_id text, order_column integer, locks_lower_categories boolean, task_display_order text)
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT tc.id, tc.label, tc.color, tc.hs_queue_id, tc.order_column, tc.locks_lower_categories, tc.task_display_order
+  FROM task_categories tc
+  WHERE 
+    -- If no team_id provided, return all categories (backward compatibility)
+    team_id_param IS NULL
+    OR
+    -- If team_id provided, filter by visibility
+    (
+      -- Categories with empty visible_team_ids are visible to everyone
+      (tc.visible_team_ids = '[]'::jsonb OR tc.visible_team_ids IS NULL)
+      OR
+      -- Categories where the team_id is in the visible_team_ids array
+      (tc.visible_team_ids ? team_id_param)
+    )
+  ORDER BY tc.order_column;
+END;
+$function$;

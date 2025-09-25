@@ -275,6 +275,7 @@ export type Database = {
           locks_lower_categories: boolean | null
           order_column: number
           system_default: boolean | null
+          task_display_order: string | null
           visible_team_ids: Json | null
         }
         Insert: {
@@ -286,6 +287,7 @@ export type Database = {
           locks_lower_categories?: boolean | null
           order_column: number
           system_default?: boolean | null
+          task_display_order?: string | null
           visible_team_ids?: Json | null
         }
         Update: {
@@ -297,6 +299,7 @@ export type Database = {
           locks_lower_categories?: boolean | null
           order_column?: number
           system_default?: boolean | null
+          task_display_order?: string | null
           visible_team_ids?: Json | null
         }
         Relationships: []
@@ -496,6 +499,7 @@ export type Database = {
           label: string
           locks_lower_categories: boolean
           order_column: number
+          task_display_order: string
         }[]
       }
       get_valid_owner_ids: {

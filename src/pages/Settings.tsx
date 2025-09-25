@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -19,9 +20,9 @@ const Settings = () => {
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -45,13 +46,14 @@ const Settings = () => {
       color: category.color || "#60a5fa",
       hs_queue_id: category.hs_queue_id || "",
       visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
-      locks_lower_categories: category.locks_lower_categories || false
+      locks_lower_categories: category.locks_lower_categories || false,
+      task_display_order: category.task_display_order || "oldest_tasks_first"
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
   };
 
   const handleEditSave = async () => {
@@ -70,7 +72,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -100,7 +102,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -290,30 +292,54 @@ const Settings = () => {
                                  onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
                                />
                              </div>
-                              <div>
-                                <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                                <Input
-                                  id={`edit-queue-${category.id}`}
-                                  value={editForm.hs_queue_id}
-                                  onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                  placeholder="ID de la queue HubSpot"
-                                />
-                              </div>
-                              <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                                <div className="flex-1">
-                                  <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
-                                    Verrouiller les catégories en dessous
-                                  </Label>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Quand cette catégorie comporte au moins une tâche à faire
-                                  </div>
-                                </div>
-                                <Switch
-                                  id={`edit-locks-${category.id}`}
-                                  checked={editForm.locks_lower_categories}
-                                  onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
-                                />
-                              </div>
+                               <div>
+                                 <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                 <Input
+                                   id={`edit-queue-${category.id}`}
+                                   value={editForm.hs_queue_id}
+                                   onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                   placeholder="ID de la queue HubSpot"
+                                 />
+                               </div>
+                               <div className="space-y-3">
+                                 <div>
+                                   <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
+                                   <RadioGroup
+                                     value={editForm.task_display_order}
+                                     onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
+                                     className="mt-2"
+                                   >
+                                     <div className="flex items-center space-x-2">
+                                       <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
+                                       <Label htmlFor={`newest-${category.id}`} className="text-sm">Échéance plus récente</Label>
+                                     </div>
+                                     <div className="flex items-center space-x-2">
+                                       <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
+                                       <Label htmlFor={`oldest-${category.id}`} className="text-sm">Échéance plus ancienne</Label>
+                                     </div>
+                                   </RadioGroup>
+                                   <div className="text-xs text-gray-500 mt-1">
+                                     {editForm.task_display_order === 'newest_tasks_first' 
+                                       ? "Les tâches dont l'échéance est la moins lointaine apparaissent en haut / en premier"
+                                       : "Les tâches dont l'échéance est la plus lointaine apparaissent en haut / en premier"}
+                                   </div>
+                                 </div>
+                                 <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                   <div className="flex-1">
+                                     <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
+                                       Verrouiller les catégories en dessous
+                                     </Label>
+                                     <div className="text-xs text-gray-500 mt-1">
+                                       Quand cette catégorie comporte au moins une tâche à faire
+                                     </div>
+                                   </div>
+                                   <Switch
+                                     id={`edit-locks-${category.id}`}
+                                     checked={editForm.locks_lower_categories}
+                                     onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
+                                   />
+                                 </div>
+                               </div>
                            </div>
                           <div className="flex gap-2">
                             <Button
@@ -456,21 +482,45 @@ const Settings = () => {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="create-queue">Queue ID HubSpot</Label>
-                            <Input
-                              id="create-queue"
-                              value={createForm.hs_queue_id}
-                              onChange={(e) => setCreateForm({...createForm, hs_queue_id: e.target.value})}
-                              placeholder="ID de la queue HubSpot"
-                            />
-                          </div>
+                         <div className="grid grid-cols-2 gap-4">
                            <div>
-                             <TeamSelector
-                               selectedTeamIds={createForm.visible_team_ids}
-                               onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
+                             <Label htmlFor="create-queue">Queue ID HubSpot</Label>
+                             <Input
+                               id="create-queue"
+                               value={createForm.hs_queue_id}
+                               onChange={(e) => setCreateForm({...createForm, hs_queue_id: e.target.value})}
+                               placeholder="ID de la queue HubSpot"
                              />
+                           </div>
+                            <div>
+                              <TeamSelector
+                                selectedTeamIds={createForm.visible_team_ids}
+                                onTeamsChange={(teamIds) => setCreateForm({...createForm, visible_team_ids: teamIds})}
+                              />
+                            </div>
+                         </div>
+                         <div className="space-y-3">
+                           <div>
+                             <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
+                             <RadioGroup
+                               value={createForm.task_display_order}
+                               onValueChange={(value) => setCreateForm({...createForm, task_display_order: value})}
+                               className="mt-2"
+                             >
+                               <div className="flex items-center space-x-2">
+                                 <RadioGroupItem value="newest_tasks_first" id="create-newest" />
+                                 <Label htmlFor="create-newest" className="text-sm">Échéance plus récente</Label>
+                               </div>
+                               <div className="flex items-center space-x-2">
+                                 <RadioGroupItem value="oldest_tasks_first" id="create-oldest" />
+                                 <Label htmlFor="create-oldest" className="text-sm">Échéance plus ancienne</Label>
+                               </div>
+                             </RadioGroup>
+                             <div className="text-xs text-gray-500 mt-1">
+                               {createForm.task_display_order === 'newest_tasks_first' 
+                                 ? "Les tâches dont l'échéance est la moins lointaine apparaissent en haut / en premier"
+                                 : "Les tâches dont l'échéance est la plus lointaine apparaissent en haut / en premier"}
+                             </div>
                            </div>
                            <div className="flex items-center justify-between p-3 border rounded-lg bg-white">
                              <div className="flex-1">
@@ -487,7 +537,7 @@ const Settings = () => {
                                onCheckedChange={(checked) => setCreateForm({...createForm, locks_lower_categories: checked})}
                              />
                            </div>
-                        </div>
+                         </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -501,10 +551,10 @@ const Settings = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setShowCreateForm(false);
-                            setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false });
-                          }}
+                           onClick={() => {
+                             setShowCreateForm(false);
+                             setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+                           }}
                           disabled={isSubmitting}
                         >
                           <X className="h-4 w-4 mr-1" />
