@@ -42,7 +42,8 @@ export const useLocalTasks = (selectedOwnerId: string) => {
         queue: task.queue as TaskQueue,
         queueIds: task.queue_ids || [],
         isUnassigned: task.is_unassigned,
-        completionDate: task.completion_date ? new Date(task.completion_date) : null
+        completionDate: task.completion_date ? new Date(task.completion_date) : null,
+        hsTimestamp: task.hs_timestamp ? new Date(task.hs_timestamp) : null
       }));
       
       setTasks(transformedTasks);

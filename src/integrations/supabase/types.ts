@@ -480,6 +480,7 @@ export type Database = {
           contact_phone: string
           description: string
           due_date: string
+          hs_timestamp: string
           hubspot_id: string
           id: string
           is_unassigned: boolean
