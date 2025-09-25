@@ -57,10 +57,18 @@ const KanbanContent = ({
     const category = kanbanColumns.find(col => col.id === queue);
     const displayOrder = category?.task_display_order || 'oldest_tasks_first';
     
-    // Sort tasks based on the category's display order setting
-    const sortedTasks = sortTasksByDisplayOrder(uniqueTasks, displayOrder);
+    console.log(`\n🏷️ Queue "${queue}": Found category:`, category ? `"${category.title}" with display order: "${displayOrder}"` : 'NOT FOUND, using default');
+    console.log(`📦 Processing ${uniqueTasks.length} unique tasks for queue "${queue}"`);
     
-    console.log(`Queue ${queue}: ${tasks.length} tasks (${uniqueTasks.length} unique), sorted by ${displayOrder}`);
+    // Debug: Check if tasks have hsTimestamp
+    const tasksWithTimestamp = uniqueTasks.filter(t => t.hsTimestamp);
+    const tasksWithoutTimestamp = uniqueTasks.filter(t => !t.hsTimestamp);
+    console.log(`⏰ Tasks with hsTimestamp: ${tasksWithTimestamp.length}, without: ${tasksWithoutTimestamp.length}`);
+    
+    // Sort tasks using the utility function
+    const sortedTasks = sortTasksByDisplayOrder(uniqueTasks, displayOrder);
+    console.log(`✅ Sorting complete for queue "${queue}"\n`);
+    
     return sortedTasks;
   };
 
