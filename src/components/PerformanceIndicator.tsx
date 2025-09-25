@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 interface PerformanceIndicatorProps {
   loading: boolean;
   taskCount: number;
-  mode: 'database' | 'api';
+  mode: 'database' | 'api' | 'text';
 }
 
 export const PerformanceIndicator = ({ loading, taskCount, mode }: PerformanceIndicatorProps) => {
@@ -35,9 +35,11 @@ export const PerformanceIndicator = ({ loading, taskCount, mode }: PerformanceIn
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <Badge variant={getBadgeVariant()}>
-        {getModeLabel()}
-      </Badge>
+      {mode !== 'text' && (
+        <Badge variant={getBadgeVariant()}>
+          {getModeLabel()}
+        </Badge>
+      )}
       
       {loading && (
         <span className="text-muted-foreground">Loading...</span>
