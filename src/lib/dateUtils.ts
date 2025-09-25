@@ -199,3 +199,89 @@ export function isTaskOverdue(dueDate: string): boolean {
     return false;
   }
 }
+
+/**
+ * Get Monday of the given week (weeks start on Monday)
+ */
+export function getWeekStart(date: Date): Date {
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+  return new Date(date.getFullYear(), date.getMonth(), diff);
+}
+
+/**
+ * Get Sunday of the given week
+ */
+export function getWeekEnd(date: Date): Date {
+  const weekStart = getWeekStart(date);
+  return new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+}
+
+/**
+ * Get first day of current month
+ */
+export function getMonthStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/**
+ * Get last day of current month
+ */
+export function getMonthEnd(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+/**
+ * Calculate date range based on lower and upper bound selections
+ */
+export function calculateDateRange(lowerBound: string, upperBound: string): { startDate: Date | null, endDate: Date | null } {
+  const now = getCurrentParisTime();
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+
+  // Calculate start date based on lower bound
+  switch (lowerBound) {
+    case 'tout':
+      startDate = null;
+      break;
+    case 'debut_mois':
+      startDate = getMonthStart(now);
+      break;
+    case 'semaine_precedente':
+      const lastWeekStart = getWeekStart(now);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+      startDate = lastWeekStart;
+      break;
+    case 'debut_semaine':
+      startDate = getWeekStart(now);
+      break;
+    case 'aujourd_hui':
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      break;
+  }
+
+  // Calculate end date based on upper bound
+  switch (upperBound) {
+    case 'tout':
+      endDate = null;
+      break;
+    case 'aujourd_hui':
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      break;
+    case 'fin_semaine':
+      const weekEnd = getWeekEnd(now);
+      endDate = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59, 999);
+      break;
+    case 'semaine_prochaine':
+      const nextWeekEnd = getWeekEnd(now);
+      nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+      endDate = new Date(nextWeekEnd.getFullYear(), nextWeekEnd.getMonth(), nextWeekEnd.getDate(), 23, 59, 59, 999);
+      break;
+    case 'fin_mois':
+      const monthEnd = getMonthEnd(now);
+      endDate = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate(), 23, 59, 59, 999);
+      break;
+  }
+
+  return { startDate, endDate };
+}

@@ -1,19 +1,22 @@
 
 import { useMemo } from 'react';
 import { Task } from '@/types/task';
+import { parseTaskDate } from '@/lib/dateUtils';
 
 interface UseTaskFilteringProps {
   tasks: Task[];
   searchTerm: string;
   lockedColumns: string[];
   getSelectedOwnerName: () => string;
+  dateRange?: { startDate: Date | null; endDate: Date | null };
 }
 
 export const useTaskFiltering = ({
   tasks,
   searchTerm,
   lockedColumns,
-  getSelectedOwnerName
+  getSelectedOwnerName,
+  dateRange
 }: UseTaskFilteringProps) => {
   const notStartedTasks = useMemo(() => 
     tasks.filter(task => task.status === 'not_started'), 
@@ -44,6 +47,24 @@ export const useTaskFiltering = ({
         task.contact.toLowerCase().includes(searchTerm.toLowerCase());
       
       if (!matchesSearch) return false;
+
+      // Apply date range filter
+      if (dateRange && (dateRange.startDate || dateRange.endDate)) {
+        try {
+          const taskDate = parseTaskDate(task.dueDate);
+          
+          if (dateRange.startDate && taskDate < dateRange.startDate) {
+            return false;
+          }
+          
+          if (dateRange.endDate && taskDate > dateRange.endDate) {
+            return false;
+          }
+        } catch (error) {
+          console.error('Error parsing task date for filtering:', error);
+          return false;
+        }
+      }
       
       // For unassigned "New" tasks, apply special filtering logic
       if (task.isUnassigned && task.queue === 'new') {
@@ -91,7 +112,7 @@ export const useTaskFiltering = ({
       
       return true;
     });
-  }, [notStartedTasks, searchTerm, lockedColumns, getSelectedOwnerName]);
+  }, [notStartedTasks, searchTerm, lockedColumns, getSelectedOwnerName, dateRange]);
 
   return {
     notStartedTasks,

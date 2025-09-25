@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import OwnerSelector from "./OwnerSelector";
 import { PerformanceIndicator } from "./PerformanceIndicator";
+import DateRangeFilter from "./DateRangeFilter";
 
 interface KanbanHeaderProps {
   owners: HubSpotOwner[];
@@ -19,6 +20,11 @@ interface KanbanHeaderProps {
   onRefresh: () => void;
   isLoading: boolean;
   taskCount?: number;
+  lowerBound: string;
+  upperBound: string;
+  onLowerBoundChange: (value: string) => void;
+  onUpperBoundChange: (value: string) => void;
+  onDateRangeClear: () => void;
 }
 
 const KanbanHeader = ({
@@ -31,7 +37,12 @@ const KanbanHeader = ({
   onSearchChange,
   onRefresh,
   isLoading,
-  taskCount = 0
+  taskCount = 0,
+  lowerBound,
+  upperBound,
+  onLowerBoundChange,
+  onUpperBoundChange,
+  onDateRangeClear
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
@@ -76,27 +87,37 @@ const KanbanHeader = ({
         </div>
       </div>
 
-      {/* Second Row: Search and Performance Indicator */}
+      {/* Second Row: Search, Date Range Filter and Performance Indicator */}
       <div className="flex items-center justify-between gap-4">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Trouver une tâche ou un contact..."
-            className="pl-10 pr-10"
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
+        <div className="flex items-center gap-4 flex-1">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Trouver une tâche ou un contact..."
+              className="pl-10 pr-10"
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+                onClick={handleClearSearch}
+                title="Clear search"
+              >
+                <X className="h-4 w-4 text-gray-400" />
+              </Button>
+            )}
+          </div>
+          
+          <DateRangeFilter
+            lowerBound={lowerBound}
+            upperBound={upperBound}
+            onLowerBoundChange={onLowerBoundChange}
+            onUpperBoundChange={onUpperBoundChange}
+            onClear={onDateRangeClear}
           />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-              onClick={handleClearSearch}
-              title="Clear search"
-            >
-              <X className="h-4 w-4 text-gray-400" />
-            </Button>
-          )}
         </div>
 
         <PerformanceIndicator 

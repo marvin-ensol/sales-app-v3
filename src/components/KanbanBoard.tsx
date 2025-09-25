@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TaskQueue } from "@/types/task";
 import KanbanHeader from "./KanbanHeader";
 import KanbanContent from "./KanbanContent";
@@ -9,6 +9,7 @@ import { useTaskFiltering } from "@/hooks/useTaskFiltering";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
 import { useColumnState } from "@/hooks/useColumnState";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
+import { calculateDateRange } from "@/lib/dateUtils";
 
 interface KanbanBoardProps {
   onFrameUrlChange: (url: string) => void;
@@ -19,6 +20,8 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [lockedColumns, setLockedColumns] = useState<string[]>([]);
+  const [lowerBound, setLowerBound] = useState("tout");
+  const [upperBound, setUpperBound] = useState("tout");
 
   console.log('Initializing hooks...');
   
@@ -42,12 +45,18 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const { categories, loading: categoriesLoading } = useTaskCategories(selectedUserTeamId);
   console.log('Categories result:', { categories: categories?.length, categoriesLoading });
 
+  // Calculate date range
+  const dateRange = useMemo(() => {
+    return calculateDateRange(lowerBound, upperBound);
+  }, [lowerBound, upperBound]);
+
   // Task filtering
   const { notStartedTasks, hasNewTasks, filteredTasks } = useTaskFiltering({
     tasks,
     searchTerm,
     lockedColumns,
-    getSelectedOwnerName
+    getSelectedOwnerName,
+    dateRange
   });
   console.log('Task filtering result:', { notStartedTasks: notStartedTasks?.length, hasNewTasks, filteredTasks: filteredTasks?.length });
   
@@ -100,6 +109,12 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     setLockedColumns(prev => prev.filter(id => id !== columnId));
   };
 
+  const handleDateRangeClear = () => {
+    console.log('Clearing date range filter');
+    setLowerBound("tout");
+    setUpperBound("tout");
+  };
+
   console.log('Rendering KanbanBoard JSX...');
 
   if (ownersError) {
@@ -133,6 +148,11 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onRefresh={handleRefresh}
         isLoading={tasksLoading || ownersLoading || categoriesLoading}
         taskCount={tasks.length}
+        lowerBound={lowerBound}
+        upperBound={upperBound}
+        onLowerBoundChange={setLowerBound}
+        onUpperBoundChange={setUpperBound}
+        onDateRangeClear={handleDateRangeClear}
       />
       
       <KanbanContent
