@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement } from "@/hooks/useTaskCategoriesManagement";
 import { useToast } from "@/hooks/use-toast";
@@ -17,13 +18,20 @@ interface CategoryFormData {
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder } = useTaskCategoriesManagement();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
   
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "" });
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [localCategories, setLocalCategories] = useState(categories);
+
+  // Sync local categories with fetched categories
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
 
   const handleEditStart = (category: any) => {
     setEditingId(category.id);
@@ -133,14 +141,32 @@ const Settings = () => {
       return;
     }
 
+    // Optimistic update
+    const currentCategories = localCategories.length > 0 ? localCategories : categories;
+    const currentIndex = currentCategories.findIndex(cat => cat.id === id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= currentCategories.length) return;
+
+    // Create optimistic update
+    const newCategories = [...currentCategories];
+    const [movedItem] = newCategories.splice(currentIndex, 1);
+    newCategories.splice(targetIndex, 0, movedItem);
+    setLocalCategories(newCategories);
+
     setIsSubmitting(true);
     try {
       await updateCategoryOrder(id, direction);
+      // Refetch to sync with database
+      await fetchCategories();
       toast({
         title: "Succès",
         description: "Ordre mis à jour avec succès"
       });
     } catch (error) {
+      // Revert optimistic update on error
+      setLocalCategories(categories);
       toast({
         title: "Erreur",
         description: "Impossible de modifier l'ordre",
@@ -178,16 +204,23 @@ const Settings = () => {
 
         {/* Task Categories Section */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5" />
-              Catégories de Tâches
-            </CardTitle>
-            <CardDescription>
-              Gérez les catégories utilisées pour organiser vos tâches
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SettingsIcon className="h-5 w-5" />
+                    Catégories de Tâches
+                  </div>
+                  <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`} />
+                </CardTitle>
+                <CardDescription>
+                  Gérez les catégories utilisées pour organiser vos tâches
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
             {loading && (
               <div className="text-center py-4 text-gray-500">
                 Chargement...
@@ -204,7 +237,7 @@ const Settings = () => {
               <>
                 {/* Categories List */}
                 <div className="space-y-3">
-                  {categories.map((category) => (
+                  {(localCategories.length > 0 ? localCategories : categories).map((category) => (
                     <div key={category.id} className="p-4 border rounded-lg bg-white">
                       {editingId === category.id ? (
                         /* Edit Mode */
@@ -423,7 +456,9 @@ const Settings = () => {
                 )}
               </>
             )}
-          </CardContent>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
       </div>
     </div>

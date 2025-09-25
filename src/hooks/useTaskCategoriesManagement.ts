@@ -178,8 +178,7 @@ export const useTaskCategoriesManagement = () => {
         throw updateError2;
       }
 
-      // Refresh categories list
-      await fetchCategories();
+      // No need to refresh - let the Settings component handle optimistic updates
     } catch (err) {
       console.error('Error updating category order:', err);
       throw err;
