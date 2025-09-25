@@ -439,7 +439,7 @@ const Settings = () => {
                           </div>
 
                               {/* Second row - Queue ID (if not fallback), Visibility, and Locking Setting (if not fallback) */}
-                              <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                              <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-[120px_100px_1fr]' : 'grid-cols-1'}`}>
                                 {/* Hide Queue ID field for the fallback "Autres" category */}
                                 {category.hs_queue_id !== null && (
                                   <div>
@@ -461,14 +461,14 @@ const Settings = () => {
                                      )}
                                    </div>
                                  </div>
-                               ) : (
-                                 <div>
-                                   <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                                   <div className="text-sm font-medium text-blue-600">
-                                     Toujours visible pour toutes les équipes
-                                   </div>
-                                 </div>
-                               )}
+                                ) : (
+                                  <div>
+                                    <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                    <div className="text-sm">
+                                      Toujours visible pour toutes les équipes
+                                    </div>
+                                  </div>
+                                )}
                                {/* Hide locking setting for "Autres" category */}
                                {category.hs_queue_id !== null && (
                                  <div>
