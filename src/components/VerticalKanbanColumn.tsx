@@ -112,7 +112,7 @@ const VerticalKanbanColumn = ({
       </div>
       
       {isExpanded && hasContent && (
-        <div className="pb-3">
+        <div className="pb-3 bg-white">
           {children}
         </div>
       )}

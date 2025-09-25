@@ -58,31 +58,35 @@ const TaskTable = ({
 
   return (
     <div className="mx-4 pt-3">
-      {groupedTasksByDate.map((dateGroup, groupIndex) => (
-        <div key={dateGroup.dateKey} className="bg-white rounded-lg mb-3 p-3">
-          {dateGroup.tasks.map((task, taskIndex) => {
-            const shouldShowDivider = taskIndex > 0;
+      <div className="bg-gray-50 rounded-lg">
+        {groupedTasksByDate.map((dateGroup, groupIndex) => (
+          <div key={dateGroup.dateKey}>
+            {/* Add spacing between different days */}
+            {groupIndex > 0 && <div className="h-4"></div>}
+            {dateGroup.tasks.map((task, taskIndex) => {
+              const shouldShowDivider = taskIndex > 0;
 
-            return (
-              <div key={`${task.id}-${task.queue}`} className="bg-gray-50">
-                {shouldShowDivider && (
-                  <div className="border-t border-gray-200 my-2 ml-28"></div>
-                )}
-                <TaskRow
-                  task={task}
-                  onMove={onMove}
-                  onFrameUrlChange={onFrameUrlChange}
-                  onTaskAssigned={onTaskAssigned}
-                  selectedOwnerId={selectedOwnerId}
-                  onTaskDeleted={onTaskDeleted}
-                  categoryColor={categoryColor}
-                  showDateColumns={task.isFirstOfDate}
-                />
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              return (
+                <div key={`${task.id}-${task.queue}`}>
+                  {shouldShowDivider && (
+                    <div className="border-t border-gray-200 my-2 ml-28"></div>
+                  )}
+                  <TaskRow
+                    task={task}
+                    onMove={onMove}
+                    onFrameUrlChange={onFrameUrlChange}
+                    onTaskAssigned={onTaskAssigned}
+                    selectedOwnerId={selectedOwnerId}
+                    onTaskDeleted={onTaskDeleted}
+                    categoryColor={categoryColor}
+                    showDateColumns={task.isFirstOfDate}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
