@@ -8,6 +8,8 @@ export interface HubSpotOwner {
   lastName: string;
   email: string;
   fullName: string;
+  teamId: string | null;
+  teamName: string | null;
 }
 
 export const useHubSpotOwners = () => {

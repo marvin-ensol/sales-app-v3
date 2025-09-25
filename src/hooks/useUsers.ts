@@ -7,6 +7,8 @@ export interface HubSpotOwner {
   lastName: string;
   email: string;
   fullName: string;
+  teamId: string | null;
+  teamName: string | null;
 }
 
 export const useUsers = () => {
@@ -21,7 +23,7 @@ export const useUsers = () => {
       
       const { data, error: queryError } = await supabase
         .from('hs_users')
-        .select('owner_id, first_name, last_name, full_name, email')
+        .select('owner_id, first_name, last_name, full_name, email, team_id, team_name')
         .eq('archived', false)
         .order('full_name');
 
@@ -35,7 +37,9 @@ export const useUsers = () => {
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || '',
-        fullName: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()
+        fullName: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        teamId: user.team_id || null,
+        teamName: user.team_name || null
       }));
 
       setOwners(transformedOwners);

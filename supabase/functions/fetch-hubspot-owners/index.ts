@@ -23,7 +23,7 @@ serve(async (req) => {
     // Query the hs_users table directly instead of HubSpot API
     const { data: owners, error: dbError } = await supabase
       .from('hs_users')
-      .select('owner_id, first_name, last_name, full_name, email')
+      .select('owner_id, first_name, last_name, full_name, email, team_id, team_name')
       .eq('archived', false)
       .order('full_name');
 
@@ -49,7 +49,9 @@ serve(async (req) => {
       firstName: owner.first_name || '',
       lastName: owner.last_name || '',
       email: owner.email || '',
-      fullName: owner.full_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim()
+      fullName: owner.full_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim(),
+      teamId: owner.team_id || null,
+      teamName: owner.team_name || null
     }));
 
     // Log performance metrics

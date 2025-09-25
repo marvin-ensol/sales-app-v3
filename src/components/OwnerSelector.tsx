@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
+import { groupOwnersByTeam } from "@/utils/ownerGrouping";
 
 interface OwnerSelectorProps {
   owners: HubSpotOwner[];
@@ -25,8 +26,8 @@ const OwnerSelector = ({
   ownerSelectionInitialized,
   getSelectedOwnerName
 }: OwnerSelectorProps) => {
-  // Sort owners alphabetically by full name
-  const sortedOwners = [...owners].sort((a, b) => a.fullName.localeCompare(b.fullName));
+  // Group owners by team
+  const groupedOwners = groupOwnersByTeam(owners);
 
   const handleOwnerSelect = (ownerId: string) => {
     onOwnerChange(ownerId);
@@ -52,23 +53,25 @@ const OwnerSelector = ({
           <CommandInput placeholder="Trouver un owner ..." />
           <CommandList>
             <CommandEmpty>No owner found.</CommandEmpty>
-            <CommandGroup>
-              {sortedOwners.map((owner) => (
-                <CommandItem
-                  key={owner.id}
-                  value={owner.fullName}
-                  onSelect={() => handleOwnerSelect(owner.id)}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {owner.fullName}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {groupedOwners.map((group) => (
+              <CommandGroup key={group.teamName} heading={group.teamName}>
+                {group.owners.map((owner) => (
+                  <CommandItem
+                    key={owner.id}
+                    value={`${owner.fullName} ${group.teamName}`}
+                    onSelect={() => handleOwnerSelect(owner.id)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedOwnerId === owner.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {owner.fullName}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
           </CommandList>
         </Command>
       </PopoverContent>
