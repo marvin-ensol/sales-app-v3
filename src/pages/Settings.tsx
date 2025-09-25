@@ -291,16 +291,19 @@ const Settings = () => {
                                  selectedTeamIds={editForm.visible_team_ids}
                                  onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
                                />
-                             </div>
-                               <div>
-                                 <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                                 <Input
-                                   id={`edit-queue-${category.id}`}
-                                   value={editForm.hs_queue_id}
-                                   onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                   placeholder="ID de la queue HubSpot"
-                                 />
-                               </div>
+                              </div>
+                                {/* Hide Queue ID field for the fallback "Autres" category */}
+                                {category.hs_queue_id !== null && (
+                                  <div>
+                                    <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                    <Input
+                                      id={`edit-queue-${category.id}`}
+                                      value={editForm.hs_queue_id}
+                                      onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                      placeholder="ID de la queue HubSpot"
+                                    />
+                                  </div>
+                                )}
                                <div className="space-y-3">
                                  <div>
                                    <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
@@ -413,12 +416,15 @@ const Settings = () => {
                             </div>
                           </div>
 
-                            {/* Second row - Queue ID, Visibility, and Locking Setting */}
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
-                                <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
-                              </div>
+                             {/* Second row - Queue ID (if not fallback), Visibility, and Locking Setting */}
+                             <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                               {/* Hide Queue ID field for the fallback "Autres" category */}
+                               {category.hs_queue_id !== null && (
+                                 <div>
+                                   <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
+                                   <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
+                                 </div>
+                               )}
                               <div>
                                  <div className="text-sm text-gray-500 mb-1">Visibilité</div>
                                  <div className="text-sm">

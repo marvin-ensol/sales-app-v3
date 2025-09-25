@@ -18,7 +18,7 @@ const FALLBACK_CATEGORIES: TaskCategory[] = [
   { id: "simulations", title: "Simulations", color: "#22c55e", queueId: "22934016", order: 3, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
   { id: "communications", title: "Communications", color: "#eab308", queueId: "22934015", order: 4, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
   { id: "attempted", title: "Attempted", color: "#f97316", queueId: "22859490", order: 5, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
-  { id: "other", title: "Autres", color: "#6b7280", queueId: "other", order: 6, locks_lower_categories: false, task_display_order: "oldest_tasks_first" }
+  { id: "other", title: "Autres", color: "#6b7280", queueId: null, order: 6, locks_lower_categories: false, task_display_order: "oldest_tasks_first" }
 ];
 
 export const useTaskCategories = (userTeamId?: string | null) => {
@@ -74,6 +74,10 @@ export const useTaskCategories = (userTeamId?: string | null) => {
 
   // Map queue IDs to column IDs based on existing logic
   const getColumnIdFromQueueId = (queueId: string | null): string => {
+    if (queueId === null || queueId === undefined) {
+      return 'other'; // Fallback category for null queue IDs
+    }
+    
     switch (queueId) {
       case '22933271': return 'rappels';
       case '22859489': return 'new';
@@ -82,8 +86,7 @@ export const useTaskCategories = (userTeamId?: string | null) => {
       case '22934015': return 'communications';
       case '22697278': return 'upsell';
       case '22839689': return 'securisation';
-      case 'other': return 'other';
-      default: return 'other';
+      default: return 'other'; // Fallback for unmatched queue IDs
     }
   };
 

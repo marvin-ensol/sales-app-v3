@@ -50,6 +50,8 @@ export const KANBAN_COLUMNS = [
   { id: "simulations", title: "Simulations", color: "border-l-4 border-l-green-400" },
   { id: "communications", title: "Communications", color: "border-l-4 border-l-yellow-400" },
   { id: "attempted", title: "Attempted", color: "border-l-4 border-l-orange-400" },
+  { id: "upsell", title: "Upsell", color: "border-l-4 border-l-pink-400" },
+  { id: "securisation", title: "Sécurisation", color: "border-l-4 border-l-indigo-400" },
   { id: "other", title: "Autres", color: "border-l-4 border-l-gray-400" }
 ] as const;
 
