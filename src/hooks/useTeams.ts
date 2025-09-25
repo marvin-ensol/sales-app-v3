@@ -6,6 +6,8 @@ export interface Team {
   name: string;
 }
 
+export const NO_TEAM_ID = 'NO_TEAM';
+
 export const useTeams = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,12 @@ export const useTeams = () => {
           return acc;
         }, [])
         .sort((a, b) => a.name.localeCompare(b.name));
+
+      // Add "Sans équipe" option at the end
+      uniqueTeams.push({
+        id: NO_TEAM_ID,
+        name: 'Sans équipe'
+      });
 
       setTeams(uniqueTeams);
     } catch (err) {

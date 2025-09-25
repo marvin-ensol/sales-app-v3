@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { useTeams, Team } from '@/hooks/useTeams';
+import { useTeams, Team, NO_TEAM_ID } from '@/hooks/useTeams';
 
 interface TeamSelectorProps {
   selectedTeamIds: string[];
@@ -38,21 +38,21 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
 
   const getDisplayText = () => {
     if (selectedTeamIds.length === 0) {
-      return "Toutes les équipes";
+      return "Toutes les équipes et sans équipe";
     }
     if (selectedTeamIds.length === teams.length) {
-      return "Toutes les équipes";
+      return "Toutes les équipes et sans équipe";
     }
     if (selectedTeamIds.length === 1) {
-      return selectedTeams[0]?.name || "1 équipe sélectionnée";
+      return selectedTeams[0]?.name || "1 sélection";
     }
-    return `${selectedTeamIds.length} équipes sélectionnées`;
+    return `${selectedTeamIds.length} sélections`;
   };
 
   if (loading) {
     return (
       <div className="space-y-2">
-        <label className="text-sm font-medium">Équipes visibles</label>
+        <label className="text-sm font-medium">Catégorie visible pour</label>
         <div className="w-full h-9 rounded-md border bg-muted animate-pulse" />
       </div>
     );
@@ -60,7 +60,7 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">Équipes visibles</label>
+      <label className="text-sm font-medium">Catégorie visible pour</label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -83,7 +83,7 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
                       selectedTeamIds.length === teams.length ? "opacity-100" : "opacity-0"
                     }`}
                   />
-                  Sélectionner tout
+                  Tout sélectionner
                 </CommandItem>
                 <CommandItem onSelect={handleDeselectAll}>
                   <Check
@@ -91,7 +91,7 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
                       selectedTeamIds.length === 0 ? "opacity-100" : "opacity-0"
                     }`}
                   />
-                  Désélectionner tout
+                  Tout désélectionner
                 </CommandItem>
               </CommandGroup>
               <CommandGroup>
@@ -108,7 +108,7 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandEmpty>Aucune équipe trouvée.</CommandEmpty>
+              <CommandEmpty>Aucune option trouvée.</CommandEmpty>
             </CommandList>
           </Command>
         </PopoverContent>
