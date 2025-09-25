@@ -439,11 +439,11 @@ const Settings = () => {
                           </div>
 
                               {/* Second row - Queue ID (if not fallback), Visibility, and Locking Setting (if not fallback) */}
-                              <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-[120px_100px_1fr]' : 'grid-cols-1'}`}>
+                              <div className={`grid gap-4 ${category.hs_queue_id !== null ? 'grid-cols-[100px_120px_1fr]' : 'grid-cols-1'}`}>
                                 {/* Hide Queue ID field for the fallback "Autres" category */}
                                 {category.hs_queue_id !== null && (
                                   <div>
-                                    <div className="text-sm text-gray-500 mb-1">Queue ID HubSpot</div>
+                                    <div className="text-sm text-gray-500 mb-1">Queue ID</div>
                                     <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
                                   </div>
                                 )}
@@ -453,22 +453,22 @@ const Settings = () => {
                                    <div className="text-sm text-gray-500 mb-1">Visibilité</div>
                                    <div className="text-sm">
                                      {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                       "Aucun utilisateur"
+                                       "Tous"
                                      ) : category.visible_team_ids.length === teams.length ? (
-                                       "Toutes les équipes"
+                                       "Tous"
                                      ) : (
                                        `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
                                      )}
                                    </div>
                                  </div>
-                                ) : (
-                                  <div>
-                                    <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                                    <div className="text-sm">
-                                      Toujours visible pour toutes les équipes
-                                    </div>
-                                  </div>
-                                )}
+                               ) : (
+                                 <div>
+                                   <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                   <div className="text-sm">
+                                     Toujours visible pour toutes les équipes
+                                   </div>
+                                 </div>
+                               )}
                                {/* Hide locking setting for "Autres" category */}
                                {category.hs_queue_id !== null && (
                                  <div>
