@@ -297,12 +297,22 @@ const Settings = () => {
                                  />
                                </div>
                              </div>
-                             <div>
-                               <TeamSelector
-                                 selectedTeamIds={editForm.visible_team_ids}
-                                 onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
-                               />
-                              </div>
+                              {/* Hide team visibility settings for "Autres" category */}
+                              {category.hs_queue_id !== null ? (
+                                <div>
+                                  <TeamSelector
+                                    selectedTeamIds={editForm.visible_team_ids}
+                                    onTeamsChange={(teamIds) => setEditForm({...editForm, visible_team_ids: teamIds})}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="p-3 border rounded-lg bg-gray-50">
+                                  <div className="text-sm font-medium text-gray-700">Visibilité des équipes</div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Cette catégorie est toujours visible pour toutes les équipes.
+                                  </div>
+                                </div>
+                              )}
                                 {/* Hide Queue ID field for the fallback "Autres" category */}
                                 {category.hs_queue_id !== null && (
                                   <div>
@@ -437,18 +447,28 @@ const Settings = () => {
                                     <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
                                   </div>
                                 )}
-                               <div>
-                                  <div className="text-sm text-gray-500 mb-1">Visibilité</div>
-                                  <div className="text-sm">
-                                    {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
-                                      "Aucun utilisateur"
-                                    ) : category.visible_team_ids.length === teams.length ? (
-                                      "Toutes les équipes"
-                                    ) : (
-                                      `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
-                                    )}
-                                  </div>
-                               </div>
+                               {/* Show different visibility info for "Autres" category */}
+                               {category.hs_queue_id !== null ? (
+                                 <div>
+                                   <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                   <div className="text-sm">
+                                     {!category.visible_team_ids || category.visible_team_ids.length === 0 ? (
+                                       "Aucun utilisateur"
+                                     ) : category.visible_team_ids.length === teams.length ? (
+                                       "Toutes les équipes"
+                                     ) : (
+                                       `${category.visible_team_ids.length} équipe${category.visible_team_ids.length > 1 ? 's' : ''}`
+                                     )}
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <div>
+                                   <div className="text-sm text-gray-500 mb-1">Visibilité</div>
+                                   <div className="text-sm font-medium text-blue-600">
+                                     Toujours visible pour toutes les équipes
+                                   </div>
+                                 </div>
+                               )}
                                {/* Hide locking setting for "Autres" category */}
                                {category.hs_queue_id !== null && (
                                  <div>
