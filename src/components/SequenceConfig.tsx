@@ -383,9 +383,9 @@ export const SequenceConfig = ({
               </TableHeader>
               <TableBody>
                 {dayNames.map(({ key, label }) => (
-                  <TableRow key={key} className="h-12">
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
+                  <TableRow key={key}>
+                    <TableCell className="h-14">
+                      <div className="flex items-center space-x-2 h-full">
                         <Checkbox
                           id={`day-${key}`}
                           checked={workingHours[key].enabled}
@@ -398,26 +398,32 @@ export const SequenceConfig = ({
                     </TableCell>
                     {workingHours[key].enabled ? (
                       <>
-                        <TableCell>
-                          <Input
-                            type="time"
-                            value={workingHours[key].startTime}
-                            onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
-                            className="w-full h-9"
-                          />
+                        <TableCell className="h-14">
+                          <div className="flex items-center h-full">
+                            <Input
+                              type="time"
+                              value={workingHours[key].startTime}
+                              onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
+                              className="w-full h-9"
+                            />
+                          </div>
                         </TableCell>
-                        <TableCell>
-                          <Input
-                            type="time"
-                            value={workingHours[key].endTime}
-                            onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
-                            className="w-full h-9"
-                          />
+                        <TableCell className="h-14">
+                          <div className="flex items-center h-full">
+                            <Input
+                              type="time"
+                              value={workingHours[key].endTime}
+                              onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
+                              className="w-full h-9"
+                            />
+                          </div>
                         </TableCell>
                       </>
                     ) : (
-                      <TableCell colSpan={2} className="text-center">
-                        <span className="text-muted-foreground text-sm">Indisponible</span>
+                      <TableCell colSpan={2} className="text-center h-14">
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-muted-foreground text-sm">Indisponible</span>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
