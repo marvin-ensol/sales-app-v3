@@ -30,7 +30,7 @@ const Settings = () => {
   
   // Sequences state
   const [showSequenceModal, setShowSequenceModal] = useState(false);
-  const [isSequencesCollapsed, setIsSequencesCollapsed] = useState(true);
+  const [expandedSection, setExpandedSection] = useState<'categories' | 'sequences' | null>(null);
 
   // Sync local categories with fetched categories
   useEffect(() => {
@@ -259,7 +259,7 @@ const Settings = () => {
 
         {/* Task Categories Section */}
         <Card>
-          <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
+          <Collapsible open={expandedSection === 'categories'} onOpenChange={(open) => setExpandedSection(open ? 'categories' : null)}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                 <CardTitle className="flex items-center justify-between">
@@ -267,7 +267,7 @@ const Settings = () => {
                     <SettingsIcon className="h-5 w-5" />
                     Catégories de tâches
                   </div>
-                  <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`} />
+                  <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${expandedSection === 'categories' ? 'rotate-90' : ''}`} />
                 </CardTitle>
                 <CardDescription>
                   Configurez vos catégories et leurs paramètres d'affichage
@@ -653,9 +653,8 @@ const Settings = () => {
                   </div>
                 ) : (
                   <Button
-                    variant="outline"
                     onClick={() => setShowCreateForm(true)}
-                    className="w-full"
+                    className="w-full bg-black hover:bg-gray-800 text-white"
                     disabled={isSubmitting}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -671,7 +670,7 @@ const Settings = () => {
 
         {/* Task Sequences Section */}
         <Card className="mt-6">
-          <Collapsible open={!isSequencesCollapsed} onOpenChange={(open) => setIsSequencesCollapsed(!open)}>
+          <Collapsible open={expandedSection === 'sequences'} onOpenChange={(open) => setExpandedSection(open ? 'sequences' : null)}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                 <CardTitle className="flex items-center justify-between">
@@ -679,7 +678,7 @@ const Settings = () => {
                     <Repeat className="h-5 w-5" />
                     Séquences de tâches
                   </div>
-                  <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${!isSequencesCollapsed ? 'rotate-90' : ''}`} />
+                  <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${expandedSection === 'sequences' ? 'rotate-90' : ''}`} />
                 </CardTitle>
                 <CardDescription>
                   Programmez la répétition de certaines tâches selon certaines règles
