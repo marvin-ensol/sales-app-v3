@@ -549,7 +549,11 @@ export const SequenceConfig = ({
           )}
         </div>
 
-        <div className="flex items-center space-x-2 mt-3">
+        {/* Divider - always present */}
+        <div className="border-t border-slate-200/80 my-4"></div>
+
+        {/* Checkbox below divider */}
+        <div className="flex items-center space-x-2 mb-4">
           <Checkbox
             id="create-initial-task"
             checked={createInitialTask}
@@ -564,100 +568,94 @@ export const SequenceConfig = ({
           </label>
         </div>
 
-        {createInitialTask && (
-          <>
-            {/* Divider */}
-            <div className="border-t border-slate-200/80 my-4"></div>
-            
-            {/* Rest of the content */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={listPopoverOpen}
-                        className="w-full justify-between"
-                        disabled={listsLoading}
-                      >
-                        {selectedListId
-                          ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
-                          : "Sélectionner une liste..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                  <PopoverContent className="w-full p-0 bg-background border z-50">
-                    <Command>
-                      <CommandInput placeholder="Rechercher une liste..." />
-                      <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup>
-                          {hubspotLists.map((list) => (
-                            <CommandItem
-                              key={list.listId}
-                              value={list.name}
-                              onSelect={() => {
-                                onListChange(list.listId);
-                                setListPopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedListId === list.listId ? "opacity-100" : "opacity-0"
-                                }`}
-                              />
-                              <div>
-                                <div className="font-medium">{list.name}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
-                                </div>
+        {createInitialTask ? (
+          /* Rest of the content when checkbox is checked */
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={listPopoverOpen}
+                      className="w-full justify-between"
+                      disabled={listsLoading}
+                    >
+                      {selectedListId
+                        ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                        : "Sélectionner une liste..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                <PopoverContent className="w-full p-0 bg-background border z-50">
+                  <Command>
+                    <CommandInput placeholder="Rechercher une liste..." />
+                    <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {hubspotLists.map((list) => (
+                          <CommandItem
+                            key={list.listId}
+                            value={list.name}
+                            onSelect={() => {
+                              onListChange(list.listId);
+                              setListPopoverOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedListId === list.listId ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            <div>
+                              <div className="font-medium">{list.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
                               </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedListId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openHubSpotList(selectedListId)}
-                    className="p-2 h-10 w-10"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              {validationErrors.initialTaskList && (
-                <p className="text-sm text-destructive mt-1">{validationErrors.initialTaskList}</p>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedListId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openHubSpotList(selectedListId)}
+                  className="p-2 h-10 w-10"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
               )}
-              <div className="mt-2 flex justify-end">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={onRefreshLists}
-                    disabled={refreshingLists}
-                    className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
-                    {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
-                  </Button>
-                </div>
-              </div>
-
-              <TaskOwnerSelector
-                value={initialTaskOwner}
-                onChange={setInitialTaskOwner}
-              />
             </div>
-          </>
-        )}
+            {validationErrors.initialTaskList && (
+              <p className="text-sm text-destructive mt-1">{validationErrors.initialTaskList}</p>
+            )}
+            <div className="mt-2 flex justify-end">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={onRefreshLists}
+                  disabled={refreshingLists}
+                  className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                >
+                  <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                  {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                </Button>
+              </div>
+            </div>
 
-        {!createInitialTask && (
+            <TaskOwnerSelector
+              value={initialTaskOwner}
+              onChange={setInitialTaskOwner}
+            />
+          </div>
+        ) : (
+          /* Red alert when checkbox is unchecked */
           <Alert className="bg-red-50 border-red-200 text-red-800">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
