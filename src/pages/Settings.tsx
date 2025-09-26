@@ -802,85 +802,23 @@ const Settings = () => {
                                     </div>
                                   </div>
                                   
-                                  <div className="space-y-4">
-                                    <div>
-                                      <Label htmlFor={`sequence-list-${category.id}`}>
-                                        Interrompre la séquence quand le contact quitte la liste contact
-                                      </Label>
-                                      <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={listPopoverOpen}
-                                            className="w-full justify-between"
-                                            disabled={listsLoading}
-                                          >
-                                            {sequenceForm.sequence_list_id
-                                              ? hubspotLists.find(list => list.listId === sequenceForm.sequence_list_id)?.name || "Liste non trouvée"
-                                              : "Sélectionner une liste..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-full p-0">
-                                          <Command>
-                                            <CommandInput placeholder="Rechercher une liste..." />
-                                            <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
-                                            <CommandList>
-                                              <CommandGroup>
-                                                {hubspotLists.map((list) => (
-                                                  <CommandItem
-                                                    key={list.listId}
-                                                    value={list.name}
-                                                    onSelect={() => {
-                                                      setSequenceForm(prev => ({ ...prev, sequence_list_id: list.listId }));
-                                                      setListPopoverOpen(false);
-                                                    }}
-                                                  >
-                                                    <Check
-                                                      className={`mr-2 h-4 w-4 ${
-                                                        sequenceForm.sequence_list_id === list.listId ? "opacity-100" : "opacity-0"
-                                                      }`}
-                                                    />
-                                                    <div>
-                                                      <div className="font-medium">{list.name}</div>
-                                                      <div className="text-sm text-gray-500">
-                                                        {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
-                                                      </div>
-                                                    </div>
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
-                                       </Popover>
-                                       <div className="mt-2">
-                                         <Button
-                                           variant="link"
-                                           size="sm"
-                                           onClick={handleRefreshLists}
-                                           disabled={refreshingLists}
-                                           className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
-                                         >
-                                           <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
-                                           {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
-                                         </Button>
-                                       </div>
-                                     </div>
-
-                                     {/* Sequence Configuration */}
-                                     <SequenceConfig
-                                       categoryId={category.id}
-                                       onSave={async (config) => {
-                                         // TODO: Save sequence configuration
-                                         console.log('Saving sequence config:', config);
-                                         await handleEditSequenceSave();
-                                       }}
-                                       onCancel={handleEditSequenceCancel}
-                                       isSubmitting={isSubmitting}
-                                     />
-                                   </div>
+                                  {/* Sequence Configuration */}
+                                  <SequenceConfig
+                                    categoryId={category.id}
+                                    onSave={async (config) => {
+                                      // TODO: Save sequence configuration
+                                      console.log('Saving sequence config:', config);
+                                      await handleEditSequenceSave();
+                                    }}
+                                    onCancel={handleEditSequenceCancel}
+                                    isSubmitting={isSubmitting}
+                                    hubspotLists={hubspotLists}
+                                    listsLoading={listsLoading}
+                                    refreshingLists={refreshingLists}
+                                    onRefreshLists={handleRefreshLists}
+                                    selectedListId={sequenceForm.sequence_list_id}
+                                    onListChange={(listId) => setSequenceForm(prev => ({ ...prev, sequence_list_id: listId }))}
+                                  />
                                 </div>
                              ) : (
                                /* View Mode */

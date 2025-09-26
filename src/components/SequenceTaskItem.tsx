@@ -36,7 +36,7 @@ export const SequenceTaskItem = ({
   };
 
   return (
-    <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+    <div className="space-y-3 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
       <div className="flex items-center justify-between">
         <h4 className="font-medium">Tâche {taskNumber}</h4>
         {canRemove && (

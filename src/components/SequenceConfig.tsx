@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { AlertTriangle, ChevronsUpDown, Check, Repeat } from "lucide-react";
 import { SequenceTaskList } from "./SequenceTaskList";
 
 interface SequenceTask {
@@ -16,11 +18,29 @@ interface SequenceTask {
   };
 }
 
+interface HubSpotList {
+  listId: string;
+  name: string;
+  updatedAt: string;
+  objectTypeId: string;
+  processingType: string;
+  additionalProperties?: {
+    hs_list_size?: string;
+    hs_list_reference_count?: string;
+  };
+}
+
 interface SequenceConfigProps {
   categoryId: number;
   onSave: (config: SequenceConfig) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
+  hubspotLists: HubSpotList[];
+  listsLoading: boolean;
+  refreshingLists: boolean;
+  onRefreshLists: () => void;
+  selectedListId?: string;
+  onListChange: (listId: string) => void;
 }
 
 interface SequenceConfig {
@@ -34,10 +54,17 @@ export const SequenceConfig = ({
   categoryId, 
   onSave, 
   onCancel, 
-  isSubmitting 
+  isSubmitting,
+  hubspotLists,
+  listsLoading,
+  refreshingLists,
+  onRefreshLists,
+  selectedListId,
+  onListChange
 }: SequenceConfigProps) => {
   const [createInitialTask, setCreateInitialTask] = useState(true);
   const [initialTaskName, setInitialTaskName] = useState("");
+  const [listPopoverOpen, setListPopoverOpen] = useState(false);
   const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([
     {
       id: "task-1",
@@ -60,9 +87,9 @@ export const SequenceConfig = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Task 1 Configuration */}
-      <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
         <h4 className="font-medium">Tâche 1</h4>
         
         <div className="flex items-center space-x-2">
@@ -80,18 +107,84 @@ export const SequenceConfig = ({
         </div>
 
         {createInitialTask && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Nom de la tâche</Label>
-            <Input
-              value={initialTaskName}
-              onChange={(e) => setInitialTaskName(e.target.value)}
-              placeholder="Nom de la première tâche"
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Interrompre la séquence quand le contact quitte la liste contact</Label>
+              <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={listPopoverOpen}
+                    className="w-full justify-between"
+                    disabled={listsLoading}
+                  >
+                    {selectedListId
+                      ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                      : "Sélectionner une liste..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 bg-background border z-50">
+                  <Command>
+                    <CommandInput placeholder="Rechercher une liste..." />
+                    <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {hubspotLists.map((list) => (
+                          <CommandItem
+                            key={list.listId}
+                            value={list.name}
+                            onSelect={() => {
+                              onListChange(list.listId);
+                              setListPopoverOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedListId === list.listId ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            <div>
+                              <div className="font-medium">{list.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <div className="mt-2">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={onRefreshLists}
+                  disabled={refreshingLists}
+                  className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                >
+                  <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                  {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Nom de la tâche</Label>
+              <Input
+                value={initialTaskName}
+                onChange={(e) => setInitialTaskName(e.target.value)}
+                placeholder="Nom de la première tâche"
+              />
+            </div>
           </div>
         )}
 
         {!createInitialTask && (
-          <Alert>
+          <Alert className="bg-red-50 border-red-200 text-red-800">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               La séquence ne sera activée que si une première tâche est ajoutée dans cette catégorie pour un contact donné
@@ -101,13 +194,10 @@ export const SequenceConfig = ({
       </div>
 
       {/* Subsequent Tasks */}
-      <div className="space-y-4">
-        <h4 className="font-medium">Tâches suivantes</h4>
-        <SequenceTaskList
-          tasks={sequenceTasks}
-          onTasksChange={setSequenceTasks}
-        />
-      </div>
+      <SequenceTaskList
+        tasks={sequenceTasks}
+        onTasksChange={setSequenceTasks}
+      />
 
       <div className="flex gap-2 justify-end">
         <Button
