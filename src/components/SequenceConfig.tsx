@@ -7,7 +7,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, ChevronsUpDown, Check, Repeat } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { AlertTriangle, ChevronsUpDown, Check, Repeat, Plus, X, CalendarIcon } from "lucide-react";
 import { SequenceTaskList } from "./SequenceTaskList";
 
 interface SequenceTask {
@@ -68,6 +70,7 @@ interface SequenceConfig {
   canInterruptSequence: boolean;
   useWorkingHours: boolean;
   workingHours: WorkingHoursConfig;
+  nonWorkingDates: Date[];
 }
 
 export const SequenceConfig = ({ 
@@ -106,6 +109,9 @@ export const SequenceConfig = ({
     dimanche: { enabled: false, startTime: "09:00", endTime: "18:00" }
   });
 
+  const [nonWorkingDates, setNonWorkingDates] = useState<Date[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const handleSave = async () => {
     try {
       await onSave({
@@ -115,7 +121,8 @@ export const SequenceConfig = ({
         sequenceTasks,
         canInterruptSequence,
         useWorkingHours,
-        workingHours
+        workingHours,
+        nonWorkingDates
       });
     } catch (error) {
       console.error('Error saving sequence config:', error);
@@ -141,6 +148,30 @@ export const SequenceConfig = ({
     { key: 'samedi', label: 'Samedi' },
     { key: 'dimanche', label: 'Dimanche' }
   ];
+
+  const formatFrenchDate = (date: Date): string => {
+    const frenchDays = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    const frenchMonths = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 
+                          'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    
+    const dayName = frenchDays[date.getDay()];
+    const day = date.getDate();
+    const month = frenchMonths[date.getMonth()];
+    const year = date.getFullYear();
+    
+    return `${dayName} ${day} ${month} ${year}`;
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date && !nonWorkingDates.some(d => d.toDateString() === date.toDateString())) {
+      setNonWorkingDates([...nonWorkingDates, date]);
+    }
+    setShowDatePicker(false);
+  };
+
+  const removeDate = (dateToRemove: Date) => {
+    setNonWorkingDates(nonWorkingDates.filter(d => d.toDateString() !== dateToRemove.toDateString()));
+  };
 
   return (
     <div className="space-y-4">
@@ -372,7 +403,7 @@ export const SequenceConfig = ({
         </div>
 
         {useWorkingHours && (
-          <div className="mt-4">
+          <div className="mt-4 space-y-4">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -430,6 +461,52 @@ export const SequenceConfig = ({
                 ))}
               </TableBody>
             </Table>
+
+            {/* Non-Working Dates Section */}
+            <div className="mt-6 space-y-3">
+              <h5 className="font-medium text-sm">Dates non travaillées</h5>
+              
+              {nonWorkingDates.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {nonWorkingDates.map((date, index) => (
+                    <Badge key={index} variant="secondary" className="flex items-center gap-2 px-3 py-1">
+                      <span className="text-sm">{formatFrenchDate(date)}</span>
+                      <button
+                        onClick={() => removeDate(date)}
+                        className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-sm p-0.5"
+                        type="button"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Ajouter une date
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={undefined}
+                    onSelect={handleDateSelect}
+                    weekStartsOn={1}
+                    disabled={(date) => 
+                      date < new Date() || 
+                      nonWorkingDates.some(d => d.toDateString() === date.toDateString())
+                    }
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         )}
       </div>
