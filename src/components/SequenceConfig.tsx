@@ -314,23 +314,26 @@ export const SequenceConfig = ({
       { french: 'dimanche', english: 'sun' }
     ];
 
-    const mappedWorkingHours: Record<string, any> = {};
+    // Build working hours object in correct order using Map to preserve insertion order
+    const workingHoursEntries: [string, any][] = [];
     
-    // Build in logical day order
     dayMappingOrder.forEach(({ french, english }) => {
       const schedule = workingHours[french as keyof WorkingHoursConfig];
       if (schedule.enabled) {
-        mappedWorkingHours[english] = {
+        workingHoursEntries.push([english, {
           enabled: true,
           start_time: schedule.startTime,
           end_time: schedule.endTime
-        };
+        }]);
       } else {
-        mappedWorkingHours[english] = {
+        workingHoursEntries.push([english, {
           enabled: false
-        };
+        }]);
       }
     });
+
+    // Convert to object maintaining order
+    const mappedWorkingHours = Object.fromEntries(workingHoursEntries);
 
     return {
       working_hours: mappedWorkingHours,
