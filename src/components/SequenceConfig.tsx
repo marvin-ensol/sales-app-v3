@@ -181,8 +181,8 @@ export const SequenceConfig = ({
             if (frenchDay) {
               newWorkingHours[frenchDay as keyof WorkingHoursConfig] = {
                 enabled: schedule.enabled ?? true,
-                startTime: schedule.startTime || "09:00",
-                endTime: schedule.endTime || "18:00"
+                startTime: schedule.start_time || schedule.startTime || "09:00", // Support both old and new format
+                endTime: schedule.end_time || schedule.endTime || "18:00"
               };
             }
           });
@@ -303,25 +303,33 @@ export const SequenceConfig = ({
   const buildScheduleConfiguration = () => {
     if (!useWorkingHours) return null;
 
-    // Map French day names to English abbreviated
-    const dayMapping = {
-      lundi: 'mon',
-      mardi: 'tue', 
-      mercredi: 'wed',
-      jeudi: 'thu',
-      vendredi: 'fri',
-      samedi: 'sat',
-      dimanche: 'sun'
-    };
+    // Map French day names to English abbreviated in logical order
+    const dayMappingOrder = [
+      { french: 'lundi', english: 'mon' },
+      { french: 'mardi', english: 'tue' }, 
+      { french: 'mercredi', english: 'wed' },
+      { french: 'jeudi', english: 'thu' },
+      { french: 'vendredi', english: 'fri' },
+      { french: 'samedi', english: 'sat' },
+      { french: 'dimanche', english: 'sun' }
+    ];
 
     const mappedWorkingHours: Record<string, any> = {};
-    Object.entries(workingHours).forEach(([frenchDay, schedule]) => {
-      const englishDay = dayMapping[frenchDay as keyof typeof dayMapping];
-      mappedWorkingHours[englishDay] = {
-        enabled: schedule.enabled,
-        startTime: schedule.startTime,
-        endTime: schedule.endTime
-      };
+    
+    // Build in logical day order
+    dayMappingOrder.forEach(({ french, english }) => {
+      const schedule = workingHours[french as keyof WorkingHoursConfig];
+      if (schedule.enabled) {
+        mappedWorkingHours[english] = {
+          enabled: true,
+          start_time: schedule.startTime,
+          end_time: schedule.endTime
+        };
+      } else {
+        mappedWorkingHours[english] = {
+          enabled: false
+        };
+      }
     });
 
     return {
