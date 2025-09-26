@@ -48,6 +48,7 @@ interface SequenceConfig {
   createInitialTask: boolean;
   initialTaskName: string;
   sequenceTasks: SequenceTask[];
+  canInterruptSequence: boolean;
 }
 
 export const SequenceConfig = ({ 
@@ -65,6 +66,8 @@ export const SequenceConfig = ({
   const [createInitialTask, setCreateInitialTask] = useState(true);
   const [initialTaskName, setInitialTaskName] = useState("");
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
+  const [canInterruptSequence, setCanInterruptSequence] = useState(false);
+  const [exitListPopoverOpen, setExitListPopoverOpen] = useState(false);
   const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([
     {
       id: "task-1",
@@ -79,7 +82,8 @@ export const SequenceConfig = ({
         categoryId,
         createInitialTask,
         initialTaskName,
-        sequenceTasks
+        sequenceTasks,
+        canInterruptSequence
       });
     } catch (error) {
       console.error('Error saving sequence config:', error);
@@ -109,7 +113,6 @@ export const SequenceConfig = ({
         {createInitialTask && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Interrompre la séquence quand le contact quitte la liste contact</Label>
               <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -158,7 +161,7 @@ export const SequenceConfig = ({
                   </Command>
                 </PopoverContent>
               </Popover>
-              <div className="mt-2">
+              <div className="mt-2 flex justify-end">
                 <Button
                   variant="link"
                   size="sm"
@@ -198,6 +201,95 @@ export const SequenceConfig = ({
         tasks={sequenceTasks}
         onTasksChange={setSequenceTasks}
       />
+
+      {/* Sequence Exit Configuration */}
+      <div className="space-y-4 p-4 border rounded-lg bg-blue-50/80 border-blue-200">
+        <h4 className="font-medium">Sortie de séquence</h4>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="can-interrupt-sequence"
+            checked={canInterruptSequence}
+            onCheckedChange={(checked) => setCanInterruptSequence(checked as boolean)}
+          />
+          <label
+            htmlFor="can-interrupt-sequence"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            La séquence pourra être interrompue avant les tâches restantes si le contact quitte la liste contact
+          </label>
+        </div>
+
+        {canInterruptSequence && (
+          <div className="space-y-2">
+            <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={exitListPopoverOpen}
+                  className="w-full justify-between"
+                  disabled={listsLoading || (createInitialTask && !selectedListId)}
+                >
+                  {createInitialTask && selectedListId
+                    ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                    : selectedListId
+                    ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                    : "Sélectionner une liste..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0 bg-background border z-50">
+                <Command>
+                  <CommandInput placeholder="Rechercher une liste..." />
+                  <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      {hubspotLists.map((list) => (
+                        <CommandItem
+                          key={list.listId}
+                          value={list.name}
+                          onSelect={() => {
+                            if (!createInitialTask) {
+                              onListChange(list.listId);
+                            }
+                            setExitListPopoverOpen(false);
+                          }}
+                          disabled={createInitialTask}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${
+                              selectedListId === list.listId ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
+                          <div>
+                            <div className="font-medium">{list.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <div className="mt-2 flex justify-end">
+              <Button
+                variant="link"
+                size="sm"
+                onClick={onRefreshLists}
+                disabled={refreshingLists}
+                className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+              >
+                <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex gap-2 justify-end">
         <Button
