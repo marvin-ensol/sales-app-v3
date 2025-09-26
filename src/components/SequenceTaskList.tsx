@@ -20,9 +20,18 @@ interface SequenceTaskListProps {
   onTasksChange: (tasks: SequenceTask[]) => void;
   onSequenceDelete?: () => void;
   validationErrors?: Record<string, string>;
+  onValidateTaskName?: (name: string, fieldKey: string) => void;
+  onValidateDelay?: (amount: number, unit: string, fieldKey: string) => void;
 }
 
-export const SequenceTaskList = ({ tasks, onTasksChange, onSequenceDelete, validationErrors = {} }: SequenceTaskListProps) => {
+export const SequenceTaskList = ({ 
+  tasks, 
+  onTasksChange, 
+  onSequenceDelete,
+  validationErrors = {},
+  onValidateTaskName,
+  onValidateDelay
+}: SequenceTaskListProps) => {
   const addTask = () => {
     const newTask: SequenceTask = {
       id: `task-${Date.now()}`,
@@ -61,6 +70,8 @@ export const SequenceTaskList = ({ tasks, onTasksChange, onSequenceDelete, valid
           canRemove={true}
           validationErrors={validationErrors}
           taskIndex={index}
+          onValidateTaskName={onValidateTaskName}
+          onValidateDelay={onValidateDelay}
         />
       ))}
       

@@ -119,13 +119,13 @@ export const SequenceConfig = ({
     const errors: Record<string, string> = {};
 
     // Contact list validation - Task 1
-    if (createInitialTask && !selectedListId) {
-      errors.initialTaskList = 'Une liste de contacts doit être sélectionnée';
+    if (createInitialTask && (!selectedListId || selectedListId === '')) {
+      errors.initialTaskList = 'Veuillez sélectionner une liste pour la tâche initiale';
     }
 
     // Contact list validation - Exit sequence
-    if (canInterruptSequence && !createInitialTask && !selectedListId) {
-      errors.interruptionList = 'Une liste de contacts doit être sélectionnée';
+    if (canInterruptSequence && !createInitialTask && (!selectedListId || selectedListId === '')) {
+      errors.exitSequenceList = 'Veuillez sélectionner une liste pour la sortie de séquence';
     }
 
     // Task name validation - Initial task
@@ -198,13 +198,31 @@ export const SequenceConfig = ({
   };
 
   const updateDaySchedule = (day: keyof WorkingHoursConfig, field: keyof DaySchedule, value: boolean | string) => {
-    setWorkingHours(prev => ({
-      ...prev,
+    const newWorkingHours = {
+      ...workingHours,
       [day]: {
-        ...prev[day],
+        ...workingHours[day],
         [field]: value
       }
-    }));
+    };
+    setWorkingHours(newWorkingHours);
+    
+    // Real-time validation for working hours
+    if (useWorkingHours && field === 'enabled') {
+      const hasEnabledDays = Object.values(newWorkingHours).some(day => day.enabled);
+      if (!hasEnabledDays) {
+        setUseWorkingHours(false);
+        setValidationErrors(prev => ({
+          ...prev,
+          workingHours: 'Au moins une journée de disponibilité est nécessaire pour activer cette fonctionnalité'
+        }));
+      } else {
+        setValidationErrors(prev => {
+          const { workingHours, ...rest } = prev;
+          return rest;
+        });
+      }
+    }
   };
 
   const dayNames: Array<{ key: keyof WorkingHoursConfig; label: string }> = [
@@ -239,6 +257,41 @@ export const SequenceConfig = ({
 
   const removeDate = (dateToRemove: Date) => {
     setNonWorkingDates(nonWorkingDates.filter(d => d.toDateString() !== dateToRemove.toDateString()));
+  };
+
+  // Field-level validation functions
+  const validateTaskName = (name: string, fieldKey: string) => {
+    if (name.trim().length < 2) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [fieldKey]: 'Le nom de la tâche doit contenir au moins 2 caractères'
+      }));
+    } else {
+      setValidationErrors(prev => {
+        const { [fieldKey]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validateDelay = (amount: number, unit: string, fieldKey: string) => {
+    let error = '';
+    if (unit === 'hours' && (amount < 1 || amount > 24)) {
+      error = 'Les heures doivent être entre 1 et 24';
+    } else if (unit === 'minutes' && (amount < 5 || amount > 60)) {
+      error = 'Les minutes doivent être entre 5 et 60';  
+    } else if (unit === 'days' && (amount < 1 || amount > 365)) {
+      error = 'Les jours doivent être entre 1 et 365';
+    }
+    
+    if (error) {
+      setValidationErrors(prev => ({ ...prev, [fieldKey]: error }));
+    } else {
+      setValidationErrors(prev => {
+        const { [fieldKey]: _, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   return (
@@ -344,6 +397,7 @@ export const SequenceConfig = ({
               <Input
                 value={initialTaskName}
                 onChange={(e) => setInitialTaskName(e.target.value)}
+                onBlur={() => validateTaskName(initialTaskName, 'initialTaskName')}
                 placeholder="Nom de la première tâche"
               />
               {validationErrors.initialTaskName && (
@@ -398,6 +452,8 @@ export const SequenceConfig = ({
             tasks={sequenceTasks}
             onTasksChange={setSequenceTasks}
             validationErrors={validationErrors}
+            onValidateTaskName={validateTaskName}
+            onValidateDelay={validateDelay}
             onSequenceDelete={() => {
               setSequenceMode(false);
               setCreateInitialTask(true);
@@ -497,10 +553,10 @@ export const SequenceConfig = ({
                     </Button>
                   )}
                    </div>
-                 )}
-                 {validationErrors.interruptionList && (
-                   <p className="text-sm text-destructive mt-1">{validationErrors.interruptionList}</p>
-                 )}
+                  )}
+                  {validationErrors.exitSequenceList && (
+                    <p className="text-sm text-destructive mt-1">{validationErrors.exitSequenceList}</p>
+                  )}
                  {!createInitialTask && (
                    <div className="mt-2 flex justify-end">
                      <Button
@@ -603,6 +659,10 @@ export const SequenceConfig = ({
                     ))}
                   </TableBody>
                 </Table>
+                
+                {validationErrors.workingHours && (
+                  <p className="text-sm text-destructive mt-3">{validationErrors.workingHours}</p>
+                )}
 
                 <Separator />
 
@@ -650,9 +710,6 @@ export const SequenceConfig = ({
                     </PopoverContent>
                   </Popover>
                  </div>
-                 {validationErrors.workingHours && (
-                   <p className="text-sm text-destructive mt-2">{validationErrors.workingHours}</p>
-                 )}
                </div>
              )}
            </div>

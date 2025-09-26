@@ -23,6 +23,8 @@ interface SequenceTaskItemProps {
   canRemove: boolean;
   validationErrors?: Record<string, string>;
   taskIndex?: number;
+  onValidateTaskName?: (name: string, fieldKey: string) => void;
+  onValidateDelay?: (amount: number, unit: string, fieldKey: string) => void;
 }
 
 export const SequenceTaskItem = ({ 
@@ -32,7 +34,9 @@ export const SequenceTaskItem = ({
   onRemove, 
   canRemove,
   validationErrors = {},
-  taskIndex = 0
+  taskIndex = 0,
+  onValidateTaskName,
+  onValidateDelay
 }: SequenceTaskItemProps) => {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdate({ ...task, taskName: e.target.value });
@@ -70,6 +74,7 @@ export const SequenceTaskItem = ({
           value={task.delay}
           onChange={handleDelayChange}
           error={validationErrors[`sequenceTask_${taskIndex}_delay`]}
+          onValidate={onValidateDelay ? (amount, unit) => onValidateDelay(amount, unit, `sequenceTask_${taskIndex}_delay`) : undefined}
         />
       </div>
 
@@ -78,6 +83,7 @@ export const SequenceTaskItem = ({
         <Input
           value={task.taskName}
           onChange={handleNameChange}
+          onBlur={() => onValidateTaskName?.(task.taskName, `sequenceTask_${taskIndex}_name`)}
           placeholder="Nom de la tâche"
         />
         {validationErrors[`sequenceTask_${taskIndex}_name`] && (

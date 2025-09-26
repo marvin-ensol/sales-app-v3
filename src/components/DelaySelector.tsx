@@ -8,9 +8,10 @@ interface DelaySelectorProps {
   };
   onChange: (value: { amount: number; unit: 'minutes' | 'hours' | 'days' }) => void;
   error?: string;
+  onValidate?: (amount: number, unit: string) => void;
 }
 
-export const DelaySelector = ({ value, onChange, error }: DelaySelectorProps) => {
+export const DelaySelector = ({ value, onChange, error, onValidate }: DelaySelectorProps) => {
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const amount = parseInt(e.target.value) || 0;
     onChange({ ...value, amount });
@@ -28,6 +29,7 @@ export const DelaySelector = ({ value, onChange, error }: DelaySelectorProps) =>
           min="1"
           value={value.amount}
           onChange={handleAmountChange}
+          onBlur={() => onValidate?.(value.amount, value.unit)}
           className="w-20"
           placeholder="1"
         />
