@@ -203,7 +203,7 @@ export const SequenceConfig = ({
       />
 
       {/* Sequence Exit Configuration */}
-      <div className="space-y-4 p-4 border rounded-lg bg-blue-50/80 border-blue-200">
+      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
         <h4 className="font-medium">Sortie de séquence</h4>
         
         <div className="flex items-center space-x-2">
@@ -275,18 +275,20 @@ export const SequenceConfig = ({
                 </Command>
               </PopoverContent>
             </Popover>
-            <div className="mt-2 flex justify-end">
-              <Button
-                variant="link"
-                size="sm"
-                onClick={onRefreshLists}
-                disabled={refreshingLists}
-                className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
-              >
-                <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
-                {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
-              </Button>
-            </div>
+            {!createInitialTask && (
+              <div className="mt-2 flex justify-end">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={onRefreshLists}
+                  disabled={refreshingLists}
+                  className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                >
+                  <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                  {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

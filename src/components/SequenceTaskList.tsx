@@ -47,7 +47,7 @@ export const SequenceTaskList = ({ tasks, onTasksChange }: SequenceTaskListProps
           taskNumber={index + 2} // Start from 2 since Task 1 is handled separately
           onUpdate={(updatedTask) => updateTask(index, updatedTask)}
           onRemove={() => removeTask(index)}
-          canRemove={tasks.length > 1}
+          canRemove={tasks.length > 1 && index > 0}
         />
       ))}
       
@@ -55,7 +55,6 @@ export const SequenceTaskList = ({ tasks, onTasksChange }: SequenceTaskListProps
         type="button"
         variant="outline"
         onClick={addTask}
-        className="w-full"
       >
         <Plus className="h-4 w-4 mr-2" />
         Ajouter une tâche
