@@ -378,6 +378,9 @@ export const SequenceConfig = ({
                 </Button>
               )}
             </div>
+            {validationErrors.initialTaskList && (
+              <p className="text-sm text-destructive mt-1">{validationErrors.initialTaskList}</p>
+            )}
             <div className="mt-2 flex justify-end">
                 <Button
                   variant="link"
