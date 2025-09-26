@@ -298,14 +298,20 @@ export type Database = {
           color: string | null
           created_at: string
           display_automation_card: boolean
+          first_task_creation: boolean | null
           hs_queue_id: string | null
           id: number
           label: string | null
           locks_lower_categories: boolean | null
           order_column: number
+          schedule_configuration: Json | null
+          schedule_enabled: boolean | null
+          sequence_enabled: boolean | null
+          sequence_exit_enabled: boolean | null
           sequence_list_id: string | null
           system_default: boolean | null
           task_display_order: string | null
+          tasks_configuration: Json | null
           visible_team_ids: Json | null
         }
         Insert: {
@@ -313,14 +319,20 @@ export type Database = {
           color?: string | null
           created_at?: string
           display_automation_card?: boolean
+          first_task_creation?: boolean | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
           locks_lower_categories?: boolean | null
           order_column: number
+          schedule_configuration?: Json | null
+          schedule_enabled?: boolean | null
+          sequence_enabled?: boolean | null
+          sequence_exit_enabled?: boolean | null
           sequence_list_id?: string | null
           system_default?: boolean | null
           task_display_order?: string | null
+          tasks_configuration?: Json | null
           visible_team_ids?: Json | null
         }
         Update: {
@@ -328,14 +340,20 @@ export type Database = {
           color?: string | null
           created_at?: string
           display_automation_card?: boolean
+          first_task_creation?: boolean | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
           locks_lower_categories?: boolean | null
           order_column?: number
+          schedule_configuration?: Json | null
+          schedule_enabled?: boolean | null
+          sequence_enabled?: boolean | null
+          sequence_exit_enabled?: boolean | null
           sequence_list_id?: string | null
           system_default?: boolean | null
           task_display_order?: string | null
+          tasks_configuration?: Json | null
           visible_team_ids?: Json | null
         }
         Relationships: []
