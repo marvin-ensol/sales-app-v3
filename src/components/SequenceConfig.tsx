@@ -11,11 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { AlertTriangle, ChevronsUpDown, Check, Repeat, Plus, X, CalendarIcon } from "lucide-react";
-import { SequenceTaskList } from "./SequenceTaskList";
+import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
+import { TaskOwnerSelector } from "./TaskOwnerSelector";
 
 interface SequenceTask {
   id: string;
   taskName: string;
+  owner: TaskOwnerType;
   delay: {
     amount: number;
     unit: 'minutes' | 'hours' | 'days';
@@ -67,6 +69,7 @@ interface SequenceConfig {
   categoryId: number;
   createInitialTask: boolean;
   initialTaskName: string;
+  initialTaskOwner: TaskOwnerType;
   sequenceTasks: SequenceTask[];
   canInterruptSequence: boolean;
   useWorkingHours: boolean;
@@ -88,18 +91,13 @@ export const SequenceConfig = ({
 }: SequenceConfigProps) => {
   const [createInitialTask, setCreateInitialTask] = useState(true);
   const [initialTaskName, setInitialTaskName] = useState("");
+  const [initialTaskOwner, setInitialTaskOwner] = useState<TaskOwnerType>('contact_owner');
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
   const [canInterruptSequence, setCanInterruptSequence] = useState(false);
   const [exitListPopoverOpen, setExitListPopoverOpen] = useState(false);
   const [useWorkingHours, setUseWorkingHours] = useState(false);
   const [sequenceMode, setSequenceMode] = useState(false);
-  const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([
-    {
-      id: "task-1",
-      taskName: "",
-      delay: { amount: 1, unit: 'hours' }
-    }
-  ]);
+  const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([]);
 
   const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({
     lundi: { enabled: true, startTime: "09:00", endTime: "18:00" },
@@ -120,6 +118,7 @@ export const SequenceConfig = ({
         categoryId,
         createInitialTask,
         initialTaskName,
+        initialTaskOwner,
         sequenceTasks,
         canInterruptSequence,
         useWorkingHours,
@@ -269,6 +268,11 @@ export const SequenceConfig = ({
                 placeholder="Nom de la première tâche"
               />
             </div>
+
+            <TaskOwnerSelector
+              value={initialTaskOwner}
+              onChange={setInitialTaskOwner}
+            />
           </div>
         )}
 

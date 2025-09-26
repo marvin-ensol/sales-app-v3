@@ -1,11 +1,14 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DelaySelector } from "./DelaySelector";
+import { TaskOwnerSelector } from "./TaskOwnerSelector";
 import { Trash2 } from "lucide-react";
+import { TaskOwnerType } from "./SequenceTaskList";
 
 interface SequenceTask {
   id: string;
   taskName: string;
+  owner: TaskOwnerType;
   delay: {
     amount: number;
     unit: 'minutes' | 'hours' | 'days';
@@ -33,6 +36,10 @@ export const SequenceTaskItem = ({
 
   const handleDelayChange = (delay: { amount: number; unit: 'minutes' | 'hours' | 'days' }) => {
     onUpdate({ ...task, delay });
+  };
+
+  const handleOwnerChange = (owner: TaskOwnerType) => {
+    onUpdate({ ...task, owner });
   };
 
   return (
@@ -69,6 +76,11 @@ export const SequenceTaskItem = ({
           placeholder="Nom de la tâche"
         />
       </div>
+
+      <TaskOwnerSelector
+        value={task.owner}
+        onChange={handleOwnerChange}
+      />
     </div>
   );
 };

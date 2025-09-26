@@ -3,9 +3,12 @@ import { Button } from "@/components/ui/button";
 import { SequenceTaskItem } from "./SequenceTaskItem";
 import { Plus } from "lucide-react";
 
+export type TaskOwnerType = 'no_owner' | 'contact_owner' | 'previous_task_owner';
+
 interface SequenceTask {
   id: string;
   taskName: string;
+  owner: TaskOwnerType;
   delay: {
     amount: number;
     unit: 'minutes' | 'hours' | 'days';
@@ -23,6 +26,7 @@ export const SequenceTaskList = ({ tasks, onTasksChange, onSequenceDelete }: Seq
     const newTask: SequenceTask = {
       id: `task-${Date.now()}`,
       taskName: '',
+      owner: 'previous_task_owner',
       delay: { amount: 1, unit: 'hours' }
     };
     onTasksChange([...tasks, newTask]);
@@ -57,14 +61,16 @@ export const SequenceTaskList = ({ tasks, onTasksChange, onSequenceDelete }: Seq
         />
       ))}
       
-      <Button
-        type="button"
-        variant="outline"
-        onClick={addTask}
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Ajouter une tâche
-      </Button>
+      <div className="flex justify-center">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addTask}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Ajouter une tâche
+        </Button>
+      </div>
     </div>
   );
 };
