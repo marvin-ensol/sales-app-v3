@@ -76,6 +76,13 @@ interface SequenceConfig {
   useWorkingHours: boolean;
   workingHours: WorkingHoursConfig;
   nonWorkingDates: Date[];
+  // New database format
+  first_task_creation?: boolean;
+  sequence_enabled?: boolean;
+  sequence_exit_enabled?: boolean;
+  schedule_enabled?: boolean;
+  tasks_configuration?: any;
+  schedule_configuration?: any;
 }
 
 export const SequenceConfig = ({ 
@@ -162,6 +169,62 @@ export const SequenceConfig = ({
     return errors;
   };
 
+  // Helper function to build tasks configuration JSONB
+  const buildTasksConfiguration = () => {
+    const config: any = {};
+
+    // Initial task configuration
+    if (createInitialTask) {
+      config.initial_task = {
+        name: initialTaskName,
+        owner: initialTaskOwner,
+        list_id: selectedListId || ""
+      };
+    }
+
+    // Sequence tasks configuration with sequential IDs
+    if (sequenceTasks.length > 0) {
+      config.sequence_tasks = sequenceTasks.map((task, index) => ({
+        id: index + 1,
+        name: task.taskName,
+        owner: task.owner,
+        delay: {
+          amount: task.delay.amount,
+          unit: task.delay.unit
+        }
+      }));
+    }
+
+    // Exit sequence configuration
+    if (canInterruptSequence) {
+      config.exit_sequence = {
+        list_id: selectedListId || ""
+      };
+    }
+
+    return config;
+  };
+
+  // Helper function to build boolean flags
+  const buildBooleanFlags = () => {
+    return {
+      first_task_creation: createInitialTask,
+      sequence_enabled: sequenceTasks.length >= 1,
+      sequence_exit_enabled: canInterruptSequence,
+      schedule_enabled: useWorkingHours && Object.values(workingHours).some(day => day.enabled)
+    };
+  };
+
+  // Helper function to build schedule configuration JSONB
+  const buildScheduleConfiguration = () => {
+    if (!useWorkingHours) return null;
+
+    return {
+      working_hours: workingHours,
+      non_working_dates: nonWorkingDates.map(date => date.toISOString())
+    };
+  };
+
   const handleSave = async () => {
     const errors = validateConfig();
     setValidationErrors(errors);
@@ -176,6 +239,10 @@ export const SequenceConfig = ({
     }
 
     try {
+      const booleanFlags = buildBooleanFlags();
+      const tasksConfiguration = buildTasksConfiguration();
+      const scheduleConfiguration = buildScheduleConfiguration();
+
       await onSave({
         categoryId,
         createInitialTask,
@@ -185,7 +252,11 @@ export const SequenceConfig = ({
         canInterruptSequence,
         useWorkingHours,
         workingHours,
-        nonWorkingDates
+        nonWorkingDates,
+        // New database format
+        ...booleanFlags,
+        tasks_configuration: tasksConfiguration,
+        schedule_configuration: scheduleConfiguration
       });
     } catch (error) {
       console.error('Error saving sequence config:', error);
