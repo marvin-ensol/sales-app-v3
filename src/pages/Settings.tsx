@@ -298,7 +298,7 @@ const Settings = () => {
     setSequenceForm({ sequence_list_id: "" });
   };
 
-  const handleEditSequenceSave = async () => {
+  const handleEditSequenceSave = async (config?: any) => {
     if (!editingSequence) return;
     
     setIsSubmitting(true);
@@ -313,7 +313,16 @@ const Settings = () => {
         visible_team_ids: categoryToUpdate.visible_team_ids || [],
         locks_lower_categories: categoryToUpdate.locks_lower_categories || false,
         task_display_order: categoryToUpdate.task_display_order || "oldest_tasks_first",
-        sequence_list_id: sequenceForm.sequence_list_id
+        sequence_list_id: sequenceForm.sequence_list_id,
+        // Add automation configuration fields
+        ...(config && {
+          first_task_creation: config.first_task_creation,
+          sequence_enabled: config.sequence_enabled,
+          sequence_exit_enabled: config.sequence_exit_enabled,
+          schedule_enabled: config.schedule_enabled,
+          tasks_configuration: config.tasks_configuration,
+          schedule_configuration: config.schedule_configuration
+        })
       });
 
       setEditingSequence(null);
@@ -820,13 +829,11 @@ const Settings = () => {
                                   </div>
                                   
                                   {/* Sequence Configuration */}
-                                  <SequenceConfig
-                                    categoryId={category.id}
-                                    onSave={async (config) => {
-                                      // TODO: Save sequence configuration
-                                      console.log('Saving sequence config:', config);
-                                      await handleEditSequenceSave();
-                                    }}
+                                   <SequenceConfig
+                                     categoryId={category.id}
+                                     onSave={async (config) => {
+                                       await handleEditSequenceSave(config);
+                                     }}
                                     onCancel={handleEditSequenceCancel}
                                     isSubmitting={isSubmitting}
                                     hubspotLists={hubspotLists}
