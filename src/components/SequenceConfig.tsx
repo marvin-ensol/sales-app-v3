@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, ChevronsUpDown, Check, Repeat, Plus, X, CalendarIcon } from "lucide-react";
+import { AlertTriangle, ChevronsUpDown, Check, ExternalLink, Repeat, Plus, X, CalendarIcon } from "lucide-react";
 import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
 import { TaskOwnerSelector } from "./TaskOwnerSelector";
 
@@ -130,6 +130,11 @@ export const SequenceConfig = ({
     }
   };
 
+  const openHubSpotList = (listId: string) => {
+    const url = `https://app-eu1.hubspot.com/contacts/142467012/objectLists/${listId}/filters`;
+    window.open(url, '_blank');
+  };
+
   const updateDaySchedule = (day: keyof WorkingHoursConfig, field: keyof DaySchedule, value: boolean | string) => {
     setWorkingHours(prev => ({
       ...prev,
@@ -198,21 +203,22 @@ export const SequenceConfig = ({
         {createInitialTask && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={listPopoverOpen}
-                    className="w-full justify-between"
-                    disabled={listsLoading}
-                  >
-                    {selectedListId
-                      ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
-                      : "Sélectionner une liste..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
+              <div className="flex gap-2">
+                <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={listPopoverOpen}
+                      className="w-full justify-between"
+                      disabled={listsLoading}
+                    >
+                      {selectedListId
+                        ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                        : "Sélectionner une liste..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
                 <PopoverContent className="w-full p-0 bg-background border z-50">
                   <Command>
                     <CommandInput placeholder="Rechercher une liste..." />
@@ -246,7 +252,18 @@ export const SequenceConfig = ({
                   </Command>
                 </PopoverContent>
               </Popover>
-              <div className="mt-2 flex justify-end">
+              {selectedListId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openHubSpotList(selectedListId)}
+                  className="p-2 h-10 w-10"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <div className="mt-2 flex justify-end">
                 <Button
                   variant="link"
                   size="sm"
@@ -354,21 +371,22 @@ export const SequenceConfig = ({
                   </div>
                 ) : (
                   // Interactive dropdown when Task 1 is not enabled
-                  <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={exitListPopoverOpen}
-                        className="w-full justify-between"
-                        disabled={listsLoading}
-                      >
-                        {selectedListId
-                          ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
-                          : "Sélectionner une liste..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
+                  <div className="flex gap-2">
+                    <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={exitListPopoverOpen}
+                          className="w-full justify-between"
+                          disabled={listsLoading}
+                        >
+                          {selectedListId
+                            ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                            : "Sélectionner une liste..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
                     <PopoverContent className="w-full p-0 bg-background border z-50">
                       <Command>
                         <CommandInput placeholder="Rechercher une liste..." />
@@ -402,6 +420,17 @@ export const SequenceConfig = ({
                       </Command>
                     </PopoverContent>
                   </Popover>
+                  {selectedListId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openHubSpotList(selectedListId)}
+                      className="p-2 h-10 w-10"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                  </div>
                 )}
                 {!createInitialTask && (
                   <div className="mt-2 flex justify-end">

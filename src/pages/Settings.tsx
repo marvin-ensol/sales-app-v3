@@ -862,7 +862,8 @@ const Settings = () => {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleDeleteSequence(category.id)}
-                                      disabled={isSubmitting}
+                                      disabled={isSubmitting || (category.automation_enabled ?? true)}
+                                      className={category.automation_enabled ?? true ? "opacity-50 cursor-not-allowed" : ""}
                                     >
                                       <EyeOff className="h-4 w-4" />
                                     </Button>
