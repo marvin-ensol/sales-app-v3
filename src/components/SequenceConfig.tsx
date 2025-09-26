@@ -299,6 +299,37 @@ export const SequenceConfig = ({
     };
   };
 
+  // Helper function to deterministically order schedule JSON for display
+  const orderScheduleForDisplay = (scheduleConfig: any) => {
+    if (!scheduleConfig || !scheduleConfig.working_hours) return scheduleConfig;
+
+    const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const orderedWorkingHours: Record<string, any> = {};
+
+    // Process days in logical order
+    dayOrder.forEach(day => {
+      if (scheduleConfig.working_hours[day]) {
+        const dayConfig = scheduleConfig.working_hours[day];
+        if (dayConfig.enabled) {
+          orderedWorkingHours[day] = {
+            enabled: true,
+            start_time: dayConfig.start_time,
+            end_time: dayConfig.end_time
+          };
+        } else {
+          orderedWorkingHours[day] = {
+            enabled: false
+          };
+        }
+      }
+    });
+
+    return {
+      working_hours: orderedWorkingHours,
+      non_working_dates: scheduleConfig.non_working_dates || []
+    };
+  };
+
   // Helper function to build schedule configuration JSONB
   const buildScheduleConfiguration = () => {
     if (!useWorkingHours) return null;
@@ -363,6 +394,12 @@ export const SequenceConfig = ({
       const booleanFlags = buildBooleanFlags();
       const tasksConfiguration = buildTasksConfiguration();
       const scheduleConfiguration = buildScheduleConfiguration();
+
+      // Log the properly ordered schedule for debugging
+      if (scheduleConfiguration) {
+        const orderedSchedule = orderScheduleForDisplay(scheduleConfiguration);
+        console.log('Schedule Configuration (ordered):', JSON.stringify(orderedSchedule, null, 2));
+      }
 
       await onSave({
         categoryId,
@@ -909,6 +946,18 @@ export const SequenceConfig = ({
              )}
            </div>
         </>
+       )}
+
+      {/* Preview JSON Section */}
+      {useWorkingHours && (
+        <div className="border-t pt-4">
+          <h4 className="font-medium text-sm mb-3">Preview Configuration JSON</h4>
+          <div className="bg-muted p-4 rounded-md">
+            <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+              {JSON.stringify(orderScheduleForDisplay(buildScheduleConfiguration()), null, 2)}
+            </pre>
+          </div>
+        </div>
       )}
 
       {/* Save/Cancel Actions */}
