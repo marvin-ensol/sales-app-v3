@@ -1,5 +1,4 @@
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TaskOwnerType } from "./SequenceTaskList";
 
 interface TaskOwnerSelectorProps {
@@ -8,23 +7,27 @@ interface TaskOwnerSelectorProps {
 }
 
 export const TaskOwnerSelector = ({ value, onChange }: TaskOwnerSelectorProps) => {
+  const ownerOptions = [
+    { value: 'no_owner', label: 'Aucun owner' },
+    { value: 'contact_owner', label: 'Owner du contact' },
+    { value: 'previous_task_owner', label: 'Owner de la tâche précédente' }
+  ];
+
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">Owner de la tâche</label>
-      <RadioGroup value={value} onValueChange={(value) => onChange(value as TaskOwnerType)}>
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="no_owner" id="no_owner" />
-          <Label htmlFor="no_owner">Aucun owner</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="contact_owner" id="contact_owner" />
-          <Label htmlFor="contact_owner">Owner du contact</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <RadioGroupItem value="previous_task_owner" id="previous_task_owner" />
-          <Label htmlFor="previous_task_owner">Owner de la tâche précédente</Label>
-        </div>
-      </RadioGroup>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full bg-background">
+          <SelectValue placeholder="Sélectionner un owner..." />
+        </SelectTrigger>
+        <SelectContent className="bg-background border z-50">
+          {ownerOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };
