@@ -29,7 +29,7 @@ export const SequenceModal = ({
   const availableCategories = useMemo(() => {
     return categories.filter(category => 
       category.hs_queue_id !== null && 
-      !category.display_sequence_card
+      !category.display_automation_card
     );
   }, [categories]);
 

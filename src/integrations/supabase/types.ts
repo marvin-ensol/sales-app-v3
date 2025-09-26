@@ -294,9 +294,10 @@ export type Database = {
       }
       task_categories: {
         Row: {
+          automation_enabled: boolean
           color: string | null
           created_at: string
-          display_sequence_card: boolean
+          display_automation_card: boolean
           hs_queue_id: string | null
           id: number
           label: string | null
@@ -308,9 +309,10 @@ export type Database = {
           visible_team_ids: Json | null
         }
         Insert: {
+          automation_enabled?: boolean
           color?: string | null
           created_at?: string
-          display_sequence_card?: boolean
+          display_automation_card?: boolean
           hs_queue_id?: string | null
           id?: number
           label?: string | null
@@ -322,9 +324,10 @@ export type Database = {
           visible_team_ids?: Json | null
         }
         Update: {
+          automation_enabled?: boolean
           color?: string | null
           created_at?: string
-          display_sequence_card?: boolean
+          display_automation_card?: boolean
           hs_queue_id?: string | null
           id?: number
           label?: string | null

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat } from "lucide-react";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement, CategoryFormData, SequenceFormData } from "@/hooks/useTaskCategoriesManagement";
 import { useHubSpotLists } from "@/hooks/useHubSpotLists";
@@ -23,7 +23,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { teams } = useTeams();
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, createSequence, deleteSequence, refetch: fetchCategories } = useTaskCategoriesManagement();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, createSequence, hideAutomation, toggleAutomationEnabled, refetch: fetchCategories } = useTaskCategoriesManagement();
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -247,25 +247,42 @@ const Settings = () => {
   };
 
   const handleDeleteSequence = async (categoryId: number) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette séquence ?")) {
+    if (!confirm("Êtes-vous sûr de vouloir masquer cette automatisation ?")) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await deleteSequence(categoryId);
+      await hideAutomation(categoryId);
       toast({
         title: "Succès",
-        description: "Séquence supprimée avec succès"
+        description: "Automatisation masquée avec succès"
       });
     } catch (error) {
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer la séquence",
+        description: "Impossible de masquer l'automatisation",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleAutomationEnabled = async (categoryId: number, enabled: boolean) => {
+    try {
+      await toggleAutomationEnabled(categoryId, enabled);
+      toast({
+        title: "Succès",
+        description: enabled ? "Automatisation activée" : "Automatisation désactivée",
+      });
+    } catch (error) {
+      console.error('Error toggling automation:', error);
+      toast({
+        title: "Erreur",
+        description: "Erreur lors de la modification de l'automatisation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -788,7 +805,7 @@ const Settings = () => {
                     {/* Sequences List */}
                     <div className="space-y-3">
                        {categories
-                         .filter(category => category.display_sequence_card)
+                          .filter(category => category.display_automation_card)
                          .map((category) => (
                             <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
                               {editingSequence === category.id ? (
@@ -822,45 +839,40 @@ const Settings = () => {
                                 </div>
                              ) : (
                                /* View Mode */
-                               <div className="flex items-center justify-between">
-                                 <div className="flex items-center gap-3">
-                                   <ColorPreview color={category.color} />
-                                   <div>
-                                     <div className="font-medium">{category.label}</div>
-                                     <div className="text-sm text-gray-500">
-                                       Séquence de tâches
-                                       {(category as any).sequence_list_id && (
-                                         <span className="ml-2">
-                                           • Liste: {hubspotLists.find(list => list.listId === (category as any).sequence_list_id)?.name || "Liste non trouvée"}
-                                         </span>
-                                       )}
-                                     </div>
-                                   </div>
-                                 </div>
-                                 <div className="flex gap-2">
-                                   <Button
-                                     size="sm"
-                                     variant="outline"
-                                     onClick={() => handleEditSequenceStart(category)}
-                                     disabled={isSubmitting}
-                                   >
-                                     <Edit2 className="h-4 w-4" />
-                                   </Button>
-                                   <Button
-                                     size="sm"
-                                     variant="outline"
-                                     onClick={() => handleDeleteSequence(category.id)}
-                                     disabled={isSubmitting}
-                                   >
-                                     <Trash2 className="h-4 w-4" />
-                                   </Button>
-                                 </div>
-                               </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3 flex-1">
+                                    <ColorPreview color={category.color} />
+                                    <div className="font-medium text-lg">{category.label}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={category.automation_enabled ?? true}
+                                      onCheckedChange={(checked) => handleToggleAutomationEnabled(category.id, checked)}
+                                      disabled={isSubmitting}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditSequenceStart(category)}
+                                      disabled={isSubmitting}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDeleteSequence(category.id)}
+                                      disabled={isSubmitting}
+                                    >
+                                      <EyeOff className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
                              )}
                            </div>
                          ))}
 
-                      {categories.filter(category => category.display_sequence_card).length === 0 && (
+                      {categories.filter(category => category.display_automation_card).length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                           <Repeat className="h-12 w-12 mx-auto mb-4 opacity-50" />
                           <p>Aucune séquence créée</p>

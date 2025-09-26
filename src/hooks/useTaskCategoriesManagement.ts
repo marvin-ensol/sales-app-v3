@@ -12,7 +12,8 @@ export interface TaskCategoryManagement {
   visible_team_ids?: string[];
   locks_lower_categories?: boolean;
   task_display_order?: string;
-  display_sequence_card?: boolean;
+  display_automation_card?: boolean;
+  automation_enabled?: boolean;
 }
 
 export interface CategoryFormData {
@@ -57,7 +58,8 @@ export const useTaskCategoriesManagement = () => {
           : [],
         locks_lower_categories: category.locks_lower_categories ?? false,
         task_display_order: category.task_display_order ?? 'oldest_tasks_first',
-        display_sequence_card: category.display_sequence_card ?? false
+        display_automation_card: category.display_automation_card ?? false,
+        automation_enabled: category.automation_enabled ?? true
       }));
       setCategories(transformedCategories);
     } catch (err) {
@@ -218,7 +220,7 @@ export const useTaskCategoriesManagement = () => {
     try {
       const { error: updateError } = await supabase
         .from('task_categories')
-        .update({ display_sequence_card: true })
+        .update({ display_automation_card: true })
         .eq('id', sequenceData.categoryId);
 
       if (updateError) {
@@ -234,11 +236,11 @@ export const useTaskCategoriesManagement = () => {
     }
   };
 
-  const deleteSequence = async (categoryId: number) => {
+  const hideAutomation = async (categoryId: number) => {
     try {
       const { error: updateError } = await supabase
         .from('task_categories')
-        .update({ display_sequence_card: false })
+        .update({ display_automation_card: false })
         .eq('id', categoryId);
 
       if (updateError) {
@@ -249,7 +251,27 @@ export const useTaskCategoriesManagement = () => {
       // Refresh categories list
       await fetchCategories();
     } catch (err) {
-      console.error('Error deleting sequence:', err);
+      console.error('Error hiding automation:', err);
+      throw err;
+    }
+  };
+
+  const toggleAutomationEnabled = async (categoryId: number, enabled: boolean) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('task_categories')
+        .update({ automation_enabled: enabled })
+        .eq('id', categoryId);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error toggling automation:', err);
       throw err;
     }
   };
@@ -268,6 +290,7 @@ export const useTaskCategoriesManagement = () => {
     deleteCategory,
     updateCategoryOrder,
     createSequence,
-    deleteSequence
+    hideAutomation,
+    toggleAutomationEnabled
   };
 };
