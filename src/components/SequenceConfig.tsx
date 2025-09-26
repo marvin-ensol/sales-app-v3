@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, ChevronsUpDown, Check, Repeat } from "lucide-react";
 import { SequenceTaskList } from "./SequenceTaskList";
 
@@ -16,6 +17,22 @@ interface SequenceTask {
     amount: number;
     unit: 'minutes' | 'hours' | 'days';
   };
+}
+
+interface DaySchedule {
+  enabled: boolean;
+  startTime: string; // HH:MM format
+  endTime: string;   // HH:MM format
+}
+
+interface WorkingHoursConfig {
+  lundi: DaySchedule;
+  mardi: DaySchedule;
+  mercredi: DaySchedule;
+  jeudi: DaySchedule;
+  vendredi: DaySchedule;
+  samedi: DaySchedule;
+  dimanche: DaySchedule;
 }
 
 interface HubSpotList {
@@ -49,6 +66,8 @@ interface SequenceConfig {
   initialTaskName: string;
   sequenceTasks: SequenceTask[];
   canInterruptSequence: boolean;
+  useWorkingHours: boolean;
+  workingHours: WorkingHoursConfig;
 }
 
 export const SequenceConfig = ({ 
@@ -68,6 +87,7 @@ export const SequenceConfig = ({
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
   const [canInterruptSequence, setCanInterruptSequence] = useState(false);
   const [exitListPopoverOpen, setExitListPopoverOpen] = useState(false);
+  const [useWorkingHours, setUseWorkingHours] = useState(false);
   const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([
     {
       id: "task-1",
@@ -76,6 +96,16 @@ export const SequenceConfig = ({
     }
   ]);
 
+  const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({
+    lundi: { enabled: true, startTime: "09:00", endTime: "18:00" },
+    mardi: { enabled: true, startTime: "09:00", endTime: "18:00" },
+    mercredi: { enabled: true, startTime: "09:00", endTime: "18:00" },
+    jeudi: { enabled: true, startTime: "09:00", endTime: "18:00" },
+    vendredi: { enabled: true, startTime: "09:00", endTime: "18:00" },
+    samedi: { enabled: false, startTime: "09:00", endTime: "18:00" },
+    dimanche: { enabled: false, startTime: "09:00", endTime: "18:00" }
+  });
+
   const handleSave = async () => {
     try {
       await onSave({
@@ -83,12 +113,34 @@ export const SequenceConfig = ({
         createInitialTask,
         initialTaskName,
         sequenceTasks,
-        canInterruptSequence
+        canInterruptSequence,
+        useWorkingHours,
+        workingHours
       });
     } catch (error) {
       console.error('Error saving sequence config:', error);
     }
   };
+
+  const updateDaySchedule = (day: keyof WorkingHoursConfig, field: keyof DaySchedule, value: boolean | string) => {
+    setWorkingHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [field]: value
+      }
+    }));
+  };
+
+  const dayNames: Array<{ key: keyof WorkingHoursConfig; label: string }> = [
+    { key: 'lundi', label: 'Lundi' },
+    { key: 'mardi', label: 'Mardi' },
+    { key: 'mercredi', label: 'Mercredi' },
+    { key: 'jeudi', label: 'Jeudi' },
+    { key: 'vendredi', label: 'Vendredi' },
+    { key: 'samedi', label: 'Samedi' },
+    { key: 'dimanche', label: 'Dimanche' }
+  ];
 
   return (
     <div className="space-y-4">
@@ -297,6 +349,81 @@ export const SequenceConfig = ({
                 </Button>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Working Hours Configuration */}
+      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+        <h4 className="font-medium">Horaires de travail</h4>
+        
+        <div className="flex items-start space-x-2">
+          <Checkbox
+            id="use-working-hours"
+            checked={useWorkingHours}
+            onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
+          />
+          <label
+            htmlFor="use-working-hours"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
+          </label>
+        </div>
+
+        {useWorkingHours && (
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-32">Jour</TableHead>
+                  <TableHead className="w-24">Début</TableHead>
+                  <TableHead className="w-24">Fin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dayNames.map(({ key, label }) => (
+                  <TableRow key={key}>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`day-${key}`}
+                          checked={workingHours[key].enabled}
+                          onCheckedChange={(checked) => updateDaySchedule(key, 'enabled', checked as boolean)}
+                        />
+                        <label htmlFor={`day-${key}`} className="text-sm font-medium">
+                          {label}
+                        </label>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {workingHours[key].enabled ? (
+                        <Input
+                          type="time"
+                          value={workingHours[key].startTime}
+                          onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
+                          className="w-full"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Indisponible</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {workingHours[key].enabled ? (
+                        <Input
+                          type="time"
+                          value={workingHours[key].endTime}
+                          onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
+                          className="w-full"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Indisponible</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
