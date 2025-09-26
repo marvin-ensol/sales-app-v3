@@ -219,9 +219,35 @@ export const SequenceConfig = ({
   const buildScheduleConfiguration = () => {
     if (!useWorkingHours) return null;
 
+    // Map French day names to English abbreviated
+    const dayMapping = {
+      lundi: 'mon',
+      mardi: 'tue', 
+      mercredi: 'wed',
+      jeudi: 'thu',
+      vendredi: 'fri',
+      samedi: 'sat',
+      dimanche: 'sun'
+    };
+
+    const mappedWorkingHours: Record<string, any> = {};
+    Object.entries(workingHours).forEach(([frenchDay, schedule]) => {
+      const englishDay = dayMapping[frenchDay as keyof typeof dayMapping];
+      mappedWorkingHours[englishDay] = {
+        enabled: schedule.enabled,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime
+      };
+    });
+
     return {
-      working_hours: workingHours,
-      non_working_dates: nonWorkingDates.map(date => date.toISOString())
+      working_hours: mappedWorkingHours,
+      non_working_dates: nonWorkingDates.map(date => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      })
     };
   };
 
