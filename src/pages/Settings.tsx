@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TeamSelector } from "@/components/TeamSelector";
 import { useTeams } from "@/hooks/useTeams";
 import { SequenceModal } from "@/components/SequenceModal";
+import { SequenceConfig } from "@/components/SequenceConfig";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -789,107 +790,98 @@ const Settings = () => {
                        {categories
                          .filter(category => category.display_sequence_card)
                          .map((category) => (
-                           <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
-                             {editingSequence === category.id ? (
-                               /* Edit Mode */
-                               <div className="space-y-4">
-                                 <div className="flex items-center gap-3">
-                                   <ColorPreview color={category.color} />
-                                   <div>
-                                     <div className="font-medium">{category.label}</div>
-                                     <div className="text-sm text-gray-500">Édition de la séquence</div>
-                                   </div>
-                                 </div>
-                                 
-                                 <div className="space-y-3">
-                                   <div>
-                                     <Label htmlFor={`sequence-list-${category.id}`}>
-                                       Interrompre la séquence quand le contact quitte la liste contact
-                                     </Label>
-                                     <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
-                                       <PopoverTrigger asChild>
-                                         <Button
-                                           variant="outline"
-                                           role="combobox"
-                                           aria-expanded={listPopoverOpen}
-                                           className="w-full justify-between"
-                                           disabled={listsLoading}
-                                         >
-                                           {sequenceForm.sequence_list_id
-                                             ? hubspotLists.find(list => list.listId === sequenceForm.sequence_list_id)?.name || "Liste non trouvée"
-                                             : "Sélectionner une liste..."}
-                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                         </Button>
-                                       </PopoverTrigger>
-                                       <PopoverContent className="w-full p-0">
-                                         <Command>
-                                           <CommandInput placeholder="Rechercher une liste..." />
-                                           <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
-                                           <CommandList>
-                                             <CommandGroup>
-                                               {hubspotLists.map((list) => (
-                                                 <CommandItem
-                                                   key={list.listId}
-                                                   value={list.name}
-                                                   onSelect={() => {
-                                                     setSequenceForm(prev => ({ ...prev, sequence_list_id: list.listId }));
-                                                     setListPopoverOpen(false);
-                                                   }}
-                                                 >
-                                                   <Check
-                                                     className={`mr-2 h-4 w-4 ${
-                                                       sequenceForm.sequence_list_id === list.listId ? "opacity-100" : "opacity-0"
-                                                     }`}
-                                                   />
-                                                   <div>
-                                                     <div className="font-medium">{list.name}</div>
-                                                     <div className="text-sm text-gray-500">
-                                                       {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
-                                                     </div>
-                                                   </div>
-                                                 </CommandItem>
-                                               ))}
-                                             </CommandGroup>
-                                           </CommandList>
-                                         </Command>
-                                       </PopoverContent>
-                                      </Popover>
-                                      <div className="mt-2">
-                                        <Button
-                                          variant="link"
-                                          size="sm"
-                                          onClick={handleRefreshLists}
-                                          disabled={refreshingLists}
-                                          className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
-                                        >
-                                          <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
-                                          {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
-                                        </Button>
-                                      </div>
+                            <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
+                              {editingSequence === category.id ? (
+                                /* Edit Mode */
+                                <div className="space-y-4">
+                                  <div className="flex items-center gap-3">
+                                    <ColorPreview color={category.color} />
+                                    <div>
+                                      <div className="font-medium">{category.label}</div>
+                                      <div className="text-sm text-gray-500">Édition de la séquence</div>
                                     </div>
                                   </div>
+                                  
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label htmlFor={`sequence-list-${category.id}`}>
+                                        Interrompre la séquence quand le contact quitte la liste contact
+                                      </Label>
+                                      <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={listPopoverOpen}
+                                            className="w-full justify-between"
+                                            disabled={listsLoading}
+                                          >
+                                            {sequenceForm.sequence_list_id
+                                              ? hubspotLists.find(list => list.listId === sequenceForm.sequence_list_id)?.name || "Liste non trouvée"
+                                              : "Sélectionner une liste..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0">
+                                          <Command>
+                                            <CommandInput placeholder="Rechercher une liste..." />
+                                            <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                                            <CommandList>
+                                              <CommandGroup>
+                                                {hubspotLists.map((list) => (
+                                                  <CommandItem
+                                                    key={list.listId}
+                                                    value={list.name}
+                                                    onSelect={() => {
+                                                      setSequenceForm(prev => ({ ...prev, sequence_list_id: list.listId }));
+                                                      setListPopoverOpen(false);
+                                                    }}
+                                                  >
+                                                    <Check
+                                                      className={`mr-2 h-4 w-4 ${
+                                                        sequenceForm.sequence_list_id === list.listId ? "opacity-100" : "opacity-0"
+                                                      }`}
+                                                    />
+                                                    <div>
+                                                      <div className="font-medium">{list.name}</div>
+                                                      <div className="text-sm text-gray-500">
+                                                        {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                                                      </div>
+                                                    </div>
+                                                  </CommandItem>
+                                                ))}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                       </Popover>
+                                       <div className="mt-2">
+                                         <Button
+                                           variant="link"
+                                           size="sm"
+                                           onClick={handleRefreshLists}
+                                           disabled={refreshingLists}
+                                           className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                                         >
+                                           <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                                           {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                                         </Button>
+                                       </div>
+                                     </div>
 
-                                 <div className="flex gap-2 justify-end">
-                                   <Button
-                                     size="sm"
-                                     variant="outline"
-                                     onClick={handleEditSequenceCancel}
-                                     disabled={isSubmitting}
-                                   >
-                                     <X className="h-4 w-4 mr-2" />
-                                     Annuler
-                                   </Button>
-                                   <Button
-                                     size="sm"
-                                     onClick={handleEditSequenceSave}
-                                     disabled={isSubmitting}
-                                     className="bg-black hover:bg-gray-800 text-white"
-                                   >
-                                     <Save className="h-4 w-4 mr-2" />
-                                     Enregistrer
-                                   </Button>
-                                 </div>
-                               </div>
+                                     {/* Sequence Configuration */}
+                                     <SequenceConfig
+                                       categoryId={category.id}
+                                       onSave={async (config) => {
+                                         // TODO: Save sequence configuration
+                                         console.log('Saving sequence config:', config);
+                                         await handleEditSequenceSave();
+                                       }}
+                                       onCancel={handleEditSequenceCancel}
+                                       isSubmitting={isSubmitting}
+                                     />
+                                   </div>
+                                </div>
                              ) : (
                                /* View Mode */
                                <div className="flex items-center justify-between">
