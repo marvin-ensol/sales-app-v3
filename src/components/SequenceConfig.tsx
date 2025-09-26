@@ -948,17 +948,6 @@ export const SequenceConfig = ({
         </>
        )}
 
-      {/* Preview JSON Section */}
-      {useWorkingHours && (
-        <div className="border-t pt-4">
-          <h4 className="font-medium text-sm mb-3">Preview Configuration JSON</h4>
-          <div className="bg-muted p-4 rounded-md">
-            <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-              {JSON.stringify(orderScheduleForDisplay(buildScheduleConfiguration()), null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
 
       {/* Save/Cancel Actions */}
       <div className="flex gap-2 justify-end">
