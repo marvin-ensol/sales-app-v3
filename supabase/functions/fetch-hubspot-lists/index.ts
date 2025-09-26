@@ -45,24 +45,30 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Fetching contact lists from HubSpot...');
 
-    // Call HubSpot Lists API
+    // Call HubSpot Lists API with the exact structure requested
+    const requestBody = {
+      "count": 500,
+      "offset": 0,
+      "query": "",
+      "sort": "-HS_UPDATED_AT",
+      "processingTypes": [
+        "MANUAL", 
+        "DYNAMIC"
+      ]
+    };
+
+    console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
+
     const hubspotResponse = await fetch('https://api.hubapi.com/crm/v3/lists/search', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${hubspotToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        count: 500,
-        offset: 0,
-        query: "",
-        sort: "-HS_UPDATED_AT",
-        processingTypes: [
-          "MANUAL",
-          "DYNAMIC"
-        ]
-      })
+      body: JSON.stringify(requestBody)
     });
+
+    console.log('📡 HubSpot API response status:', hubspotResponse.status);
 
     if (!hubspotResponse.ok) {
       const errorText = await hubspotResponse.text();
