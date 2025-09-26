@@ -6,18 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTaskCategoriesManagement, CategoryFormData } from "@/hooks/useTaskCategoriesManagement";
+import { useTaskCategoriesManagement, CategoryFormData, SequenceFormData } from "@/hooks/useTaskCategoriesManagement";
 import { useToast } from "@/hooks/use-toast";
 import { TeamSelector } from "@/components/TeamSelector";
 import { useTeams } from "@/hooks/useTeams";
+import { SequenceModal } from "@/components/SequenceModal";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { teams } = useTeams();
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, createSequence, deleteSequence, refetch: fetchCategories } = useTaskCategoriesManagement();
   
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
@@ -26,6 +27,10 @@ const Settings = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
+  
+  // Sequences state
+  const [showSequenceModal, setShowSequenceModal] = useState(false);
+  const [isSequencesCollapsed, setIsSequencesCollapsed] = useState(true);
 
   // Sync local categories with fetched categories
   useEffect(() => {
@@ -185,6 +190,48 @@ const Settings = () => {
     }
   };
 
+  const handleCreateSequence = async (categoryId: number) => {
+    setIsSubmitting(true);
+    try {
+      await createSequence({ categoryId });
+      toast({
+        title: "Succès",
+        description: "Séquence créée avec succès"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer la séquence",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSequence = async (categoryId: number) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette séquence ?")) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await deleteSequence(categoryId);
+      toast({
+        title: "Succès",
+        description: "Séquence supprimée avec succès"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la séquence",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const ColorPreview = ({ color }: { color: string }) => (
     <div 
       className="w-6 h-6 rounded border-2 border-white shadow-sm"
@@ -218,12 +265,12 @@ const Settings = () => {
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <SettingsIcon className="h-5 w-5" />
-                    Catégories de Tâches
+                    Catégories de tâches
                   </div>
                   <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${!isCollapsed ? 'rotate-90' : ''}`} />
                 </CardTitle>
                 <CardDescription>
-                  Gérez les catégories utilisées pour organiser vos tâches
+                  Configurez vos catégories et leurs paramètres d'affichage
                 </CardDescription>
               </CardHeader>
             </CollapsibleTrigger>
@@ -621,6 +668,113 @@ const Settings = () => {
             </CollapsibleContent>
           </Collapsible>
         </Card>
+
+        {/* Task Sequences Section */}
+        <Card className="mt-6">
+          <Collapsible open={!isSequencesCollapsed} onOpenChange={(open) => setIsSequencesCollapsed(!open)}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="h-5 w-5" />
+                    Séquences de tâches
+                  </div>
+                  <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${!isSequencesCollapsed ? 'rotate-90' : ''}`} />
+                </CardTitle>
+                <CardDescription>
+                  Programmez la répétition de certaines tâches selon certaines règles
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                {loading && (
+                  <div className="text-center py-4 text-gray-500">
+                    Chargement...
+                  </div>
+                )}
+
+                {error && (
+                  <div className="text-center py-4 text-red-500">
+                    Erreur: {error}
+                  </div>
+                )}
+
+                {!loading && !error && (
+                  <>
+                    {/* Sequences List */}
+                    <div className="space-y-3">
+                      {categories
+                        .filter(category => category.display_sequence_card)
+                        .map((category) => (
+                          <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <ColorPreview color={category.color} />
+                                <div>
+                                  <div className="font-medium">{category.label}</div>
+                                  <div className="text-sm text-gray-500">
+                                    Séquence de tâches
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {/* TODO: Edit sequence */}}
+                                  disabled={isSubmitting}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteSequence(category.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                      {categories.filter(category => category.display_sequence_card).length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <Repeat className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Aucune séquence créée</p>
+                          <p className="text-sm">Cliquez sur "Créer une séquence" pour commencer</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Create Sequence Button */}
+                    <div className="pt-4 border-t">
+                      <Button
+                        onClick={() => setShowSequenceModal(true)}
+                        disabled={isSubmitting}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Créer une séquence
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
+        {/* Sequence Creation Modal */}
+        <SequenceModal
+          open={showSequenceModal}
+          onOpenChange={setShowSequenceModal}
+          categories={categories}
+          onCreateSequence={handleCreateSequence}
+          isSubmitting={isSubmitting}
+        />
       </div>
     </div>
   );

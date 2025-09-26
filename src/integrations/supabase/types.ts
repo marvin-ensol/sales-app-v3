@@ -269,6 +269,7 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          display_sequence_card: boolean
           hs_queue_id: string | null
           id: number
           label: string | null
@@ -281,6 +282,7 @@ export type Database = {
         Insert: {
           color?: string | null
           created_at?: string
+          display_sequence_card?: boolean
           hs_queue_id?: string | null
           id?: number
           label?: string | null
@@ -293,6 +295,7 @@ export type Database = {
         Update: {
           color?: string | null
           created_at?: string
+          display_sequence_card?: boolean
           hs_queue_id?: string | null
           id?: number
           label?: string | null

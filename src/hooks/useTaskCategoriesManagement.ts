@@ -12,6 +12,7 @@ export interface TaskCategoryManagement {
   visible_team_ids?: string[];
   locks_lower_categories?: boolean;
   task_display_order?: string;
+  display_sequence_card?: boolean;
 }
 
 export interface CategoryFormData {
@@ -21,6 +22,10 @@ export interface CategoryFormData {
   visible_team_ids: string[];
   locks_lower_categories: boolean;
   task_display_order: string;
+}
+
+export interface SequenceFormData {
+  categoryId: number;
 }
 
 export const useTaskCategoriesManagement = () => {
@@ -50,7 +55,8 @@ export const useTaskCategoriesManagement = () => {
           ? (category.visible_team_ids as string[])
           : [],
         locks_lower_categories: category.locks_lower_categories ?? false,
-        task_display_order: category.task_display_order ?? 'oldest_tasks_first'
+        task_display_order: category.task_display_order ?? 'oldest_tasks_first',
+        display_sequence_card: category.display_sequence_card ?? false
       }));
       setCategories(transformedCategories);
     } catch (err) {
@@ -206,6 +212,46 @@ export const useTaskCategoriesManagement = () => {
     }
   };
 
+  const createSequence = async (sequenceData: SequenceFormData) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('task_categories')
+        .update({ display_sequence_card: true })
+        .eq('id', sequenceData.categoryId);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error creating sequence:', err);
+      throw err;
+    }
+  };
+
+  const deleteSequence = async (categoryId: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('task_categories')
+        .update({ display_sequence_card: false })
+        .eq('id', categoryId);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error deleting sequence:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -218,6 +264,8 @@ export const useTaskCategoriesManagement = () => {
     createCategory,
     updateCategory,
     deleteCategory,
-    updateCategoryOrder
+    updateCategoryOrder,
+    createSequence,
+    deleteSequence
   };
 };
