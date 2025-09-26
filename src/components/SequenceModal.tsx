@@ -58,9 +58,9 @@ export const SequenceModal = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Créer une séquence</DialogTitle>
+          <DialogTitle>Créer une automatisation</DialogTitle>
           <DialogDescription>
-            Sélectionnez une catégorie de tâches pour créer une nouvelle séquence.
+            Sélectionnez la catégorie de tâches concernée par l'automatisation
           </DialogDescription>
         </DialogHeader>
         
@@ -145,7 +145,7 @@ export const SequenceModal = ({
             onClick={handleCreateSequence}
             disabled={!selectedCategoryId || isSubmitting}
           >
-            Créer la séquence
+            Créer
           </Button>
         </div>
       </DialogContent>

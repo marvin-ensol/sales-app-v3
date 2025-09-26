@@ -292,7 +292,18 @@ export const SequenceConfig = ({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setSequenceMode(true)}
+            onClick={() => {
+              setSequenceMode(true);
+              // Automatically create the first sequence task (Task 2)
+              if (sequenceTasks.length === 0) {
+                setSequenceTasks([{
+                  id: `task-${Date.now()}`,
+                  taskName: '',
+                  owner: 'previous_task_owner',
+                  delay: { amount: 1, unit: 'hours' }
+                }]);
+              }
+            }}
           >
             <Plus className="h-4 w-4 mr-2" />
             Créer une séquence
@@ -307,6 +318,7 @@ export const SequenceConfig = ({
             onSequenceDelete={() => {
               setSequenceMode(false);
               setCreateInitialTask(true);
+              setSequenceTasks([]);
             }}
           />
 
