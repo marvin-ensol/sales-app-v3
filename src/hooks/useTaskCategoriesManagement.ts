@@ -14,6 +14,12 @@ export interface TaskCategoryManagement {
   task_display_order?: string;
   display_automation_card?: boolean;
   automation_enabled?: boolean;
+  first_task_creation?: boolean;
+  sequence_enabled?: boolean;
+  sequence_exit_enabled?: boolean;
+  schedule_enabled?: boolean;
+  tasks_configuration?: any;
+  schedule_configuration?: any;
 }
 
 export interface CategoryFormData {
@@ -24,6 +30,12 @@ export interface CategoryFormData {
   locks_lower_categories: boolean;
   task_display_order: string;
   sequence_list_id?: string;
+  first_task_creation?: boolean;
+  sequence_enabled?: boolean;
+  sequence_exit_enabled?: boolean;
+  schedule_enabled?: boolean;
+  tasks_configuration?: any;
+  schedule_configuration?: any;
 }
 
 export interface SequenceFormData {
@@ -113,17 +125,42 @@ export const useTaskCategoriesManagement = () => {
 
   const updateCategory = async (id: number, categoryData: CategoryFormData) => {
     try {
+      // Build the update payload with base fields
+      const updatePayload: any = {
+        label: categoryData.label,
+        color: categoryData.color,
+        hs_queue_id: categoryData.hs_queue_id || null,
+        visible_team_ids: categoryData.visible_team_ids || [],
+        locks_lower_categories: categoryData.locks_lower_categories ?? false,
+        task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
+        sequence_list_id: categoryData.sequence_list_id || null
+      };
+
+      // Add automation fields if they are provided
+      if (categoryData.first_task_creation !== undefined) {
+        updatePayload.first_task_creation = categoryData.first_task_creation;
+      }
+      if (categoryData.sequence_enabled !== undefined) {
+        updatePayload.sequence_enabled = categoryData.sequence_enabled;
+      }
+      if (categoryData.sequence_exit_enabled !== undefined) {
+        updatePayload.sequence_exit_enabled = categoryData.sequence_exit_enabled;
+      }
+      if (categoryData.schedule_enabled !== undefined) {
+        updatePayload.schedule_enabled = categoryData.schedule_enabled;
+      }
+      if (categoryData.tasks_configuration !== undefined) {
+        updatePayload.tasks_configuration = categoryData.tasks_configuration;
+      }
+      if (categoryData.schedule_configuration !== undefined) {
+        updatePayload.schedule_configuration = categoryData.schedule_configuration;
+      }
+
+      console.log('Updating category with payload:', updatePayload);
+
       const { data, error: updateError } = await supabase
         .from('task_categories')
-        .update({
-          label: categoryData.label,
-          color: categoryData.color,
-          hs_queue_id: categoryData.hs_queue_id || null,
-          visible_team_ids: categoryData.visible_team_ids || [],
-          locks_lower_categories: categoryData.locks_lower_categories ?? false,
-          task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
-          sequence_list_id: categoryData.sequence_list_id || null
-        })
+        .update(updatePayload)
         .eq('id', id)
         .select()
         .single();
@@ -132,6 +169,8 @@ export const useTaskCategoriesManagement = () => {
         console.error('Database update error:', updateError);
         throw updateError;
       }
+
+      console.log('Updated category result:', data);
 
       // Refresh categories list
       await fetchCategories();
