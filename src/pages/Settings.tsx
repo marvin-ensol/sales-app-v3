@@ -828,21 +828,22 @@ const Settings = () => {
                                     </div>
                                   </div>
                                   
-                                  {/* Sequence Configuration */}
-                                   <SequenceConfig
-                                     categoryId={category.id}
-                                     onSave={async (config) => {
-                                       await handleEditSequenceSave(config);
-                                     }}
-                                    onCancel={handleEditSequenceCancel}
-                                    isSubmitting={isSubmitting}
-                                    hubspotLists={hubspotLists}
-                                    listsLoading={listsLoading}
-                                    refreshingLists={refreshingLists}
-                                    onRefreshLists={handleRefreshLists}
-                                    selectedListId={sequenceForm.sequence_list_id}
-                                    onListChange={(listId) => setSequenceForm(prev => ({ ...prev, sequence_list_id: listId }))}
-                                  />
+                                   {/* Sequence Configuration */}
+                                    <SequenceConfig
+                                      categoryId={category.id}
+                                      onSave={async (config) => {
+                                        await handleEditSequenceSave(config);
+                                      }}
+                                     onCancel={handleEditSequenceCancel}
+                                     isSubmitting={isSubmitting}
+                                     hubspotLists={hubspotLists}
+                                     listsLoading={listsLoading}
+                                     refreshingLists={refreshingLists}
+                                     onRefreshLists={handleRefreshLists}
+                                     selectedListId={sequenceForm.sequence_list_id}
+                                     onListChange={(listId) => setSequenceForm(prev => ({ ...prev, sequence_list_id: listId }))}
+                                     initialCategory={category}
+                                   />
                                 </div>
                              ) : (
                                /* View Mode */

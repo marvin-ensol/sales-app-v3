@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { AlertTriangle, ChevronsUpDown, Check, ExternalLink, Repeat, Plus, X, Ca
 import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
 import { TaskOwnerSelector } from "./TaskOwnerSelector";
 import { useToast } from '@/hooks/use-toast';
+import { TaskCategoryManagement } from "@/hooks/useTaskCategoriesManagement";
 
 interface SequenceTask {
   id: string;
@@ -64,6 +65,7 @@ interface SequenceConfigProps {
   onRefreshLists: () => void;
   selectedListId?: string;
   onListChange: (listId: string) => void;
+  initialCategory?: TaskCategoryManagement;
 }
 
 interface SequenceConfig {
@@ -95,7 +97,8 @@ export const SequenceConfig = ({
   refreshingLists,
   onRefreshLists,
   selectedListId,
-  onListChange
+  onListChange,
+  initialCategory
 }: SequenceConfigProps) => {
   const [createInitialTask, setCreateInitialTask] = useState(true);
   const [initialTaskName, setInitialTaskName] = useState("");
@@ -121,6 +124,87 @@ export const SequenceConfig = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
+
+  // Initialize component state from existing category data
+  useEffect(() => {
+    if (initialCategory) {
+      // Set boolean flags
+      setCreateInitialTask(initialCategory.first_task_creation ?? true);
+      setSequenceMode(initialCategory.sequence_enabled ?? false);
+      setCanInterruptSequence(initialCategory.sequence_exit_enabled ?? false);
+      setUseWorkingHours(initialCategory.schedule_enabled ?? false);
+
+      // Parse tasks_configuration JSONB
+      if (initialCategory.tasks_configuration) {
+        const tasksConfig = initialCategory.tasks_configuration;
+        
+        // Initialize initial task data
+        if (tasksConfig.initial_task) {
+          setInitialTaskName(tasksConfig.initial_task.name || "");
+          setInitialTaskOwner(tasksConfig.initial_task.owner || 'contact_owner');
+        }
+
+        // Initialize sequence tasks
+        if (tasksConfig.sequence_tasks && Array.isArray(tasksConfig.sequence_tasks)) {
+          const sequenceTasks = tasksConfig.sequence_tasks.map((task: any) => ({
+            id: `task-${task.id || Date.now() + Math.random()}`,
+            taskName: task.name || "",
+            owner: task.owner || 'contact_owner' as TaskOwnerType,
+            delay: {
+              amount: task.delay?.amount || 1,
+              unit: task.delay?.unit || 'days' as 'minutes' | 'hours' | 'days'
+            }
+          }));
+          setSequenceTasks(sequenceTasks);
+        }
+      }
+
+      // Parse schedule_configuration JSONB
+      if (initialCategory.schedule_configuration) {
+        const scheduleConfig = initialCategory.schedule_configuration;
+        
+        // Initialize working hours (convert from English to French day names)
+        if (scheduleConfig.working_hours) {
+          const dayMapping = {
+            'mon': 'lundi',
+            'tue': 'mardi', 
+            'wed': 'mercredi',
+            'thu': 'jeudi',
+            'fri': 'vendredi',
+            'sat': 'samedi',
+            'sun': 'dimanche'
+          };
+
+          const newWorkingHours = { ...workingHours };
+          Object.entries(scheduleConfig.working_hours).forEach(([englishDay, schedule]: [string, any]) => {
+            const frenchDay = dayMapping[englishDay as keyof typeof dayMapping];
+            if (frenchDay) {
+              newWorkingHours[frenchDay as keyof WorkingHoursConfig] = {
+                enabled: schedule.enabled ?? true,
+                startTime: schedule.startTime || "09:00",
+                endTime: schedule.endTime || "18:00"
+              };
+            }
+          });
+          setWorkingHours(newWorkingHours);
+        }
+
+        // Initialize non-working dates
+        if (scheduleConfig.non_working_dates && Array.isArray(scheduleConfig.non_working_dates)) {
+          const dates = scheduleConfig.non_working_dates
+            .map((dateStr: string) => {
+              try {
+                return new Date(dateStr);
+              } catch {
+                return null;
+              }
+            })
+            .filter((date: Date | null) => date !== null);
+          setNonWorkingDates(dates);
+        }
+      }
+    }
+  }, [initialCategory]);
 
   const validateConfig = () => {
     const errors: Record<string, string> = {};
