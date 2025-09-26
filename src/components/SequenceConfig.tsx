@@ -92,6 +92,7 @@ export const SequenceConfig = ({
   const [canInterruptSequence, setCanInterruptSequence] = useState(false);
   const [exitListPopoverOpen, setExitListPopoverOpen] = useState(false);
   const [useWorkingHours, setUseWorkingHours] = useState(false);
+  const [sequenceMode, setSequenceMode] = useState(false);
   const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([
     {
       id: "task-1",
@@ -184,6 +185,7 @@ export const SequenceConfig = ({
           <Checkbox
             id="create-initial-task"
             checked={createInitialTask}
+            disabled={!sequenceMode}
             onCheckedChange={(checked) => setCreateInitialTask(checked as boolean)}
           />
           <label
@@ -280,239 +282,267 @@ export const SequenceConfig = ({
         )}
       </div>
 
-      {/* Subsequent Tasks */}
-      <SequenceTaskList
-        tasks={sequenceTasks}
-        onTasksChange={setSequenceTasks}
-      />
-
-      {/* Sequence Exit Configuration */}
-      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-        <h4 className="font-medium">Sortie de séquence</h4>
-        
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="can-interrupt-sequence"
-            checked={canInterruptSequence}
-            onCheckedChange={(checked) => setCanInterruptSequence(checked as boolean)}
-          />
-          <label
-            htmlFor="can-interrupt-sequence"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+      {/* Create Sequence Button or Subsequent Tasks */}
+      {!sequenceMode ? (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setSequenceMode(true)}
           >
-            La séquence pourra être interrompue avant les tâches restantes si le contact quitte la liste contact
-          </label>
+            <Plus className="h-4 w-4 mr-2" />
+            Créer une séquence
+          </Button>
         </div>
-
-        {canInterruptSequence && (
-          <div className="space-y-2">
-            {createInitialTask && selectedListId ? (
-              // Read-only display when Task 1 is enabled
-              <div className="w-full p-2 border border-input bg-muted rounded-md">
-                <div className="font-medium">
-                  {hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Liste sélectionnée depuis la Tâche 1
-                </div>
-              </div>
-            ) : (
-              // Interactive dropdown when Task 1 is not enabled
-              <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={exitListPopoverOpen}
-                    className="w-full justify-between"
-                    disabled={listsLoading}
-                  >
-                    {selectedListId
-                      ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
-                      : "Sélectionner une liste..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0 bg-background border z-50">
-                  <Command>
-                    <CommandInput placeholder="Rechercher une liste..." />
-                    <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
-                    <CommandList>
-                      <CommandGroup>
-                        {hubspotLists.map((list) => (
-                          <CommandItem
-                            key={list.listId}
-                            value={list.name}
-                            onSelect={() => {
-                              onListChange(list.listId);
-                              setExitListPopoverOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={`mr-2 h-4 w-4 ${
-                                selectedListId === list.listId ? "opacity-100" : "opacity-0"
-                              }`}
-                            />
-                            <div>
-                              <div className="font-medium">{list.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
-                              </div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            )}
-            {!createInitialTask && (
-              <div className="mt-2 flex justify-end">
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={onRefreshLists}
-                  disabled={refreshingLists}
-                  className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
-                >
-                  <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
-                  {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Working Hours Configuration */}
-      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-        <h4 className="font-medium">Horaires de travail</h4>
-        
-        <div className="flex items-start space-x-2">
-          <Checkbox
-            id="use-working-hours"
-            checked={useWorkingHours}
-            onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
+      ) : (
+        <>
+          {/* Subsequent Tasks */}
+          <SequenceTaskList
+            tasks={sequenceTasks}
+            onTasksChange={setSequenceTasks}
+            onSequenceDelete={() => {
+              setSequenceMode(false);
+              setCreateInitialTask(true);
+            }}
           />
-          <label
-            htmlFor="use-working-hours"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
-          </label>
-        </div>
 
-        {useWorkingHours && (
-          <div className="mt-4 space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-32">Jour</TableHead>
-                  <TableHead className="w-24">Début</TableHead>
-                  <TableHead className="w-24">Fin</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dayNames.map(({ key, label }) => (
-                  <TableRow key={key}>
-                    <TableCell className="h-14">
-                      <div className="flex items-center space-x-2 h-full">
-                        <Checkbox
-                          id={`day-${key}`}
-                          checked={workingHours[key].enabled}
-                          onCheckedChange={(checked) => updateDaySchedule(key, 'enabled', checked as boolean)}
-                        />
-                        <label htmlFor={`day-${key}`} className="text-sm font-medium">
-                          {label}
-                        </label>
-                      </div>
-                    </TableCell>
-                    {workingHours[key].enabled ? (
-                      <>
-                        <TableCell className="h-14">
-                          <div className="flex items-center h-full">
-                            <Input
-                              type="time"
-                              value={workingHours[key].startTime}
-                              onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
-                              className="w-full h-9"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="h-14">
-                          <div className="flex items-center h-full">
-                            <Input
-                              type="time"
-                              value={workingHours[key].endTime}
-                              onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
-                              className="w-full h-9"
-                            />
-                          </div>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <TableCell colSpan={2} className="text-center h-14">
-                        <div className="flex items-center justify-center h-full">
-                          <span className="text-muted-foreground text-sm">Indisponible</span>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {/* Non-Working Dates Section */}
-            <Separator className="my-4" />
-            <div className="space-y-3">
-              <h5 className="font-medium text-sm">Dates non travaillées</h5>
-              
-              {nonWorkingDates.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
-              ) : (
-                <div className="space-y-2">
-                  {nonWorkingDates.map((date, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center justify-between w-fit px-3 py-1">
-                      <span className="text-sm">{formatFrenchDate(date)}</span>
-                      <button
-                        onClick={() => removeDate(date)}
-                        className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-sm p-0.5"
-                        type="button"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Ajouter une date
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={undefined}
-                    onSelect={handleDateSelect}
-                    weekStartsOn={1}
-                    disabled={(date) => 
-                      date < new Date() || 
-                      nonWorkingDates.some(d => d.toDateString() === date.toDateString())
-                    }
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+          {/* Sequence Exit Configuration */}
+          <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+            <h4 className="font-medium">Sortie de séquence</h4>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="can-interrupt-sequence"
+                checked={canInterruptSequence}
+                onCheckedChange={(checked) => setCanInterruptSequence(checked as boolean)}
+              />
+              <label
+                htmlFor="can-interrupt-sequence"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                La séquence pourra être interrompue avant les tâches restantes si le contact quitte la liste contact
+              </label>
             </div>
-          </div>
-        )}
-      </div>
 
+            {canInterruptSequence && (
+              <div className="space-y-2">
+                {createInitialTask && selectedListId ? (
+                  // Read-only display when Task 1 is enabled
+                  <div className="w-full p-2 border border-input bg-muted rounded-md">
+                    <div className="font-medium">
+                      {hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Liste sélectionnée depuis la Tâche 1
+                    </div>
+                  </div>
+                ) : (
+                  // Interactive dropdown when Task 1 is not enabled
+                  <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={exitListPopoverOpen}
+                        className="w-full justify-between"
+                        disabled={listsLoading}
+                      >
+                        {selectedListId
+                          ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                          : "Sélectionner une liste..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0 bg-background border z-50">
+                      <Command>
+                        <CommandInput placeholder="Rechercher une liste..." />
+                        <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                        <CommandList>
+                          <CommandGroup>
+                            {hubspotLists.map((list) => (
+                              <CommandItem
+                                key={list.listId}
+                                value={list.name}
+                                onSelect={() => {
+                                  onListChange(list.listId);
+                                  setExitListPopoverOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    selectedListId === list.listId ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                <div>
+                                  <div className="font-medium">{list.name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {!createInitialTask && (
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={onRefreshLists}
+                      disabled={refreshingLists}
+                      className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                      {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Working Hours Configuration */}
+          <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+            <h4 className="font-medium">Horaires de travail</h4>
+            
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="use-working-hours"
+                checked={useWorkingHours}
+                onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
+              />
+              <label
+                htmlFor="use-working-hours"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
+              </label>
+            </div>
+
+            {useWorkingHours && (
+              <div className="mt-4 space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-32">Jour</TableHead>
+                      <TableHead className="w-24">Début</TableHead>
+                      <TableHead className="w-24">Fin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dayNames.map(({ key, label }) => (
+                      <TableRow key={key}>
+                        <TableCell className="h-14">
+                          <div className="flex items-center space-x-2 h-full">
+                            <Checkbox
+                              id={`day-${key}`}
+                              checked={workingHours[key].enabled}
+                              onCheckedChange={(checked) => updateDaySchedule(key, 'enabled', checked as boolean)}
+                            />
+                            <label htmlFor={`day-${key}`} className="text-sm font-medium">
+                              {label}
+                            </label>
+                          </div>
+                        </TableCell>
+                        {workingHours[key].enabled ? (
+                          <>
+                            <TableCell className="h-14">
+                              <div className="flex items-center h-full">
+                                <Input
+                                  type="time"
+                                  value={workingHours[key].startTime}
+                                  onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
+                                  className="w-full h-9"
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell className="h-14">
+                              <div className="flex items-center h-full">
+                                <Input
+                                  type="time"
+                                  value={workingHours[key].endTime}
+                                  onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
+                                  className="w-full h-9"
+                                />
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="h-14">
+                              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                -
+                              </div>
+                            </TableCell>
+                            <TableCell className="h-14">
+                              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                -
+                              </div>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <h5 className="font-medium text-sm">Dates d'exception (aucune tâche ne sera créée à ces dates)</h5>
+                  
+                  {nonWorkingDates.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {nonWorkingDates.map((date, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center justify-between w-fit px-3 py-1">
+                          <span className="text-sm">{formatFrenchDate(date)}</span>
+                          <button
+                            onClick={() => removeDate(date)}
+                            className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-sm p-0.5"
+                            type="button"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Ajouter une date
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={undefined}
+                        onSelect={handleDateSelect}
+                        weekStartsOn={1}
+                        disabled={(date) => 
+                          date < new Date() || 
+                          nonWorkingDates.some(d => d.toDateString() === date.toDateString())
+                        }
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Save/Cancel Actions */}
       <div className="flex gap-2 justify-end">
         <Button
           size="sm"

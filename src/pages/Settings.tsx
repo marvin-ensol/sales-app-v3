@@ -760,12 +760,12 @@ const Settings = () => {
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Repeat className="h-5 w-5" />
-                    Séquences de tâches
+                    Automatisation de création de tâches
                   </div>
                   <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${expandedSection === 'sequences' ? 'rotate-90' : ''}`} />
                 </CardTitle>
                 <CardDescription>
-                  Programmez la répétition de certaines tâches selon certaines règles
+                  Programmez la création et la répétition de tâches selon certaines règles
                 </CardDescription>
               </CardHeader>
             </CollapsibleTrigger>

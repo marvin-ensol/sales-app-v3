@@ -15,9 +15,10 @@ interface SequenceTask {
 interface SequenceTaskListProps {
   tasks: SequenceTask[];
   onTasksChange: (tasks: SequenceTask[]) => void;
+  onSequenceDelete?: () => void;
 }
 
-export const SequenceTaskList = ({ tasks, onTasksChange }: SequenceTaskListProps) => {
+export const SequenceTaskList = ({ tasks, onTasksChange, onSequenceDelete }: SequenceTaskListProps) => {
   const addTask = () => {
     const newTask: SequenceTask = {
       id: `task-${Date.now()}`,
@@ -34,8 +35,13 @@ export const SequenceTaskList = ({ tasks, onTasksChange }: SequenceTaskListProps
   };
 
   const removeTask = (index: number) => {
-    const newTasks = tasks.filter((_, i) => i !== index);
-    onTasksChange(newTasks);
+    if (index === 0 && onSequenceDelete) {
+      // If removing the first task (Task 2), delete the entire sequence
+      onSequenceDelete();
+    } else {
+      const newTasks = tasks.filter((_, i) => i !== index);
+      onTasksChange(newTasks);
+    }
   };
 
   return (
@@ -47,7 +53,7 @@ export const SequenceTaskList = ({ tasks, onTasksChange }: SequenceTaskListProps
           taskNumber={index + 2} // Start from 2 since Task 1 is handled separately
           onUpdate={(updatedTask) => updateTask(index, updatedTask)}
           onRemove={() => removeTask(index)}
-          canRemove={tasks.length > 1 && index > 0}
+          canRemove={true}
         />
       ))}
       
