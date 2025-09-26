@@ -222,59 +222,67 @@ export const SequenceConfig = ({
 
         {canInterruptSequence && (
           <div className="space-y-2">
-            <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={exitListPopoverOpen}
-                  className="w-full justify-between"
-                  disabled={listsLoading || (createInitialTask && !selectedListId)}
-                >
-                  {createInitialTask && selectedListId
-                    ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
-                    : selectedListId
-                    ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
-                    : "Sélectionner une liste..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0 bg-background border z-50">
-                <Command>
-                  <CommandInput placeholder="Rechercher une liste..." />
-                  <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
-                  <CommandList>
-                    <CommandGroup>
-                      {hubspotLists.map((list) => (
-                        <CommandItem
-                          key={list.listId}
-                          value={list.name}
-                          onSelect={() => {
-                            if (!createInitialTask) {
+            {createInitialTask && selectedListId ? (
+              // Read-only display when Task 1 is enabled
+              <div className="w-full p-2 border border-input bg-muted rounded-md">
+                <div className="font-medium">
+                  {hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Liste sélectionnée depuis la Tâche 1
+                </div>
+              </div>
+            ) : (
+              // Interactive dropdown when Task 1 is not enabled
+              <Popover open={exitListPopoverOpen} onOpenChange={setExitListPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={exitListPopoverOpen}
+                    className="w-full justify-between"
+                    disabled={listsLoading}
+                  >
+                    {selectedListId
+                      ? hubspotLists.find(list => list.listId === selectedListId)?.name || "Liste non trouvée"
+                      : "Sélectionner une liste..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 bg-background border z-50">
+                  <Command>
+                    <CommandInput placeholder="Rechercher une liste..." />
+                    <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {hubspotLists.map((list) => (
+                          <CommandItem
+                            key={list.listId}
+                            value={list.name}
+                            onSelect={() => {
                               onListChange(list.listId);
-                            }
-                            setExitListPopoverOpen(false);
-                          }}
-                          disabled={createInitialTask}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedListId === list.listId ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                          <div>
-                            <div className="font-medium">{list.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                              setExitListPopoverOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                selectedListId === list.listId ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            <div>
+                              <div className="font-medium">{list.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                              </div>
                             </div>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
             {!createInitialTask && (
               <div className="mt-2 flex justify-end">
                 <Button
