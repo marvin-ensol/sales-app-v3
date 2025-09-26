@@ -7,9 +7,10 @@ interface DelaySelectorProps {
     unit: 'minutes' | 'hours' | 'days';
   };
   onChange: (value: { amount: number; unit: 'minutes' | 'hours' | 'days' }) => void;
+  error?: string;
 }
 
-export const DelaySelector = ({ value, onChange }: DelaySelectorProps) => {
+export const DelaySelector = ({ value, onChange, error }: DelaySelectorProps) => {
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const amount = parseInt(e.target.value) || 0;
     onChange({ ...value, amount });
@@ -20,25 +21,30 @@ export const DelaySelector = ({ value, onChange }: DelaySelectorProps) => {
   };
 
   return (
-    <div className="flex gap-2">
-      <Input
-        type="number"
-        min="1"
-        value={value.amount}
-        onChange={handleAmountChange}
-        className="w-20"
-        placeholder="1"
-      />
-      <Select value={value.unit} onValueChange={handleUnitChange}>
-        <SelectTrigger className="w-32">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="minutes">Minutes</SelectItem>
-          <SelectItem value="hours">Heures</SelectItem>
-          <SelectItem value="days">Jours</SelectItem>
-        </SelectContent>
-      </Select>
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          min="1"
+          value={value.amount}
+          onChange={handleAmountChange}
+          className="w-20"
+          placeholder="1"
+        />
+        <Select value={value.unit} onValueChange={handleUnitChange}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="minutes">Minutes</SelectItem>
+            <SelectItem value="hours">Heures</SelectItem>
+            <SelectItem value="days">Jours</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
     </div>
   );
 };

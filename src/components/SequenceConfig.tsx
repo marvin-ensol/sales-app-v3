@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { AlertTriangle, ChevronsUpDown, Check, ExternalLink, Repeat, Plus, X, CalendarIcon } from "lucide-react";
 import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
 import { TaskOwnerSelector } from "./TaskOwnerSelector";
+import { useToast } from '@/hooks/use-toast';
 
 interface SequenceTask {
   id: string;
@@ -111,8 +112,69 @@ export const SequenceConfig = ({
 
   const [nonWorkingDates, setNonWorkingDates] = useState<Date[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const { toast } = useToast();
+
+  const validateConfig = () => {
+    const errors: Record<string, string> = {};
+
+    // Contact list validation - Task 1
+    if (createInitialTask && !selectedListId) {
+      errors.initialTaskList = 'Une liste de contacts doit être sélectionnée';
+    }
+
+    // Contact list validation - Exit sequence
+    if (canInterruptSequence && !createInitialTask && !selectedListId) {
+      errors.interruptionList = 'Une liste de contacts doit être sélectionnée';
+    }
+
+    // Task name validation - Initial task
+    if (createInitialTask && initialTaskName.trim().length < 2) {
+      errors.initialTaskName = 'Le nom de la tâche doit contenir au moins 2 caractères';
+    }
+
+    // Sequence tasks validation
+    sequenceTasks.forEach((task, index) => {
+      if (task.taskName.trim().length < 2) {
+        errors[`sequenceTask_${index}_name`] = 'Le nom de la tâche doit contenir au moins 2 caractères';
+      }
+
+      // Delay validation
+      const { amount, unit } = task.delay;
+      if (unit === 'hours' && (amount < 1 || amount > 24)) {
+        errors[`sequenceTask_${index}_delay`] = 'Les heures doivent être entre 1 et 24';
+      } else if (unit === 'minutes' && (amount < 5 || amount > 60)) {
+        errors[`sequenceTask_${index}_delay`] = 'Les minutes doivent être entre 5 et 60';
+      } else if (unit === 'days' && (amount < 1 || amount > 365)) {
+        errors[`sequenceTask_${index}_delay`] = 'Les jours doivent être entre 1 et 365';
+      }
+    });
+
+    // Working hours special validation
+    if (useWorkingHours) {
+      const hasAtLeastOneDay = Object.values(workingHours).some(day => day.enabled);
+      if (!hasAtLeastOneDay) {
+        setUseWorkingHours(false);
+        errors.workingHours = 'Au moins une journée de disponibilité est nécessaire pour activer cette fonctionnalité';
+      }
+    }
+
+    return errors;
+  };
 
   const handleSave = async () => {
+    const errors = validateConfig();
+    setValidationErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      toast({
+        title: "Erreur de validation",
+        description: "Veuillez corriger les erreurs avant d'enregistrer l'automatisation",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await onSave({
         categoryId,
@@ -284,6 +346,9 @@ export const SequenceConfig = ({
                 onChange={(e) => setInitialTaskName(e.target.value)}
                 placeholder="Nom de la première tâche"
               />
+              {validationErrors.initialTaskName && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.initialTaskName}</p>
+              )}
             </div>
 
             <TaskOwnerSelector
@@ -332,6 +397,7 @@ export const SequenceConfig = ({
           <SequenceTaskList
             tasks={sequenceTasks}
             onTasksChange={setSequenceTasks}
+            validationErrors={validationErrors}
             onSequenceDelete={() => {
               setSequenceMode(false);
               setCreateInitialTask(true);
@@ -430,23 +496,26 @@ export const SequenceConfig = ({
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   )}
-                  </div>
-                )}
-                {!createInitialTask && (
-                  <div className="mt-2 flex justify-end">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={onRefreshLists}
-                      disabled={refreshingLists}
-                      className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
-                      {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
-                    </Button>
-                  </div>
-                )}
-              </div>
+                   </div>
+                 )}
+                 {validationErrors.interruptionList && (
+                   <p className="text-sm text-destructive mt-1">{validationErrors.interruptionList}</p>
+                 )}
+                 {!createInitialTask && (
+                   <div className="mt-2 flex justify-end">
+                     <Button
+                       variant="link"
+                       size="sm"
+                       onClick={onRefreshLists}
+                       disabled={refreshingLists}
+                       className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                     >
+                       <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                       {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                     </Button>
+                   </div>
+                 )}
+               </div>
             )}
           </div>
 
@@ -580,10 +649,13 @@ export const SequenceConfig = ({
                       />
                     </PopoverContent>
                   </Popover>
-                </div>
-              </div>
-            )}
-          </div>
+                 </div>
+                 {validationErrors.workingHours && (
+                   <p className="text-sm text-destructive mt-2">{validationErrors.workingHours}</p>
+                 )}
+               </div>
+             )}
+           </div>
         </>
       )}
 
