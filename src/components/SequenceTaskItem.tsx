@@ -51,50 +51,59 @@ export const SequenceTaskItem = ({
   };
 
   return (
-    <div className="space-y-3 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-      <div className="flex items-center justify-between">
-        <h4 className="font-medium">Tâche {taskNumber}</h4>
-        {canRemove && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRemove}
-            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Délai après la validation de la tâche précédente
-        </label>
-        <DelaySelector
-          value={task.delay}
-          onChange={handleDelayChange}
-          error={validationErrors[`sequenceTask_${taskIndex}_delay`]}
-          onValidate={onValidateDelay ? (amount, unit) => onValidateDelay(amount, unit, `sequenceTask_${taskIndex}_delay`) : undefined}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Nom de cette tâche</label>
-        <Input
-          value={task.taskName}
-          onChange={handleNameChange}
-          onBlur={() => onValidateTaskName?.(task.taskName, `sequenceTask_${taskIndex}_name`)}
-          placeholder="Nom de la tâche"
-        />
+    <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+      {/* Header with task number and inline name input */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <h4 className="font-medium whitespace-nowrap">Tâche {taskNumber}</h4>
+            <Input
+              value={task.taskName}
+              onChange={handleNameChange}
+              onBlur={() => onValidateTaskName?.(task.taskName, `sequenceTask_${taskIndex}_name`)}
+              placeholder="Nom de cette tâche"
+              className="flex-1"
+            />
+          </div>
+          {canRemove && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRemove}
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive shrink-0"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        
         {validationErrors[`sequenceTask_${taskIndex}_name`] && (
-          <p className="text-sm text-destructive mt-1">{validationErrors[`sequenceTask_${taskIndex}_name`]}</p>
+          <p className="text-sm text-destructive">{validationErrors[`sequenceTask_${taskIndex}_name`]}</p>
         )}
       </div>
 
-      <TaskOwnerSelector
-        value={task.owner}
-        onChange={handleOwnerChange}
-      />
+      {/* Divider */}
+      <div className="border-t border-slate-200/80 my-4"></div>
+      
+      {/* Rest of the content */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Délai après la validation de la tâche précédente
+          </label>
+          <DelaySelector
+            value={task.delay}
+            onChange={handleDelayChange}
+            error={validationErrors[`sequenceTask_${taskIndex}_delay`]}
+            onValidate={onValidateDelay ? (amount, unit) => onValidateDelay(amount, unit, `sequenceTask_${taskIndex}_delay`) : undefined}
+          />
+        </div>
+
+        <TaskOwnerSelector
+          value={task.owner}
+          onChange={handleOwnerChange}
+        />
+      </div>
     </div>
   );
 };
