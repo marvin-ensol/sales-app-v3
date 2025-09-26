@@ -9,21 +9,26 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement, CategoryFormData, SequenceFormData } from "@/hooks/useTaskCategoriesManagement";
+import { useHubSpotLists } from "@/hooks/useHubSpotLists";
 import { useToast } from "@/hooks/use-toast";
 import { TeamSelector } from "@/components/TeamSelector";
 import { useTeams } from "@/hooks/useTeams";
 import { SequenceModal } from "@/components/SequenceModal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { teams } = useTeams();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, createSequence, deleteSequence, refetch: fetchCategories } = useTaskCategoriesManagement();
+  const { lists: hubspotLists, loading: listsLoading, searchLists } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -31,6 +36,9 @@ const Settings = () => {
   // Sequences state
   const [showSequenceModal, setShowSequenceModal] = useState(false);
   const [expandedSection, setExpandedSection] = useState<'categories' | 'sequences' | null>(null);
+  const [editingSequence, setEditingSequence] = useState<number | null>(null);
+  const [sequenceForm, setSequenceForm] = useState<{ sequence_list_id: string }>({ sequence_list_id: "" });
+  const [listPopoverOpen, setListPopoverOpen] = useState(false);
 
   // Sync local categories with fetched categories
   useEffect(() => {
@@ -52,13 +60,14 @@ const Settings = () => {
       hs_queue_id: category.hs_queue_id || "",
       visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
       locks_lower_categories: category.locks_lower_categories || false,
-      task_display_order: category.task_display_order || "oldest_tasks_first"
+      task_display_order: category.task_display_order || "oldest_tasks_first",
+      sequence_list_id: (category as any).sequence_list_id || ""
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
   };
 
   const handleEditSave = async () => {
@@ -77,7 +86,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -107,7 +116,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -225,6 +234,53 @@ const Settings = () => {
       toast({
         title: "Erreur",
         description: "Impossible de supprimer la séquence",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditSequenceStart = (category: any) => {
+    setEditingSequence(category.id);
+    setSequenceForm({
+      sequence_list_id: category.sequence_list_id || ""
+    });
+  };
+
+  const handleEditSequenceCancel = () => {
+    setEditingSequence(null);
+    setSequenceForm({ sequence_list_id: "" });
+  };
+
+  const handleEditSequenceSave = async () => {
+    if (!editingSequence) return;
+    
+    setIsSubmitting(true);
+    try {
+      const categoryToUpdate = categories.find(cat => cat.id === editingSequence);
+      if (!categoryToUpdate) return;
+
+      await updateCategory(editingSequence, {
+        label: categoryToUpdate.label,
+        color: categoryToUpdate.color,
+        hs_queue_id: categoryToUpdate.hs_queue_id || "",
+        visible_team_ids: categoryToUpdate.visible_team_ids || [],
+        locks_lower_categories: categoryToUpdate.locks_lower_categories || false,
+        task_display_order: categoryToUpdate.task_display_order || "oldest_tasks_first",
+        sequence_list_id: sequenceForm.sequence_list_id
+      });
+
+      setEditingSequence(null);
+      setSequenceForm({ sequence_list_id: "" });
+      toast({
+        title: "Succès",
+        description: "Séquence mise à jour avec succès"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour la séquence",
         variant: "destructive"
       });
     } finally {
@@ -703,41 +759,137 @@ const Settings = () => {
                   <>
                     {/* Sequences List */}
                     <div className="space-y-3">
-                      {categories
-                        .filter(category => category.display_sequence_card)
-                        .map((category) => (
-                          <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <ColorPreview color={category.color} />
-                                <div>
-                                  <div className="font-medium">{category.label}</div>
-                                  <div className="text-sm text-gray-500">
-                                    Séquence de tâches
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {/* TODO: Edit sequence */}}
-                                  disabled={isSubmitting}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDeleteSequence(category.id)}
-                                  disabled={isSubmitting}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                       {categories
+                         .filter(category => category.display_sequence_card)
+                         .map((category) => (
+                           <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
+                             {editingSequence === category.id ? (
+                               /* Edit Mode */
+                               <div className="space-y-4">
+                                 <div className="flex items-center gap-3">
+                                   <ColorPreview color={category.color} />
+                                   <div>
+                                     <div className="font-medium">{category.label}</div>
+                                     <div className="text-sm text-gray-500">Édition de la séquence</div>
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="space-y-3">
+                                   <div>
+                                     <Label htmlFor={`sequence-list-${category.id}`}>
+                                       Interrompre la séquence quand le contact quitte la liste contact
+                                     </Label>
+                                     <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
+                                       <PopoverTrigger asChild>
+                                         <Button
+                                           variant="outline"
+                                           role="combobox"
+                                           aria-expanded={listPopoverOpen}
+                                           className="w-full justify-between"
+                                           disabled={listsLoading}
+                                         >
+                                           {sequenceForm.sequence_list_id
+                                             ? hubspotLists.find(list => list.listId === sequenceForm.sequence_list_id)?.name || "Liste non trouvée"
+                                             : "Sélectionner une liste..."}
+                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                         </Button>
+                                       </PopoverTrigger>
+                                       <PopoverContent className="w-full p-0">
+                                         <Command>
+                                           <CommandInput placeholder="Rechercher une liste..." />
+                                           <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                                           <CommandList>
+                                             <CommandGroup>
+                                               {hubspotLists.map((list) => (
+                                                 <CommandItem
+                                                   key={list.listId}
+                                                   value={list.name}
+                                                   onSelect={() => {
+                                                     setSequenceForm(prev => ({ ...prev, sequence_list_id: list.listId }));
+                                                     setListPopoverOpen(false);
+                                                   }}
+                                                 >
+                                                   <Check
+                                                     className={`mr-2 h-4 w-4 ${
+                                                       sequenceForm.sequence_list_id === list.listId ? "opacity-100" : "opacity-0"
+                                                     }`}
+                                                   />
+                                                   <div>
+                                                     <div className="font-medium">{list.name}</div>
+                                                     <div className="text-sm text-gray-500">
+                                                       {list.additionalProperties?.hs_list_size} contacts • {list.processingType}
+                                                     </div>
+                                                   </div>
+                                                 </CommandItem>
+                                               ))}
+                                             </CommandGroup>
+                                           </CommandList>
+                                         </Command>
+                                       </PopoverContent>
+                                     </Popover>
+                                   </div>
+                                 </div>
+
+                                 <div className="flex gap-2 justify-end">
+                                   <Button
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={handleEditSequenceCancel}
+                                     disabled={isSubmitting}
+                                   >
+                                     <X className="h-4 w-4 mr-2" />
+                                     Annuler
+                                   </Button>
+                                   <Button
+                                     size="sm"
+                                     onClick={handleEditSequenceSave}
+                                     disabled={isSubmitting}
+                                     className="bg-black hover:bg-gray-800 text-white"
+                                   >
+                                     <Save className="h-4 w-4 mr-2" />
+                                     Enregistrer
+                                   </Button>
+                                 </div>
+                               </div>
+                             ) : (
+                               /* View Mode */
+                               <div className="flex items-center justify-between">
+                                 <div className="flex items-center gap-3">
+                                   <ColorPreview color={category.color} />
+                                   <div>
+                                     <div className="font-medium">{category.label}</div>
+                                     <div className="text-sm text-gray-500">
+                                       Séquence de tâches
+                                       {(category as any).sequence_list_id && (
+                                         <span className="ml-2">
+                                           • Liste: {hubspotLists.find(list => list.listId === (category as any).sequence_list_id)?.name || "Liste non trouvée"}
+                                         </span>
+                                       )}
+                                     </div>
+                                   </div>
+                                 </div>
+                                 <div className="flex gap-2">
+                                   <Button
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => handleEditSequenceStart(category)}
+                                     disabled={isSubmitting}
+                                   >
+                                     <Edit2 className="h-4 w-4" />
+                                   </Button>
+                                   <Button
+                                     size="sm"
+                                     variant="outline"
+                                     onClick={() => handleDeleteSequence(category.id)}
+                                     disabled={isSubmitting}
+                                   >
+                                     <Trash2 className="h-4 w-4" />
+                                   </Button>
+                                 </div>
+                               </div>
+                             )}
+                           </div>
+                         ))}
 
                       {categories.filter(category => category.display_sequence_card).length === 0 && (
                         <div className="text-center py-8 text-gray-500">

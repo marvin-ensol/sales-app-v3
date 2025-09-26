@@ -22,6 +22,7 @@ export interface CategoryFormData {
   visible_team_ids: string[];
   locks_lower_categories: boolean;
   task_display_order: string;
+  sequence_list_id?: string;
 }
 
 export interface SequenceFormData {
@@ -118,7 +119,8 @@ export const useTaskCategoriesManagement = () => {
           hs_queue_id: categoryData.hs_queue_id || null,
           visible_team_ids: categoryData.visible_team_ids || [],
           locks_lower_categories: categoryData.locks_lower_categories ?? false,
-          task_display_order: categoryData.task_display_order || 'oldest_tasks_first'
+          task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
+          sequence_list_id: categoryData.sequence_list_id || null
         })
         .eq('id', id)
         .select()

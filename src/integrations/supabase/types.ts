@@ -202,6 +202,33 @@ export type Database = {
         }
         Relationships: []
       }
+      lists: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          last_updated_at: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          last_updated_at?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          last_updated_at?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sync_executions: {
         Row: {
           completed_at: string | null
@@ -275,6 +302,7 @@ export type Database = {
           label: string | null
           locks_lower_categories: boolean | null
           order_column: number
+          sequence_list_id: string | null
           system_default: boolean | null
           task_display_order: string | null
           visible_team_ids: Json | null
@@ -288,6 +316,7 @@ export type Database = {
           label?: string | null
           locks_lower_categories?: boolean | null
           order_column: number
+          sequence_list_id?: string | null
           system_default?: boolean | null
           task_display_order?: string | null
           visible_team_ids?: Json | null
@@ -301,6 +330,7 @@ export type Database = {
           label?: string | null
           locks_lower_categories?: boolean | null
           order_column?: number
+          sequence_list_id?: string | null
           system_default?: boolean | null
           task_display_order?: string | null
           visible_team_ids?: Json | null
