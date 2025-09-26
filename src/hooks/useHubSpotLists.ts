@@ -17,16 +17,17 @@ interface UseHubSpotListsReturn {
   lists: HubSpotList[];
   loading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;
+  refetch: (forceRefresh?: boolean) => Promise<void>;
   searchLists: (query: string) => HubSpotList[];
+  needsRefresh: () => boolean;
 }
 
 export const useHubSpotLists = (): UseHubSpotListsReturn => {
   const [lists, setLists] = useState<HubSpotList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLists = async () => {
+  const fetchLists = async (forceRefresh: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -44,7 +45,7 @@ export const useHubSpotLists = (): UseHubSpotListsReturn => {
 
       // Check if we have cached data and if it's recent (less than 1 hour old)
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const shouldRefetch = !cachedData || new Date(cachedData.last_updated_at) < oneHourAgo;
+      const shouldRefetch = forceRefresh || !cachedData || new Date(cachedData.last_updated_at) < oneHourAgo;
 
       if (shouldRefetch) {
         console.log('🔄 Fetching fresh lists from HubSpot...');
@@ -82,15 +83,16 @@ export const useHubSpotLists = (): UseHubSpotListsReturn => {
     );
   };
 
-  useEffect(() => {
-    fetchLists();
-  }, []);
+  const needsRefresh = (): boolean => {
+    return lists.length === 0;
+  };
 
   return {
     lists,
     loading,
     error,
     refetch: fetchLists,
-    searchLists
+    searchLists,
+    needsRefresh
   };
 };

@@ -23,7 +23,7 @@ const Settings = () => {
   const { toast } = useToast();
   const { teams } = useTeams();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, createSequence, deleteSequence, refetch: fetchCategories } = useTaskCategoriesManagement();
-  const { lists: hubspotLists, loading: listsLoading, searchLists } = useHubSpotLists();
+  const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
@@ -39,6 +39,7 @@ const Settings = () => {
   const [editingSequence, setEditingSequence] = useState<number | null>(null);
   const [sequenceForm, setSequenceForm] = useState<{ sequence_list_id: string }>({ sequence_list_id: "" });
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
+  const [refreshingLists, setRefreshingLists] = useState(false);
 
   // Sync local categories with fetched categories
   useEffect(() => {
@@ -51,6 +52,32 @@ const Settings = () => {
       setCreateForm(prev => ({ ...prev, visible_team_ids: teams.map(team => team.id) }));
     }
   }, [teams, createForm.visible_team_ids.length]);
+
+  // Auto-fetch lists when sequences section is opened and data is stale
+  useEffect(() => {
+    if (expandedSection === 'sequences' && needsRefresh()) {
+      refetchLists();
+    }
+  }, [expandedSection, needsRefresh, refetchLists]);
+
+  const handleRefreshLists = async () => {
+    setRefreshingLists(true);
+    try {
+      await refetchLists(true);
+      toast({
+        title: "Succès",
+        description: "Listes HubSpot mises à jour"
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour les listes",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshingLists(false);
+    }
+  };
 
   const handleEditStart = (category: any) => {
     setEditingId(category.id);
@@ -826,9 +853,21 @@ const Settings = () => {
                                            </CommandList>
                                          </Command>
                                        </PopoverContent>
-                                     </Popover>
-                                   </div>
-                                 </div>
+                                      </Popover>
+                                      <div className="mt-2">
+                                        <Button
+                                          variant="link"
+                                          size="sm"
+                                          onClick={handleRefreshLists}
+                                          disabled={refreshingLists}
+                                          className="p-0 h-auto text-xs text-blue-600 hover:text-blue-800"
+                                        >
+                                          <Repeat className={`h-3 w-3 mr-1 ${refreshingLists ? 'animate-spin' : ''}`} />
+                                          {refreshingLists ? 'Actualisation...' : 'Actualiser les listes'}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
 
                                  <div className="flex gap-2 justify-end">
                                    <Button
