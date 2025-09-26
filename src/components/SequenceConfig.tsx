@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { AlertTriangle, ChevronsUpDown, Check, Repeat, Plus, X, CalendarIcon } from "lucide-react";
 import { SequenceTaskList } from "./SequenceTaskList";
@@ -463,15 +464,16 @@ export const SequenceConfig = ({
             </Table>
 
             {/* Non-Working Dates Section */}
-            <div className="mt-6 space-y-3">
+            <Separator className="my-4" />
+            <div className="space-y-3">
               <h5 className="font-medium text-sm">Dates non travaillées</h5>
               
               {nonWorkingDates.length === 0 ? (
                 <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {nonWorkingDates.map((date, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-2 px-3 py-1">
+                    <Badge key={index} variant="secondary" className="flex items-center justify-between w-fit px-3 py-1">
                       <span className="text-sm">{formatFrenchDate(date)}</span>
                       <button
                         onClick={() => removeDate(date)}
