@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -11,7 +12,7 @@ interface SequenceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: TaskCategoryManagement[];
-  onCreateSequence: (categoryId: number) => Promise<void>;
+  onCreateSequence: (categoryId: number, automationName: string) => Promise<void>;
   isSubmitting: boolean;
 }
 
@@ -23,6 +24,8 @@ export const SequenceModal = ({
   isSubmitting 
 }: SequenceModalProps) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [automationName, setAutomationName] = useState("");
+  const [nameError, setNameError] = useState("");
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
   // Show all categories except the fallback category (preserving original UI)
@@ -34,12 +37,23 @@ export const SequenceModal = ({
 
   const selectedCategory = availableCategories.find(cat => cat.id === selectedCategoryId);
 
+  const validateName = (name: string) => {
+    if (name.trim().length < 2) {
+      setNameError("Veuillez saisir un nom");
+      return false;
+    }
+    setNameError("");
+    return true;
+  };
+
   const handleCreateSequence = async () => {
-    if (!selectedCategoryId) return;
+    if (!selectedCategoryId || !validateName(automationName)) return;
     
     try {
-      await onCreateSequence(selectedCategoryId);
+      await onCreateSequence(selectedCategoryId, automationName.trim());
       setSelectedCategoryId(null);
+      setAutomationName("");
+      setNameError("");
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating sequence:', error);
@@ -49,6 +63,8 @@ export const SequenceModal = ({
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setSelectedCategoryId(null);
+      setAutomationName("");
+      setNameError("");
     }
     onOpenChange(newOpen);
   };
@@ -64,6 +80,22 @@ export const SequenceModal = ({
         </DialogHeader>
         
         <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nom de l'automatisation</label>
+            <Input
+              value={automationName}
+              onChange={(e) => {
+                setAutomationName(e.target.value);
+                if (nameError) validateName(e.target.value);
+              }}
+              placeholder="Nom de l'automatisation..."
+              className={nameError ? "border-destructive" : ""}
+            />
+            {nameError && (
+              <p className="text-sm text-destructive">{nameError}</p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Catégorie de tâches</label>
             <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
@@ -142,7 +174,7 @@ export const SequenceModal = ({
           </Button>
           <Button
             onClick={handleCreateSequence}
-            disabled={!selectedCategoryId || isSubmitting}
+            disabled={!selectedCategoryId || !automationName.trim() || isSubmitting}
           >
             Créer
           </Button>

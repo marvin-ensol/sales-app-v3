@@ -19,6 +19,7 @@ import { SequenceConfig } from "@/components/SequenceConfig";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -40,6 +41,8 @@ const Settings = () => {
   const [showSequenceModal, setShowSequenceModal] = useState(false);
   const [expandedSection, setExpandedSection] = useState<'categories' | 'sequences' | null>(null);
   const [editingSequence, setEditingSequence] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
   const [sequenceForm, setSequenceForm] = useState<{ hs_list_id: string }>({ hs_list_id: "" });
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
   const [refreshingLists, setRefreshingLists] = useState(false);
@@ -228,11 +231,11 @@ const Settings = () => {
     }
   };
 
-  const handleCreateSequence = async (categoryId: number) => {
+  const handleCreateSequence = async (categoryId: number, automationName: string) => {
     setIsSubmitting(true);
     try {
       await createAutomation({
-        name: `Automation pour ${categories.find(c => c.id === categoryId)?.label || 'Catégorie'}`,
+        name: automationName,
         task_category_id: categoryId,
         automation_enabled: false,
         hs_list_object: 'contacts'
@@ -287,6 +290,44 @@ const Settings = () => {
       toast({
         title: "Erreur",
         description: "Erreur lors de la modification de l'automatisation",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditNameStart = (automation: TaskAutomation) => {
+    setEditingNameId(automation.id);
+    setEditingNameValue(automation.name);
+  };
+
+  const handleEditNameCancel = () => {
+    setEditingNameId(null);
+    setEditingNameValue("");
+  };
+
+  const handleEditNameSave = async (automationId: string) => {
+    if (editingNameValue.trim().length < 2) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir un nom",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await updateAutomation(automationId, { name: editingNameValue.trim() });
+      setEditingNameId(null);
+      setEditingNameValue("");
+      toast({
+        title: "Nom mis à jour",
+        description: "Le nom de l'automatisation a été modifié avec succès.",
+      });
+    } catch (error) {
+      console.error("Error updating automation name:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de modifier le nom de l'automatisation.",
         variant: "destructive",
       });
     }
@@ -861,30 +902,70 @@ const Settings = () => {
                                           initialAutomation={automation}
                                         />
                                      </div>
-                                  ) : (
+                                ) : (
                                     /* View Mode */
-                                     <div className="flex items-center justify-between">
+                                     <div 
+                                       className="flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors p-2 -m-2 rounded"
+                                       onClick={() => handleEditSequenceStart(automation)}
+                                     >
                                        <div className="flex items-center gap-3 flex-1">
-                                         <div className="font-medium">{automation.name}</div>
+                                         {editingNameId === automation.id ? (
+                                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                             <Input
+                                               value={editingNameValue}
+                                               onChange={(e) => setEditingNameValue(e.target.value)}
+                                               className="h-8 text-sm"
+                                               onKeyDown={(e) => {
+                                                 if (e.key === 'Enter') handleEditNameSave(automation.id);
+                                                 if (e.key === 'Escape') handleEditNameCancel();
+                                               }}
+                                               autoFocus
+                                             />
+                                             <Button
+                                               variant="ghost"
+                                               size="sm"
+                                               onClick={() => handleEditNameSave(automation.id)}
+                                             >
+                                               <Check className="h-4 w-4" />
+                                             </Button>
+                                             <Button
+                                               variant="ghost"
+                                               size="sm"
+                                               onClick={handleEditNameCancel}
+                                             >
+                                               <X className="h-4 w-4" />
+                                             </Button>
+                                           </div>
+                                         ) : (
+                                           <div className="flex items-center gap-2">
+                                             <div className="font-medium">{automation.name}</div>
+                                             <Button
+                                               variant="ghost"
+                                               size="sm"
+                                               onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 handleEditNameStart(automation);
+                                               }}
+                                             >
+                                               <Edit2 className="h-3 w-3" />
+                                             </Button>
+                                           </div>
+                                         )}
                                        </div>
                                        <div className="flex items-center gap-2">
                                          <Switch
                                            checked={automation.automation_enabled ?? false}
                                            onCheckedChange={(checked) => handleToggleAutomationEnabled(automation.id, checked)}
                                            disabled={isSubmitting}
+                                           onClick={(e) => e.stopPropagation()}
                                          />
                                          <Button
                                            size="sm"
                                            variant="outline"
-                                           onClick={() => handleEditSequenceStart(automation)}
-                                           disabled={isSubmitting}
-                                         >
-                                           <Edit2 className="h-4 w-4" />
-                                         </Button>
-                                         <Button
-                                           size="sm"
-                                           variant="outline"
-                                           onClick={() => handleDeleteSequence(automation.id)}
+                                           onClick={(e) => {
+                                             e.stopPropagation();
+                                             handleDeleteSequence(automation.id);
+                                           }}
                                            disabled={isSubmitting || automation.automation_enabled}
                                            className={automation.automation_enabled ? "opacity-50 cursor-not-allowed" : ""}
                                          >
