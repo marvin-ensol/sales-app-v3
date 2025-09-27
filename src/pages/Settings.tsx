@@ -934,63 +934,94 @@ const Settings = () => {
                                      </div>
                                 ) : (
                                     /* View Mode */
-                                     <div 
-                                       className="flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors p-2 -m-2 rounded"
-                                       onClick={() => handleEditSequenceStart(automation)}
-                                     >
-                                       <div className="flex items-center gap-3 flex-1">
-                                         {editingNameId === automation.id ? (
-                                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                             <Input
-                                               value={editingNameValue}
-                                               onChange={(e) => setEditingNameValue(e.target.value)}
-                                               className="h-8 text-sm"
-                                               onKeyDown={(e) => {
-                                                 if (e.key === 'Enter') handleEditNameSave(automation.id);
-                                                 if (e.key === 'Escape') handleEditNameCancel();
-                                               }}
-                                               autoFocus
-                                             />
-                                             <Button
-                                               variant="ghost"
-                                               size="sm"
-                                               onClick={() => handleEditNameSave(automation.id)}
-                                             >
-                                               <Check className="h-4 w-4" />
-                                             </Button>
-                                             <Button
-                                               variant="ghost"
-                                               size="sm"
-                                               onClick={handleEditNameCancel}
-                                             >
-                                               <X className="h-4 w-4" />
-                                             </Button>
-                                           </div>
-                                         ) : (
-                                           <div className="flex items-center gap-2">
-                                             <div className="font-medium">{automation.name}</div>
-                                             <Button
-                                               variant="ghost"
-                                               size="sm"
-                                               onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 handleEditNameStart(automation);
-                                               }}
-                                             >
-                                               <Edit2 className="h-3 w-3" />
-                                             </Button>
-                                           </div>
-                                         )}
-                                       </div>
-                                       <div className="flex items-center gap-2">
-                                         <Switch
-                                           checked={automation.automation_enabled ?? false}
-                                           onCheckedChange={(checked) => handleToggleAutomationEnabled(automation.id, checked)}
-                                           disabled={isSubmitting}
-                                           onClick={(e) => e.stopPropagation()}
-                                         />
-                                       </div>
-                                     </div>
+                                      <div 
+                                        className="cursor-pointer hover:bg-muted/50 transition-colors p-2 -m-2 rounded space-y-3"
+                                        onClick={() => handleEditSequenceStart(automation)}
+                                      >
+                                        {/* Top row - Name and controls */}
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3 flex-1">
+                                            {editingNameId === automation.id ? (
+                                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <Input
+                                                  value={editingNameValue}
+                                                  onChange={(e) => setEditingNameValue(e.target.value)}
+                                                  className="h-8 text-sm"
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleEditNameSave(automation.id);
+                                                    if (e.key === 'Escape') handleEditNameCancel();
+                                                  }}
+                                                  autoFocus
+                                                />
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => handleEditNameSave(automation.id)}
+                                                >
+                                                  <Check className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={handleEditNameCancel}
+                                                >
+                                                  <X className="h-4 w-4" />
+                                                </Button>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-2">
+                                                <div className="font-medium">{automation.name}</div>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEditNameStart(automation);
+                                                  }}
+                                                >
+                                                  <Edit2 className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Switch
+                                              checked={automation.automation_enabled ?? false}
+                                              onCheckedChange={(checked) => handleToggleAutomationEnabled(automation.id, checked)}
+                                              disabled={isSubmitting}
+                                              onClick={(e) => e.stopPropagation()}
+                                            />
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Properties section - only show when not editing name */}
+                                        {editingNameId !== automation.id && (
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                              <div className="text-sm text-gray-500 mb-1">Nom de la liste</div>
+                                              <div className="text-sm">
+                                                {(() => {
+                                                  if (!automation.hs_list_id) return "—";
+                                                  const list = hubspotLists.find(l => l.listId === automation.hs_list_id);
+                                                  return list ? list.name : "—";
+                                                })()}
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <div className="text-sm text-gray-500 mb-1">Nombre de tâches</div>
+                                              <div className="text-sm">
+                                                {(() => {
+                                                  let taskCount = 1; // Always at least 1 for the initial task
+                                                  if (automation.tasks_configuration?.sequence_tasks?.length) {
+                                                    taskCount += automation.tasks_configuration.sequence_tasks.length;
+                                                  }
+                                                  return `${taskCount} tâche${taskCount > 1 ? 's' : ''}`;
+                                                })()}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
                                   )}
                                  </div>
                                ))}
