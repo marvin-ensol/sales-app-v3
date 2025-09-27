@@ -83,6 +83,7 @@ interface SequenceConfig {
   sequence_enabled?: boolean;
   sequence_exit_enabled?: boolean;
   schedule_enabled?: boolean;
+  auto_complete_on_exit_enabled?: boolean;
   tasks_configuration?: any;
   schedule_configuration?: any;
 }
@@ -104,6 +105,7 @@ export const SequenceConfig = ({
   const [initialTaskName, setInitialTaskName] = useState("");
   const [initialTaskOwner, setInitialTaskOwner] = useState<TaskOwnerType>('contact_owner');
   const [canInterruptSequence, setCanInterruptSequence] = useState(false);
+  const [autoCompleteOnExit, setAutoCompleteOnExit] = useState(false);
   const [useWorkingHours, setUseWorkingHours] = useState(false);
   const [sequenceMode, setSequenceMode] = useState(false);
   const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([]);
@@ -130,6 +132,7 @@ export const SequenceConfig = ({
       setCreateInitialTask(initialCategory.first_task_creation ?? true);
       setSequenceMode(initialCategory.sequence_enabled ?? false);
       setCanInterruptSequence(initialCategory.sequence_exit_enabled ?? false);
+      setAutoCompleteOnExit(initialCategory.auto_complete_on_exit_enabled ?? false);
       setUseWorkingHours(initialCategory.schedule_enabled ?? false);
 
       // Parse tasks_configuration JSONB
@@ -288,6 +291,7 @@ export const SequenceConfig = ({
       first_task_creation: createInitialTask,
       sequence_enabled: sequenceTasks.length >= 1,
       sequence_exit_enabled: canInterruptSequence,
+      auto_complete_on_exit_enabled: autoCompleteOnExit,
       schedule_enabled: useWorkingHours && Object.values(workingHours).some(day => day.enabled)
     };
   };
@@ -406,6 +410,7 @@ export const SequenceConfig = ({
         nonWorkingDates,
         // New database format
         ...booleanFlags,
+        auto_complete_on_exit_enabled: autoCompleteOnExit,
         tasks_configuration: tasksConfiguration,
         schedule_configuration: scheduleConfiguration
       });
@@ -639,147 +644,166 @@ export const SequenceConfig = ({
             </div>
 
           </div>
-
-          {/* Working Hours Configuration */}
-          <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-            <h4 className="font-medium">Horaires de travail</h4>
-            
-            <div className="flex items-start space-x-2">
-              <Checkbox
-                id="use-working-hours"
-                checked={useWorkingHours}
-                onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
-              />
-              <label
-                htmlFor="use-working-hours"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
-              </label>
-            </div>
-
-            {useWorkingHours && (
-              <div className="mt-4 space-y-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-32">Jour</TableHead>
-                      <TableHead className="w-24">Début</TableHead>
-                      <TableHead className="w-24">Fin</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dayNames.map(({ key, label }) => (
-                      <TableRow key={key}>
-                        <TableCell className="h-14">
-                          <div className="flex items-center space-x-2 h-full">
-                            <Checkbox
-                              id={`day-${key}`}
-                              checked={workingHours[key].enabled}
-                              onCheckedChange={(checked) => updateDaySchedule(key, 'enabled', checked as boolean)}
-                            />
-                            <label htmlFor={`day-${key}`} className="text-sm font-medium">
-                              {label}
-                            </label>
-                          </div>
-                        </TableCell>
-                        {workingHours[key].enabled ? (
-                          <>
-                            <TableCell className="h-14">
-                              <div className="flex items-center h-full">
-                                <Input
-                                  type="time"
-                                  value={workingHours[key].startTime}
-                                  onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
-                                  className="w-full h-9"
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell className="h-14">
-                              <div className="flex items-center h-full">
-                                <Input
-                                  type="time"
-                                  value={workingHours[key].endTime}
-                                  onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
-                                  className="w-full h-9"
-                                />
-                              </div>
-                            </TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell className="h-14">
-                              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                                -
-                              </div>
-                            </TableCell>
-                            <TableCell className="h-14">
-                              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                                -
-                              </div>
-                            </TableCell>
-                          </>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {validationErrors.workingHours && (
-                  <p className="text-sm text-destructive mt-3">{validationErrors.workingHours}</p>
-                )}
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <h5 className="font-medium text-sm">Dates d'exception (aucune tâche ne sera créée à ces dates)</h5>
-                  
-                  {nonWorkingDates.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {nonWorkingDates.map((date, index) => (
-                        <Badge key={index} variant="secondary" className="flex items-center justify-between w-fit px-3 py-1">
-                          <span className="text-sm">{formatFrenchDate(date)}</span>
-                          <button
-                            onClick={() => removeDate(date)}
-                            className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-sm p-0.5"
-                            type="button"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Ajouter une date
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={undefined}
-                        onSelect={handleDateSelect}
-                        weekStartsOn={1}
-                        disabled={(date) => 
-                          date < new Date() || 
-                          nonWorkingDates.some(d => d.toDateString() === date.toDateString())
-                        }
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                 </div>
-               </div>
-             )}
-           </div>
         </>
        )}
+
+      {/* Auto-validation des tâches - Always visible */}
+      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+        <h4 className="font-medium">Auto-validation des tâches</h4>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="auto-complete-on-exit"
+            checked={autoCompleteOnExit}
+            onCheckedChange={(checked) => setAutoCompleteOnExit(checked as boolean)}
+          />
+          <label
+            htmlFor="auto-complete-on-exit"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Les tâches dans cette catégorie s'auto-valident si le contact quitte la liste définie ci-dessus
+          </label>
+        </div>
+      </div>
+
+      {/* Working Hours Configuration - Always visible */}
+      <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+        <h4 className="font-medium">Horaires de travail</h4>
+        
+        <div className="flex items-start space-x-2">
+          <Checkbox
+            id="use-working-hours"
+            checked={useWorkingHours}
+            onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
+          />
+          <label
+            htmlFor="use-working-hours"
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
+          </label>
+        </div>
+
+        {useWorkingHours && (
+          <div className="mt-4 space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-32">Jour</TableHead>
+                  <TableHead className="w-24">Début</TableHead>
+                  <TableHead className="w-24">Fin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dayNames.map(({ key, label }) => (
+                  <TableRow key={key}>
+                    <TableCell className="h-14">
+                      <div className="flex items-center space-x-2 h-full">
+                        <Checkbox
+                          id={`day-${key}`}
+                          checked={workingHours[key].enabled}
+                          onCheckedChange={(checked) => updateDaySchedule(key, 'enabled', checked as boolean)}
+                        />
+                        <label htmlFor={`day-${key}`} className="text-sm font-medium">
+                          {label}
+                        </label>
+                      </div>
+                    </TableCell>
+                    {workingHours[key].enabled ? (
+                      <>
+                        <TableCell className="h-14">
+                          <div className="flex items-center h-full">
+                            <Input
+                              type="time"
+                              value={workingHours[key].startTime}
+                              onChange={(e) => updateDaySchedule(key, 'startTime', e.target.value)}
+                              className="w-full h-9"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="h-14">
+                          <div className="flex items-center h-full">
+                            <Input
+                              type="time"
+                              value={workingHours[key].endTime}
+                              onChange={(e) => updateDaySchedule(key, 'endTime', e.target.value)}
+                              className="w-full h-9"
+                            />
+                          </div>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="h-14">
+                          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                            -
+                          </div>
+                        </TableCell>
+                        <TableCell className="h-14">
+                          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                            -
+                          </div>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            
+            {validationErrors.workingHours && (
+              <p className="text-sm text-destructive mt-3">{validationErrors.workingHours}</p>
+            )}
+
+            <Separator />
+
+            <div className="space-y-3">
+              <h5 className="font-medium text-sm">Dates d'exception (aucune tâche ne sera créée à ces dates)</h5>
+              
+              {nonWorkingDates.length === 0 ? (
+                <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
+              ) : (
+                <div className="space-y-2">
+                  {nonWorkingDates.map((date, index) => (
+                    <Badge key={index} variant="secondary" className="flex items-center justify-between w-fit px-3 py-1">
+                      <span className="text-sm">{formatFrenchDate(date)}</span>
+                      <button
+                        onClick={() => removeDate(date)}
+                        className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-sm p-0.5"
+                        type="button"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Ajouter une date
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={undefined}
+                    onSelect={handleDateSelect}
+                    weekStartsOn={1}
+                    disabled={(date) => 
+                      date < new Date() || 
+                      nonWorkingDates.some(d => d.toDateString() === date.toDateString())
+                    }
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+             </div>
+           </div>
+         )}
+       </div>
 
 
       {/* Save/Cancel Actions */}

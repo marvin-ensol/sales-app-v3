@@ -18,6 +18,7 @@ export interface TaskCategoryManagement {
   sequence_enabled?: boolean;
   sequence_exit_enabled?: boolean;
   schedule_enabled?: boolean;
+  auto_complete_on_exit_enabled?: boolean;
   tasks_configuration?: any;
   schedule_configuration?: any;
 }

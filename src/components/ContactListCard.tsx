@@ -127,10 +127,7 @@ export const ContactListCard = ({
           </div>
 
           {validationError && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{validationError}</AlertDescription>
-            </Alert>
+            <p className="text-sm text-destructive">{validationError}</p>
           )}
         </div>
 
