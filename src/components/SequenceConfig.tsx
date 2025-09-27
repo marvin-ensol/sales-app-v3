@@ -514,6 +514,19 @@ export const SequenceConfig = ({
 
   return (
     <div className="space-y-4">
+      {/* Contact List Card - shown when either checkbox is checked */}
+      {(createInitialTask || canInterruptSequence) && (
+        <ContactListCard
+          hubspotLists={hubspotLists}
+          listsLoading={listsLoading}
+          refreshingLists={refreshingLists}
+          onRefreshLists={onRefreshLists}
+          selectedListId={selectedListId}
+          onListChange={onListChange}
+          validationError={validationErrors.contactList}
+        />
+      )}
+
       {/* Task 1 Configuration */}
       <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200">
         {/* Header with task number and inline name input */}
@@ -553,7 +566,7 @@ export const SequenceConfig = ({
             htmlFor="create-initial-task"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Créer une tâche quand le contact entre dans une liste
+            Créer une tâche quand le contact entre dans la liste définie ci-dessus
           </label>
         </div>
 
