@@ -48,67 +48,83 @@ export const ContactListCard = ({
   const selectedList = hubspotLists.find(list => list.listId === selectedListId);
 
   return (
-    <Card className="space-y-4">
-      <CardHeader>
-        <CardTitle>Liste de contact</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+      <h4 className="text-lg font-semibold mb-4">Liste de contact</h4>
+      
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
-            <PopoverTrigger asChild>
+          {/* Dropdown and HubSpot button container */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Popover open={listPopoverOpen} onOpenChange={setListPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={listPopoverOpen}
+                    className="w-full justify-between text-left font-normal"
+                    disabled={listsLoading}
+                  >
+                    {selectedList ? (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="truncate">{selectedList.name}</span>
+                        <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                          {selectedList.additionalProperties?.hs_list_size || '0'} contacts
+                        </Badge>
+                      </div>
+                    ) : (
+                      "Sélectionner une liste..."
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Rechercher une liste..." className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
+                      <CommandGroup>
+                        {hubspotLists.map((list) => (
+                          <CommandItem
+                            key={list.listId}
+                            value={list.name}
+                            onSelect={() => {
+                              onListChange(list.listId);
+                              setListPopoverOpen(false);
+                            }}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className="truncate">{list.name}</span>
+                              <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                                {list.additionalProperties?.hs_list_size || '0'}
+                              </Badge>
+                            </div>
+                            <Check
+                              className={`ml-auto h-4 w-4 ${
+                                selectedListId === list.listId ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            {/* HubSpot icon button */}
+            {selectedList && (
               <Button
                 variant="outline"
-                role="combobox"
-                aria-expanded={listPopoverOpen}
-                className="w-full justify-between text-left font-normal"
-                disabled={listsLoading}
+                size="icon"
+                onClick={() => openHubSpotList(selectedList.listId)}
+                className="h-10 w-10 flex-shrink-0"
               >
-                {selectedList ? (
-                  <div className="flex items-center justify-between w-full">
-                    <span className="truncate">{selectedList.name}</span>
-                    <Badge variant="secondary" className="ml-2 flex-shrink-0">
-                      {selectedList.additionalProperties?.hs_list_size || '0'} contacts
-                    </Badge>
-                  </div>
-                ) : (
-                  "Sélectionner une liste..."
-                )}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                <ExternalLink className="h-4 w-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Rechercher une liste..." className="h-9" />
-                <CommandList>
-                  <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
-                  <CommandGroup>
-                    {hubspotLists.map((list) => (
-                      <CommandItem
-                        key={list.listId}
-                        value={list.name}
-                        onSelect={() => {
-                          onListChange(list.listId);
-                          setListPopoverOpen(false);
-                        }}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="truncate">{list.name}</span>
-                          <Badge variant="secondary" className="ml-2 flex-shrink-0">
-                            {list.additionalProperties?.hs_list_size || '0'}
-                          </Badge>
-                        </div>
-                        <Check
-                          className={`ml-auto h-4 w-4 ${
-                            selectedListId === list.listId ? "opacity-100" : "opacity-0"
-                          }`}
-                        />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+            )}
+          </div>
 
           {validationError && (
             <Alert variant="destructive">
@@ -118,30 +134,18 @@ export const ContactListCard = ({
           )}
         </div>
 
-        {selectedList && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openHubSpotList(selectedList.listId)}
-              className="flex items-center gap-2"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Ouvrir dans HubSpot
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefreshLists}
-              disabled={refreshingLists}
-              className="flex items-center gap-2"
-            >
-              <Repeat className={`h-4 w-4 ${refreshingLists ? 'animate-spin' : ''}`} />
-              Actualiser les listes
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        {/* Refresh link - always visible and right-aligned */}
+        <div className="flex justify-end">
+          <button
+            onClick={onRefreshLists}
+            disabled={refreshingLists}
+            className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50 flex items-center gap-1"
+          >
+            <Repeat className={`h-3 w-3 ${refreshingLists ? 'animate-spin' : ''}`} />
+            Actualiser les listes
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
