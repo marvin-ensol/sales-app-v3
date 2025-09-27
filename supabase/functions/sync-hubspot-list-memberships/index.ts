@@ -31,6 +31,7 @@ interface ExistingMembership {
   id: string;
   hs_object_id: string;
   hs_list_entry_date: string;
+  list_exit_date: string | null;
 }
 
 serve(async (req) => {
@@ -52,6 +53,8 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const syncStartTime = new Date().toISOString();
+    
+    console.log(`[${executionId}] ⏰ Sync started at: ${syncStartTime}`);
 
     console.log(`[${executionId}] 🔍 Fetching active automation categories...`);
 
@@ -127,7 +130,7 @@ serve(async (req) => {
         // Get existing memberships for this list (only active ones)
         const { data: existingMemberships, error: existingError } = await supabase
           .from('hs_list_memberships')
-          .select('id, hs_object_id, hs_list_entry_date')
+          .select('id, hs_object_id, hs_list_entry_date, list_exit_date')
           .eq('hs_list_id', category.hs_list_id)
           .is('list_exit_date', null);
 
@@ -144,26 +147,56 @@ serve(async (req) => {
         const newMemberships = [];
         const updatedMemberships = [];
         const exitedMemberIds = [];
+        const reenteredMembers = [];
+        
+        // Check for re-entered members (have exited records but appear in current list)
+        const { data: exitedMemberships, error: exitedError } = await supabase
+          .from('hs_list_memberships')
+          .select('hs_object_id')
+          .eq('hs_list_id', category.hs_list_id)
+          .not('list_exit_date', 'is', null);
+          
+        if (exitedError) {
+          console.error(`[${executionId}] ⚠️ Failed to fetch exited memberships: ${exitedError.message}`);
+        }
+        
+        const exitedMemberIds_Set = new Set((exitedMemberships || []).map(m => m.hs_object_id));
 
         // Process current members
         for (const member of allMembers) {
           const existing = existingMap.get(member.recordId);
+          const hasExitedBefore = exitedMemberIds_Set.has(member.recordId);
           
           if (!existing) {
-            // New member
+            // Check if this is a re-entry (member has exited before but no active record)
+            if (hasExitedBefore) {
+              reenteredMembers.push(member.recordId);
+              console.log(`[${executionId}] 🔄 Detected re-entry for member ${member.recordId}`);
+            }
+            
+            // New member or re-entered member - create new record
             newMemberships.push({
               hs_list_id: category.hs_list_id,
               hs_list_object: category.hs_list_object,
               hs_queue_id: category.hs_queue_id,
               hs_object_id: member.recordId,
               hs_list_entry_date: member.membershipTimestamp,
-              list_exit_date: null
+              list_exit_date: null,
+              last_api_call: syncStartTime
             });
           } else if (existing.hs_list_entry_date !== member.membershipTimestamp) {
             // Update entry date if it changed
             updatedMemberships.push({
               id: existing.id,
               hs_list_entry_date: member.membershipTimestamp,
+              last_api_call: syncStartTime,
+              updated_at: new Date().toISOString()
+            });
+          } else {
+            // No changes, but update last_api_call to track when we last confirmed membership
+            updatedMemberships.push({
+              id: existing.id,
+              last_api_call: syncStartTime,
               updated_at: new Date().toISOString()
             });
           }
@@ -191,19 +224,26 @@ serve(async (req) => {
         // Batch update existing memberships
         if (updatedMemberships.length > 0) {
           for (const update of updatedMemberships) {
+            const updateData: any = {
+              last_api_call: update.last_api_call,
+              updated_at: update.updated_at
+            };
+            
+            // Only update entry date if it's provided (changed)
+            if (update.hs_list_entry_date) {
+              updateData.hs_list_entry_date = update.hs_list_entry_date;
+            }
+            
             const { error: updateError } = await supabase
               .from('hs_list_memberships')
-              .update({
-                hs_list_entry_date: update.hs_list_entry_date,
-                updated_at: update.updated_at
-              })
+              .update(updateData)
               .eq('id', update.id);
 
             if (updateError) {
               console.error(`[${executionId}] ⚠️ Failed to update membership ${update.id}:`, updateError.message);
             }
           }
-          console.log(`[${executionId}] ✅ Updated ${updatedMemberships.length} existing memberships`);
+          console.log(`[${executionId}] ✅ Updated ${updatedMemberships.length} existing memberships (last_api_call: ${syncStartTime})`);
         }
 
         // Mark exited members
@@ -222,7 +262,12 @@ serve(async (req) => {
           console.log(`[${executionId}] ✅ Marked ${exitedMemberIds.length} members as exited`);
         }
 
-        console.log(`[${executionId}] ✅ Completed processing list ${category.hs_list_id}`);
+        // Log re-entries if any
+        if (reenteredMembers.length > 0) {
+          console.log(`[${executionId}] 🔄 Detected ${reenteredMembers.length} re-entries for list ${category.hs_list_id}`);
+        }
+        
+        console.log(`[${executionId}] ✅ Completed processing list ${category.hs_list_id} (last_api_call: ${syncStartTime})`);
         totalProcessed++;
 
       } catch (error) {

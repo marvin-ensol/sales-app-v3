@@ -65,6 +65,7 @@ export type Database = {
           hs_object_id: string | null
           hs_queue_id: string | null
           id: string
+          last_api_call: string | null
           list_exit_date: string | null
           updated_at: string
         }
@@ -76,6 +77,7 @@ export type Database = {
           hs_object_id?: string | null
           hs_queue_id?: string | null
           id?: string
+          last_api_call?: string | null
           list_exit_date?: string | null
           updated_at?: string
         }
@@ -87,6 +89,7 @@ export type Database = {
           hs_object_id?: string | null
           hs_queue_id?: string | null
           id?: string
+          last_api_call?: string | null
           list_exit_date?: string | null
           updated_at?: string
         }
