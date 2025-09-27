@@ -764,7 +764,9 @@ export const SequenceConfig = ({
                 <p className="text-muted-foreground text-sm">Aucunes dates ajoutées</p>
               ) : (
                 <div className="space-y-2">
-                  {nonWorkingDates.map((date, index) => (
+                  {[...nonWorkingDates]
+                    .sort((a, b) => a.getTime() - b.getTime())
+                    .map((date, index) => (
                     <Badge key={index} variant="secondary" className="flex items-center justify-between w-fit px-3 py-1">
                       <span className="text-sm">{formatFrenchDate(date)}</span>
                       <button
