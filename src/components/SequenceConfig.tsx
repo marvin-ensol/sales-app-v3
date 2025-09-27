@@ -409,8 +409,7 @@ export const SequenceConfig = ({
         workingHours,
         nonWorkingDates,
         // New database format
-        ...booleanFlags,
-        auto_complete_on_exit_enabled: autoCompleteOnExit,
+        ...booleanFlags, // Note: auto_complete_on_exit_enabled is already included in booleanFlags
         tasks_configuration: tasksConfiguration,
         schedule_configuration: scheduleConfiguration
       });

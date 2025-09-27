@@ -35,6 +35,7 @@ export interface CategoryFormData {
   sequence_enabled?: boolean;
   sequence_exit_enabled?: boolean;
   schedule_enabled?: boolean;
+  auto_complete_on_exit_enabled?: boolean; // IMPORTANT: When adding new fields to UI, ensure they're included here and in updateCategory function below
   tasks_configuration?: any;
   schedule_configuration?: any;
 }
@@ -138,6 +139,7 @@ export const useTaskCategoriesManagement = () => {
       };
 
       // Add automation fields if they are provided
+      // IMPORTANT: When adding new UI fields, ensure they're handled here for database persistence
       if (categoryData.first_task_creation !== undefined) {
         updatePayload.first_task_creation = categoryData.first_task_creation;
       }
@@ -149,6 +151,9 @@ export const useTaskCategoriesManagement = () => {
       }
       if (categoryData.schedule_enabled !== undefined) {
         updatePayload.schedule_enabled = categoryData.schedule_enabled;
+      }
+      if (categoryData.auto_complete_on_exit_enabled !== undefined) {
+        updatePayload.auto_complete_on_exit_enabled = categoryData.auto_complete_on_exit_enabled;
       }
       if (categoryData.tasks_configuration !== undefined) {
         updatePayload.tasks_configuration = categoryData.tasks_configuration;
