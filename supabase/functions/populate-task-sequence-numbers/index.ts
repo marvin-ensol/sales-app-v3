@@ -54,8 +54,7 @@ Deno.serve(async (req) => {
           const { error: updateError } = await supabaseClient
             .from('hs_tasks')
             .update({ number_in_sequence: sequenceNumber })
-            .eq('hs_object_id', task.hs_object_id)
-            .neq('number_in_sequence', sequenceNumber);
+            .eq('hs_object_id', task.hs_object_id);
 
           if (updateError) {
             console.error(`❌ Rule 1 update error for task ${task.hs_object_id}:`, updateError);
@@ -105,8 +104,7 @@ Deno.serve(async (req) => {
           const { error: updateError } = await supabaseClient
             .from('hs_tasks')
             .update({ number_in_sequence: sequenceNumber })
-            .eq('hs_object_id', task.hs_object_id)
-            .neq('number_in_sequence', sequenceNumber);
+            .eq('hs_object_id', task.hs_object_id);
 
           if (updateError) {
             console.error(`❌ Rule 2 update error for task ${task.hs_object_id}:`, updateError);
