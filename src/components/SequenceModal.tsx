@@ -25,11 +25,10 @@ export const SequenceModal = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
-  // Filter out categories that already have sequences and the fallback category
+  // Show all categories except the fallback category (preserving original UI)
   const availableCategories = useMemo(() => {
     return categories.filter(category => 
-      category.hs_queue_id !== null && 
-      !category.display_automation_card
+      category.hs_queue_id !== null
     );
   }, [categories]);
 

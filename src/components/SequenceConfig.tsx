@@ -14,7 +14,7 @@ import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
 import { TaskOwnerSelector } from "./TaskOwnerSelector";
 import { ContactListCard } from "./ContactListCard";
 import { useToast } from '@/hooks/use-toast';
-import { TaskCategoryManagement } from "@/hooks/useTaskCategoriesManagement";
+import { TaskAutomation } from "@/hooks/useTaskAutomationsManagement";
 
 interface SequenceTask {
   id: string;
@@ -65,7 +65,7 @@ interface SequenceConfigProps {
   onRefreshLists: () => void;
   selectedListId?: string;
   onListChange: (listId: string) => void;
-  initialCategory?: TaskCategoryManagement;
+  initialAutomation?: TaskAutomation;
 }
 
 interface SequenceConfig {
@@ -99,7 +99,7 @@ export const SequenceConfig = ({
   onRefreshLists,
   selectedListId,
   onListChange,
-  initialCategory
+  initialAutomation
 }: SequenceConfigProps) => {
   const [createInitialTask, setCreateInitialTask] = useState(true);
   const [initialTaskName, setInitialTaskName] = useState("");
@@ -125,19 +125,19 @@ export const SequenceConfig = ({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
-  // Initialize component state from existing category data
+  // Initialize component state from existing automation data
   useEffect(() => {
-    if (initialCategory) {
+    if (initialAutomation) {
       // Set boolean flags
-      setCreateInitialTask(initialCategory.first_task_creation ?? true);
-      setSequenceMode(initialCategory.sequence_enabled ?? false);
-      setCanInterruptSequence(initialCategory.sequence_exit_enabled ?? false);
-      setAutoCompleteOnExit(initialCategory.auto_complete_on_exit_enabled ?? false);
-      setUseWorkingHours(initialCategory.schedule_enabled ?? false);
+      setCreateInitialTask(initialAutomation.first_task_creation ?? true);
+      setSequenceMode(initialAutomation.sequence_enabled ?? false);
+      setCanInterruptSequence(initialAutomation.sequence_exit_enabled ?? false);
+      setAutoCompleteOnExit(initialAutomation.auto_complete_on_exit_enabled ?? false);
+      setUseWorkingHours(initialAutomation.schedule_enabled ?? false);
 
       // Parse tasks_configuration JSONB
-      if (initialCategory.tasks_configuration) {
-        const tasksConfig = initialCategory.tasks_configuration;
+      if (initialAutomation.tasks_configuration) {
+        const tasksConfig = initialAutomation.tasks_configuration;
         
         // Initialize initial task data
         if (tasksConfig.initial_task) {
@@ -161,8 +161,8 @@ export const SequenceConfig = ({
       }
 
       // Parse schedule_configuration JSONB
-      if (initialCategory.schedule_configuration) {
-        const scheduleConfig = initialCategory.schedule_configuration;
+      if (initialAutomation.schedule_configuration) {
+        const scheduleConfig = initialAutomation.schedule_configuration;
         
         // Initialize working hours (convert from English to French day names)
         if (scheduleConfig.working_hours) {
@@ -205,7 +205,7 @@ export const SequenceConfig = ({
         }
       }
     }
-  }, [initialCategory]);
+  }, [initialAutomation]);
 
   const validateConfig = () => {
     const errors: Record<string, string> = {};

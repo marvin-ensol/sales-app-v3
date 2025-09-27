@@ -8,7 +8,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTaskCategoriesManagement, CategoryFormData, SequenceFormData } from "@/hooks/useTaskCategoriesManagement";
+import { useTaskCategoriesManagement, CategoryFormData } from "@/hooks/useTaskCategoriesManagement";
+import { useTaskAutomationsManagement, TaskAutomation } from "@/hooks/useTaskAutomationsManagement";
 import { useHubSpotLists } from "@/hooks/useHubSpotLists";
 import { useToast } from "@/hooks/use-toast";
 import { TeamSelector } from "@/components/TeamSelector";
@@ -23,13 +24,14 @@ const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { teams } = useTeams();
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, createSequence, hideAutomation, toggleAutomationEnabled, refetch: fetchCategories } = useTaskCategoriesManagement();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
+  const { automations, loading: automationsLoading, createAutomation, updateAutomation, deleteAutomation, toggleAutomationEnabled, hideAutomation, getAutomationsByCategory } = useTaskAutomationsManagement();
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -37,7 +39,7 @@ const Settings = () => {
   // Sequences state
   const [showSequenceModal, setShowSequenceModal] = useState(false);
   const [expandedSection, setExpandedSection] = useState<'categories' | 'sequences' | null>(null);
-  const [editingSequence, setEditingSequence] = useState<number | null>(null);
+  const [editingSequence, setEditingSequence] = useState<string | null>(null);
   const [sequenceForm, setSequenceForm] = useState<{ hs_list_id: string }>({ hs_list_id: "" });
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
   const [refreshingLists, setRefreshingLists] = useState(false);
@@ -88,14 +90,13 @@ const Settings = () => {
       hs_queue_id: category.hs_queue_id || "",
       visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
       locks_lower_categories: category.locks_lower_categories || false,
-      task_display_order: category.task_display_order || "oldest_tasks_first",
-      hs_list_id: (category as any).hs_list_id || ""
+      task_display_order: category.task_display_order || "oldest_tasks_first"
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
   };
 
   const handleEditSave = async () => {
@@ -114,7 +115,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -144,7 +145,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -230,15 +231,20 @@ const Settings = () => {
   const handleCreateSequence = async (categoryId: number) => {
     setIsSubmitting(true);
     try {
-      await createSequence({ categoryId });
+      await createAutomation({
+        name: `Automation pour ${categories.find(c => c.id === categoryId)?.label || 'Catégorie'}`,
+        task_category_id: categoryId,
+        automation_enabled: false,
+        hs_list_object: 'contacts'
+      });
       toast({
         title: "Succès",
-        description: "Séquence créée avec succès"
+        description: "Automatisation créée avec succès"
       });
     } catch (error) {
       toast({
         title: "Erreur",
-        description: "Impossible de créer la séquence",
+        description: "Impossible de créer l'automatisation",
         variant: "destructive"
       });
     } finally {
@@ -246,14 +252,14 @@ const Settings = () => {
     }
   };
 
-  const handleDeleteSequence = async (categoryId: number) => {
+  const handleDeleteSequence = async (automationId: string) => {
     if (!confirm("Êtes-vous sûr de vouloir masquer cette automatisation ?")) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await hideAutomation(categoryId);
+      await hideAutomation(automationId);
       toast({
         title: "Succès",
         description: "Automatisation masquée avec succès"
@@ -269,9 +275,9 @@ const Settings = () => {
     }
   };
 
-  const handleToggleAutomationEnabled = async (categoryId: number, enabled: boolean) => {
+  const handleToggleAutomationEnabled = async (automationId: string, enabled: boolean) => {
     try {
-      await toggleAutomationEnabled(categoryId, enabled);
+      await toggleAutomationEnabled(automationId, enabled);
       toast({
         title: "Succès",
         description: enabled ? "Automatisation activée" : "Automatisation désactivée",
@@ -286,10 +292,10 @@ const Settings = () => {
     }
   };
 
-  const handleEditSequenceStart = (category: any) => {
-    setEditingSequence(category.id);
+  const handleEditSequenceStart = (automation: TaskAutomation) => {
+    setEditingSequence(automation.id);
     setSequenceForm({
-      hs_list_id: category.hs_list_id || ""
+      hs_list_id: automation.hs_list_id || ""
     });
   };
 
@@ -303,21 +309,16 @@ const Settings = () => {
     
     setIsSubmitting(true);
     try {
-      const categoryToUpdate = categories.find(cat => cat.id === editingSequence);
-      if (!categoryToUpdate) return;
+      const automationToUpdate = automations.find(auto => auto.id === editingSequence);
+      if (!automationToUpdate) return;
 
-      await updateCategory(editingSequence, {
-        label: categoryToUpdate.label,
-        color: categoryToUpdate.color,
-        hs_queue_id: categoryToUpdate.hs_queue_id || "",
-        visible_team_ids: categoryToUpdate.visible_team_ids || [],
-        locks_lower_categories: categoryToUpdate.locks_lower_categories || false,
-        task_display_order: categoryToUpdate.task_display_order || "oldest_tasks_first",
+      await updateAutomation(editingSequence, {
+        name: automationToUpdate.name,
+        task_category_id: automationToUpdate.task_category_id,
+        automation_enabled: automationToUpdate.automation_enabled,
         hs_list_id: sequenceForm.hs_list_id,
-        hs_list_object: sequenceForm.hs_list_id ? 'contacts' : null,
+        hs_list_object: sequenceForm.hs_list_id ? 'contacts' : 'contacts',
         // Add automation configuration fields
-        // IMPORTANT: When adding new automation flags in SequenceConfig.buildBooleanFlags,
-        // ensure they are forwarded here and handled in useTaskCategoriesManagement.updateCategory
         ...(config && {
           first_task_creation: config.first_task_creation,
           sequence_enabled: config.sequence_enabled,
@@ -333,12 +334,12 @@ const Settings = () => {
       setSequenceForm({ hs_list_id: "" });
       toast({
         title: "Succès",
-        description: "Séquence mise à jour avec succès"
+        description: "Automatisation mise à jour avec succès"
       });
     } catch (error) {
       toast({
         title: "Erreur",
-        description: "Impossible de mettre à jour la séquence",
+        description: "Impossible de mettre à jour l'automatisation",
         variant: "destructive"
       });
     } finally {
@@ -815,80 +816,94 @@ const Settings = () => {
 
                 {!loading && !error && (
                   <>
-                    {/* Sequences List */}
+                    {/* Automations List - Group by category */}
                     <div className="space-y-3">
                        {categories
-                          .filter(category => category.display_automation_card)
-                         .map((category) => (
-                            <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
-                              {editingSequence === category.id ? (
-                                /* Edit Mode */
-                                <div className="space-y-4">
-                                   <div className="flex items-center gap-3">
-                                     <ColorPreview color={category.color} />
-                                     <div>
-                                       <div className="font-medium">{category.label}</div>
+                         .filter(category => category.hs_queue_id !== null)
+                         .map((category) => {
+                           const categoryAutomations = getAutomationsByCategory(category.id);
+                           
+                           return categoryAutomations.length > 0 ? (
+                             <div key={category.id} className="space-y-2">
+                               <div className="flex items-center gap-2 mb-3">
+                                 <ColorPreview color={category.color} />
+                                 <div className="font-medium text-lg">{category.label}</div>
+                                 <div className="text-sm text-gray-500">
+                                   ({categoryAutomations.length} automatisation{categoryAutomations.length > 1 ? 's' : ''})
+                                 </div>
+                               </div>
+                               
+                               {categoryAutomations.map((automation) => (
+                                 <div key={automation.id} className="p-4 border rounded-lg ml-6" style={{ backgroundColor: '#f3f3f3' }}>
+                                   {editingSequence === automation.id ? (
+                                     /* Edit Mode */
+                                     <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                          <div>
+                                            <div className="font-medium">{automation.name}</div>
+                                          </div>
+                                        </div>
+                                       
+                                        {/* Automation Configuration */}
+                                         <SequenceConfig
+                                           categoryId={automation.task_category_id}
+                                           onSave={async (config) => {
+                                             await handleEditSequenceSave(config);
+                                           }}
+                                          onCancel={handleEditSequenceCancel}
+                                          isSubmitting={isSubmitting}
+                                          hubspotLists={hubspotLists}
+                                          listsLoading={listsLoading}
+                                          refreshingLists={refreshingLists}
+                                          onRefreshLists={handleRefreshLists}
+                                          selectedListId={sequenceForm.hs_list_id}
+                                          onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
+                                          initialAutomation={automation}
+                                        />
                                      </div>
-                                   </div>
-                                  
-                                   {/* Sequence Configuration */}
-                                    <SequenceConfig
-                                      categoryId={category.id}
-                                      onSave={async (config) => {
-                                        await handleEditSequenceSave(config);
-                                      }}
-                                     onCancel={handleEditSequenceCancel}
-                                     isSubmitting={isSubmitting}
-                                     hubspotLists={hubspotLists}
-                                     listsLoading={listsLoading}
-                                     refreshingLists={refreshingLists}
-                                     onRefreshLists={handleRefreshLists}
-                                     selectedListId={sequenceForm.hs_list_id}
-                                     onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
-                                     initialCategory={category}
-                                   />
-                                </div>
-                             ) : (
-                               /* View Mode */
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3 flex-1">
-                                    <ColorPreview color={category.color} />
-                                    <div className="font-medium text-lg">{category.label}</div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Switch
-                                      checked={category.automation_enabled ?? true}
-                                      onCheckedChange={(checked) => handleToggleAutomationEnabled(category.id, checked)}
-                                      disabled={isSubmitting}
-                                    />
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleEditSequenceStart(category)}
-                                      disabled={isSubmitting}
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleDeleteSequence(category.id)}
-                                      disabled={isSubmitting || (category.automation_enabled ?? true)}
-                                      className={category.automation_enabled ?? true ? "opacity-50 cursor-not-allowed" : ""}
-                                    >
-                                      <EyeOff className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                             )}
-                           </div>
-                         ))}
+                                  ) : (
+                                    /* View Mode */
+                                     <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-3 flex-1">
+                                         <div className="font-medium">{automation.name}</div>
+                                       </div>
+                                       <div className="flex items-center gap-2">
+                                         <Switch
+                                           checked={automation.automation_enabled ?? false}
+                                           onCheckedChange={(checked) => handleToggleAutomationEnabled(automation.id, checked)}
+                                           disabled={isSubmitting}
+                                         />
+                                         <Button
+                                           size="sm"
+                                           variant="outline"
+                                           onClick={() => handleEditSequenceStart(automation)}
+                                           disabled={isSubmitting}
+                                         >
+                                           <Edit2 className="h-4 w-4" />
+                                         </Button>
+                                         <Button
+                                           size="sm"
+                                           variant="outline"
+                                           onClick={() => handleDeleteSequence(automation.id)}
+                                           disabled={isSubmitting || automation.automation_enabled}
+                                           className={automation.automation_enabled ? "opacity-50 cursor-not-allowed" : ""}
+                                         >
+                                           <EyeOff className="h-4 w-4" />
+                                         </Button>
+                                       </div>
+                                     </div>
+                                  )}
+                                 </div>
+                               ))}
+                             </div>
+                           ) : null;
+                         })}
 
-                      {categories.filter(category => category.display_automation_card).length === 0 && (
+                      {automations.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                           <Repeat className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>Aucune séquence créée</p>
-                          <p className="text-sm">Cliquez sur "Créer une séquence" pour commencer</p>
+                          <p>Aucune automatisation créée</p>
+                          <p className="text-sm">Cliquez sur "Créer une automatisation" pour commencer</p>
                         </div>
                       )}
                     </div>
