@@ -170,6 +170,17 @@ const Settings = () => {
       return;
     }
 
+    // Check if there are automations associated with this category
+    const associatedAutomations = getAutomationsByCategory(id);
+    if (associatedAutomations.length > 0) {
+      toast({
+        title: "Suppression impossible",
+        description: "Il existe des automatisations associées à cette catégorie",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette catégorie ?")) {
       return;
     }
