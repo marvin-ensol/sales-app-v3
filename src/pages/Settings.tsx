@@ -315,11 +315,14 @@ const Settings = () => {
         task_display_order: categoryToUpdate.task_display_order || "oldest_tasks_first",
         sequence_list_id: sequenceForm.sequence_list_id,
         // Add automation configuration fields
+        // IMPORTANT: When adding new automation flags in SequenceConfig.buildBooleanFlags,
+        // ensure they are forwarded here and handled in useTaskCategoriesManagement.updateCategory
         ...(config && {
           first_task_creation: config.first_task_creation,
           sequence_enabled: config.sequence_enabled,
           sequence_exit_enabled: config.sequence_exit_enabled,
           schedule_enabled: config.schedule_enabled,
+          auto_complete_on_exit_enabled: config.auto_complete_on_exit_enabled,
           tasks_configuration: config.tasks_configuration,
           schedule_configuration: config.schedule_configuration
         })
