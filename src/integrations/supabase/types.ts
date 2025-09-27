@@ -56,6 +56,39 @@ export type Database = {
         }
         Relationships: []
       }
+      hs_list_memberships: {
+        Row: {
+          created_at: string
+          hs_object_id: string | null
+          hs_queue_id: string | null
+          id: string
+          list_entry_date: string | null
+          list_exit_date: string | null
+          object: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hs_object_id?: string | null
+          hs_queue_id?: string | null
+          id?: string
+          list_entry_date?: string | null
+          list_exit_date?: string | null
+          object?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hs_object_id?: string | null
+          hs_queue_id?: string | null
+          id?: string
+          list_entry_date?: string | null
+          list_exit_date?: string | null
+          object?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hs_tasks: {
         Row: {
           archived: boolean | null
@@ -63,6 +96,7 @@ export type Database = {
           associated_contact_id: string | null
           associated_deal_id: string | null
           created_at: string
+          created_by_automation: boolean | null
           hs_body_preview: string | null
           hs_created_by_user_id: string | null
           hs_createdate: string | null
@@ -94,6 +128,7 @@ export type Database = {
           associated_contact_id?: string | null
           associated_deal_id?: string | null
           created_at?: string
+          created_by_automation?: boolean | null
           hs_body_preview?: string | null
           hs_created_by_user_id?: string | null
           hs_createdate?: string | null
@@ -125,6 +160,7 @@ export type Database = {
           associated_contact_id?: string | null
           associated_deal_id?: string | null
           created_at?: string
+          created_by_automation?: boolean | null
           hs_body_preview?: string | null
           hs_created_by_user_id?: string | null
           hs_createdate?: string | null
@@ -294,6 +330,7 @@ export type Database = {
       }
       task_categories: {
         Row: {
+          auto_complete_on_exit_enabled: boolean | null
           automation_enabled: boolean
           color: string | null
           created_at: string
@@ -315,6 +352,7 @@ export type Database = {
           visible_team_ids: Json | null
         }
         Insert: {
+          auto_complete_on_exit_enabled?: boolean | null
           automation_enabled?: boolean
           color?: string | null
           created_at?: string
@@ -336,6 +374,7 @@ export type Database = {
           visible_team_ids?: Json | null
         }
         Update: {
+          auto_complete_on_exit_enabled?: boolean | null
           automation_enabled?: boolean
           color?: string | null
           created_at?: string
