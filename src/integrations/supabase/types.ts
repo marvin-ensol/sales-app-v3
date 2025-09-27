@@ -409,72 +409,39 @@ export type Database = {
       }
       task_categories: {
         Row: {
-          auto_complete_on_exit_enabled: boolean | null
-          automation_enabled: boolean
           color: string | null
           created_at: string
-          display_automation_card: boolean
-          first_task_creation: boolean | null
-          hs_list_id: string | null
-          hs_list_object: string | null
           hs_queue_id: string | null
           id: number
           label: string | null
           locks_lower_categories: boolean | null
           order_column: number
-          schedule_configuration: Json | null
-          schedule_enabled: boolean | null
-          sequence_enabled: boolean | null
-          sequence_exit_enabled: boolean | null
           system_default: boolean | null
           task_display_order: string | null
-          tasks_configuration: Json | null
           visible_team_ids: Json | null
         }
         Insert: {
-          auto_complete_on_exit_enabled?: boolean | null
-          automation_enabled?: boolean
           color?: string | null
           created_at?: string
-          display_automation_card?: boolean
-          first_task_creation?: boolean | null
-          hs_list_id?: string | null
-          hs_list_object?: string | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
           locks_lower_categories?: boolean | null
           order_column: number
-          schedule_configuration?: Json | null
-          schedule_enabled?: boolean | null
-          sequence_enabled?: boolean | null
-          sequence_exit_enabled?: boolean | null
           system_default?: boolean | null
           task_display_order?: string | null
-          tasks_configuration?: Json | null
           visible_team_ids?: Json | null
         }
         Update: {
-          auto_complete_on_exit_enabled?: boolean | null
-          automation_enabled?: boolean
           color?: string | null
           created_at?: string
-          display_automation_card?: boolean
-          first_task_creation?: boolean | null
-          hs_list_id?: string | null
-          hs_list_object?: string | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
           locks_lower_categories?: boolean | null
           order_column?: number
-          schedule_configuration?: Json | null
-          schedule_enabled?: boolean | null
-          sequence_enabled?: boolean | null
-          sequence_exit_enabled?: boolean | null
           system_default?: boolean | null
           task_display_order?: string | null
-          tasks_configuration?: Json | null
           visible_team_ids?: Json | null
         }
         Relationships: []
