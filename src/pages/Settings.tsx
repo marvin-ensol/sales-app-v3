@@ -27,9 +27,9 @@ const Settings = () => {
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -38,7 +38,7 @@ const Settings = () => {
   const [showSequenceModal, setShowSequenceModal] = useState(false);
   const [expandedSection, setExpandedSection] = useState<'categories' | 'sequences' | null>(null);
   const [editingSequence, setEditingSequence] = useState<number | null>(null);
-  const [sequenceForm, setSequenceForm] = useState<{ sequence_list_id: string }>({ sequence_list_id: "" });
+  const [sequenceForm, setSequenceForm] = useState<{ hs_list_id: string }>({ hs_list_id: "" });
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
   const [refreshingLists, setRefreshingLists] = useState(false);
 
@@ -89,13 +89,13 @@ const Settings = () => {
       visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
       locks_lower_categories: category.locks_lower_categories || false,
       task_display_order: category.task_display_order || "oldest_tasks_first",
-      sequence_list_id: (category as any).sequence_list_id || ""
+      hs_list_id: (category as any).hs_list_id || ""
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
   };
 
   const handleEditSave = async () => {
@@ -114,7 +114,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -144,7 +144,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", sequence_list_id: "" });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", hs_list_id: "" });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -289,13 +289,13 @@ const Settings = () => {
   const handleEditSequenceStart = (category: any) => {
     setEditingSequence(category.id);
     setSequenceForm({
-      sequence_list_id: category.sequence_list_id || ""
+      hs_list_id: category.hs_list_id || ""
     });
   };
 
   const handleEditSequenceCancel = () => {
     setEditingSequence(null);
-    setSequenceForm({ sequence_list_id: "" });
+    setSequenceForm({ hs_list_id: "" });
   };
 
   const handleEditSequenceSave = async (config?: any) => {
@@ -313,7 +313,8 @@ const Settings = () => {
         visible_team_ids: categoryToUpdate.visible_team_ids || [],
         locks_lower_categories: categoryToUpdate.locks_lower_categories || false,
         task_display_order: categoryToUpdate.task_display_order || "oldest_tasks_first",
-        sequence_list_id: sequenceForm.sequence_list_id,
+        hs_list_id: sequenceForm.hs_list_id,
+        hs_list_object: sequenceForm.hs_list_id ? 'contacts' : null,
         // Add automation configuration fields
         // IMPORTANT: When adding new automation flags in SequenceConfig.buildBooleanFlags,
         // ensure they are forwarded here and handled in useTaskCategoriesManagement.updateCategory
@@ -329,7 +330,7 @@ const Settings = () => {
       });
 
       setEditingSequence(null);
-      setSequenceForm({ sequence_list_id: "" });
+      setSequenceForm({ hs_list_id: "" });
       toast({
         title: "Succès",
         description: "Séquence mise à jour avec succès"
@@ -842,8 +843,8 @@ const Settings = () => {
                                      listsLoading={listsLoading}
                                      refreshingLists={refreshingLists}
                                      onRefreshLists={handleRefreshLists}
-                                     selectedListId={sequenceForm.sequence_list_id}
-                                     onListChange={(listId) => setSequenceForm(prev => ({ ...prev, sequence_list_id: listId }))}
+                                     selectedListId={sequenceForm.hs_list_id}
+                                     onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
                                      initialCategory={category}
                                    />
                                 </div>

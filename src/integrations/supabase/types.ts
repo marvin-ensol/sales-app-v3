@@ -59,6 +59,7 @@ export type Database = {
       hs_list_memberships: {
         Row: {
           created_at: string
+          hs_list_id: string | null
           hs_object_id: string | null
           hs_queue_id: string | null
           id: string
@@ -69,6 +70,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          hs_list_id?: string | null
           hs_object_id?: string | null
           hs_queue_id?: string | null
           id?: string
@@ -79,6 +81,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          hs_list_id?: string | null
           hs_object_id?: string | null
           hs_queue_id?: string | null
           id?: string
@@ -336,6 +339,8 @@ export type Database = {
           created_at: string
           display_automation_card: boolean
           first_task_creation: boolean | null
+          hs_list_id: string | null
+          hs_list_object: string | null
           hs_queue_id: string | null
           id: number
           label: string | null
@@ -345,7 +350,6 @@ export type Database = {
           schedule_enabled: boolean | null
           sequence_enabled: boolean | null
           sequence_exit_enabled: boolean | null
-          sequence_list_id: string | null
           system_default: boolean | null
           task_display_order: string | null
           tasks_configuration: Json | null
@@ -358,6 +362,8 @@ export type Database = {
           created_at?: string
           display_automation_card?: boolean
           first_task_creation?: boolean | null
+          hs_list_id?: string | null
+          hs_list_object?: string | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
@@ -367,7 +373,6 @@ export type Database = {
           schedule_enabled?: boolean | null
           sequence_enabled?: boolean | null
           sequence_exit_enabled?: boolean | null
-          sequence_list_id?: string | null
           system_default?: boolean | null
           task_display_order?: string | null
           tasks_configuration?: Json | null
@@ -380,6 +385,8 @@ export type Database = {
           created_at?: string
           display_automation_card?: boolean
           first_task_creation?: boolean | null
+          hs_list_id?: string | null
+          hs_list_object?: string | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
@@ -389,7 +396,6 @@ export type Database = {
           schedule_enabled?: boolean | null
           sequence_enabled?: boolean | null
           sequence_exit_enabled?: boolean | null
-          sequence_list_id?: string | null
           system_default?: boolean | null
           task_display_order?: string | null
           tasks_configuration?: Json | null
