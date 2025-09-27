@@ -450,6 +450,18 @@ const Settings = () => {
                  <div className="space-y-3">
                    {(localCategories.length > 0 ? localCategories : categories).map((category) => (
                      <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
+                      <div 
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          // Don't trigger edit if clicking on reorder buttons
+                          if ((e.target as HTMLElement).closest('[data-reorder-button]')) {
+                            return;
+                          }
+                          if (editingId !== category.id) {
+                            handleEditStart(category);
+                          }
+                        }}
+                      >
                       {editingId === category.id ? (
                         /* Edit Mode */
                          <div className="space-y-3">
@@ -571,27 +583,38 @@ const Settings = () => {
                                   )}
                                 </div>
                            </div>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={handleEditSave}
-                              disabled={isSubmitting}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Sauvegarder
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleEditCancel}
-                              disabled={isSubmitting}
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Annuler
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
+                           <div className="flex justify-between items-center">
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleDelete(category.id, category.hs_queue_id);
+                               }}
+                               disabled={!category.hs_queue_id || isSubmitting}
+                               className="text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                               Supprimer cette catégorie
+                             </button>
+                             
+                             <div className="flex gap-2">
+                               <Button
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={handleEditCancel}
+                                 disabled={isSubmitting}
+                               >
+                                 Annuler
+                               </Button>
+                               <Button
+                                 size="sm"
+                                 onClick={handleEditSave}
+                                 disabled={isSubmitting}
+                               >
+                                 Enregistrer
+                               </Button>
+                             </div>
+                           </div>
+                         </div>
+                       ) : (
                         /* View Mode */
                         <div className="space-y-3">
                           {/* Top row - Category name with color square */}
@@ -601,43 +624,33 @@ const Settings = () => {
                               <div className="font-medium text-lg">{category.label || "Sans nom"}</div>
                             </div>
                             <div className="flex gap-2">
-                              {/* Reorder buttons */}
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleReorder(category.id, 'up')}
-                                 disabled={isSubmitting}
-                                 title="Déplacer vers le haut"
-                               >
-                                 <ArrowUp className="h-4 w-4" />
-                               </Button>
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleReorder(category.id, 'down')}
-                                 disabled={isSubmitting}
-                                 title="Déplacer vers le bas"
-                               >
-                                 <ArrowDown className="h-4 w-4" />
-                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditStart(category)}
-                                disabled={isSubmitting}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={() => handleDelete(category.id, category.hs_queue_id)}
-                                 disabled={isSubmitting}
-                                 className={category.hs_queue_id === null ? "opacity-50 cursor-not-allowed text-gray-400" : "text-red-600 hover:text-red-700"}
-                                 title={category.hs_queue_id === null ? "Impossible de supprimer la catégorie de secours" : "Supprimer cette catégorie"}
-                               >
-                                 <Trash2 className="h-4 w-4" />
-                               </Button>
+                               {/* Reorder buttons */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReorder(category.id, 'up');
+                                  }}
+                                  disabled={isSubmitting}
+                                  title="Déplacer vers le haut"
+                                  data-reorder-button
+                                >
+                                  <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReorder(category.id, 'down');
+                                  }}
+                                  disabled={isSubmitting}
+                                  title="Déplacer vers le bas"
+                                  data-reorder-button
+                                >
+                                  <ArrowDown className="h-4 w-4" />
+                                </Button>
                             </div>
                           </div>
 
@@ -682,8 +695,9 @@ const Settings = () => {
                                  </div>
                                )}
                              </div>
-                        </div>
+                         </div>
                       )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -886,21 +900,25 @@ const Settings = () => {
                                         </div>
                                        
                                         {/* Automation Configuration */}
-                                         <SequenceConfig
-                                           categoryId={automation.task_category_id}
-                                           onSave={async (config) => {
-                                             await handleEditSequenceSave(config);
+                                          <SequenceConfig
+                                            categoryId={automation.task_category_id}
+                                            onSave={async (config) => {
+                                              await handleEditSequenceSave(config);
+                                            }}
+                                           onCancel={handleEditSequenceCancel}
+                                           onDelete={() => {
+                                             deleteAutomation(automation.id);
+                                             setEditingSequence(null);
                                            }}
-                                          onCancel={handleEditSequenceCancel}
-                                          isSubmitting={isSubmitting}
-                                          hubspotLists={hubspotLists}
-                                          listsLoading={listsLoading}
-                                          refreshingLists={refreshingLists}
-                                          onRefreshLists={handleRefreshLists}
-                                          selectedListId={sequenceForm.hs_list_id}
-                                          onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
-                                          initialAutomation={automation}
-                                        />
+                                           isSubmitting={isSubmitting}
+                                           hubspotLists={hubspotLists}
+                                           listsLoading={listsLoading}
+                                           refreshingLists={refreshingLists}
+                                           onRefreshLists={handleRefreshLists}
+                                           selectedListId={sequenceForm.hs_list_id}
+                                           onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
+                                           initialAutomation={automation}
+                                         />
                                      </div>
                                 ) : (
                                     /* View Mode */
@@ -959,18 +977,6 @@ const Settings = () => {
                                            disabled={isSubmitting}
                                            onClick={(e) => e.stopPropagation()}
                                          />
-                                         <Button
-                                           size="sm"
-                                           variant="outline"
-                                           onClick={(e) => {
-                                             e.stopPropagation();
-                                             handleDeleteSequence(automation.id);
-                                           }}
-                                           disabled={isSubmitting || automation.automation_enabled}
-                                           className={automation.automation_enabled ? "opacity-50 cursor-not-allowed" : ""}
-                                         >
-                                           <EyeOff className="h-4 w-4" />
-                                         </Button>
                                        </div>
                                      </div>
                                   )}

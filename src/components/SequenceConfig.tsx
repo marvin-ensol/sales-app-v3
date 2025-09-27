@@ -58,6 +58,7 @@ interface SequenceConfigProps {
   categoryId: number;
   onSave: (config: SequenceConfig) => Promise<void>;
   onCancel: () => void;
+  onDelete?: () => void;
   isSubmitting: boolean;
   hubspotLists: HubSpotList[];
   listsLoading: boolean;
@@ -92,6 +93,7 @@ export const SequenceConfig = ({
   categoryId, 
   onSave, 
   onCancel, 
+  onDelete,
   isSubmitting,
   hubspotLists,
   listsLoading,
@@ -824,25 +826,38 @@ export const SequenceConfig = ({
        </div>
 
 
-      {/* Save/Cancel Actions */}
-      <div className="flex gap-2 justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Annuler
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleSave}
-          disabled={isSubmitting}
-          className="bg-black hover:bg-gray-800 text-white"
-        >
-          Enregistrer
-        </Button>
-      </div>
+       {/* Save/Cancel Actions */}
+       <div className="flex justify-between items-center">
+         <button
+           onClick={() => {
+             if (confirm('Êtes-vous sûr de vouloir supprimer cette automatisation ?')) {
+               onDelete?.();
+             }
+           }}
+           className="text-red-600 hover:text-red-800 text-sm"
+         >
+           Supprimer cette automatisation
+         </button>
+         
+         <div className="flex gap-2">
+           <Button
+             size="sm"
+             variant="outline"
+             onClick={onCancel}
+             disabled={isSubmitting}
+           >
+             Annuler
+           </Button>
+           <Button
+             size="sm"
+             onClick={handleSave}
+             disabled={isSubmitting}
+             className="bg-black hover:bg-gray-800 text-white"
+           >
+             Enregistrer
+           </Button>
+         </div>
+       </div>
     </div>
   );
 };
