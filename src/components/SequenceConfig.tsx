@@ -210,8 +210,8 @@ export const SequenceConfig = ({
   const validateConfig = () => {
     const errors: Record<string, string> = {};
 
-    // Contact list validation - when either feature requires a list
-    if ((createInitialTask || canInterruptSequence) && (!selectedListId || selectedListId === '')) {
+    // Contact list validation - when any feature requires a list
+    if ((createInitialTask || canInterruptSequence || autoCompleteOnExit) && (!selectedListId || selectedListId === '')) {
       errors.contactList = 'Veuillez sélectionner une liste de contact';
     }
 
@@ -519,8 +519,8 @@ export const SequenceConfig = ({
 
   return (
     <div className="space-y-4">
-      {/* Contact List Card - shown when either checkbox is checked */}
-      {(createInitialTask || canInterruptSequence) && (
+      {/* Contact List Card - shown when any feature requiring a list is enabled */}
+      {(createInitialTask || canInterruptSequence || autoCompleteOnExit) && (
         <ContactListCard
           hubspotLists={hubspotLists}
           listsLoading={listsLoading}
