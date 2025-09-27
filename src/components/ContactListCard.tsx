@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ChevronsUpDown, Check, ExternalLink, Repeat, AlertTriangle } from "lucide-react";
+import { ChevronsUpDown, Check, ExternalLink, Repeat, AlertTriangle, Users } from "lucide-react";
 
 interface HubSpotList {
   listId: string;
@@ -49,7 +49,10 @@ export const ContactListCard = ({
 
   return (
     <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-      <h4 className="text-lg font-semibold mb-4">Liste de contact</h4>
+      <div className="flex items-center gap-2 mb-4">
+        <Users className="h-5 w-5 text-muted-foreground" />
+        <h4 className="text-base font-medium">Liste de contact</h4>
+      </div>
       
       <div className="space-y-4">
         <div className="space-y-2">

@@ -789,7 +789,7 @@ const Settings = () => {
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Repeat className="h-5 w-5" />
-                    Automatisation de création de tâches
+                    Automatisations de tâches
                   </div>
                   <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${expandedSection === 'sequences' ? 'rotate-90' : ''}`} />
                 </CardTitle>
@@ -823,13 +823,12 @@ const Settings = () => {
                               {editingSequence === category.id ? (
                                 /* Edit Mode */
                                 <div className="space-y-4">
-                                  <div className="flex items-center gap-3">
-                                    <ColorPreview color={category.color} />
-                                    <div>
-                                      <div className="font-medium">{category.label}</div>
-                                      <div className="text-sm text-gray-500">Édition de la séquence</div>
-                                    </div>
-                                  </div>
+                                   <div className="flex items-center gap-3">
+                                     <ColorPreview color={category.color} />
+                                     <div>
+                                       <div className="font-medium">{category.label}</div>
+                                     </div>
+                                   </div>
                                   
                                    {/* Sequence Configuration */}
                                     <SequenceConfig

@@ -51,7 +51,7 @@ export const SequenceTaskItem = ({
   };
 
   return (
-    <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+    <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200 max-w-lg mx-auto">
       {/* Header with task number and inline name input */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">

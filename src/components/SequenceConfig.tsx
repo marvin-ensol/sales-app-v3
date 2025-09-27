@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, Plus, X, CalendarIcon } from "lucide-react";
+import { AlertTriangle, Plus, X, CalendarIcon, LogOut, CheckCircle, Clock, Users } from "lucide-react";
 import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
 import { TaskOwnerSelector } from "./TaskOwnerSelector";
 import { ContactListCard } from "./ContactListCard";
@@ -540,7 +540,7 @@ export const SequenceConfig = ({
       )}
 
       {/* Task 1 Configuration */}
-      <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200">
+      <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200 max-w-lg mx-auto">
         {/* Header with task number and inline name input */}
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -634,7 +634,10 @@ export const SequenceConfig = ({
 
           {/* Sequence Exit Configuration */}
           <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-            <h4 className="font-medium">Sortie de séquence</h4>
+            <div className="flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-muted-foreground" />
+              <h4 className="text-base font-medium">Sortie de séquence</h4>
+            </div>
             
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -656,7 +659,10 @@ export const SequenceConfig = ({
 
       {/* Auto-validation des tâches - Always visible */}
       <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-        <h4 className="font-medium">Auto-validation des tâches</h4>
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 text-muted-foreground" />
+          <h4 className="text-base font-medium">Auto-validation des tâches</h4>
+        </div>
         
         <div className="flex items-center space-x-2">
           <Checkbox
@@ -675,7 +681,10 @@ export const SequenceConfig = ({
 
       {/* Working Hours Configuration - Always visible */}
       <div className="space-y-4 p-4 border rounded-lg bg-slate-50/80 border-slate-200">
-        <h4 className="font-medium">Horaires de travail</h4>
+        <div className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-muted-foreground" />
+          <h4 className="text-base font-medium">Horaires de travail</h4>
+        </div>
         
         <div className="flex items-start space-x-2">
           <Checkbox
