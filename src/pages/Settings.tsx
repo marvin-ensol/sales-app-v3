@@ -755,12 +755,12 @@ const Settings = () => {
                 {!automationsLoading && (
                   <>
                     {/* Automations List */}
-                    <div className="space-y-4">
+                     <div className="space-y-4">
                       {automations.map((automation) => (
                         <AutomationConfig
                           key={automation.id}
                           automation={automation}
-                          hubspotLists={hubspotLists.map(list => ({
+                          hubspotLists={(hubspotLists || []).map(list => ({
                             listId: list.listId,
                             name: list.name,
                             size: parseInt(list.additionalProperties?.hs_list_size || '0')
