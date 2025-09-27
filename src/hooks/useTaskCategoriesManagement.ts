@@ -12,6 +12,15 @@ export interface TaskCategoryManagement {
   visible_team_ids?: string[];
   locks_lower_categories?: boolean;
   task_display_order?: string;
+  display_automation_card?: boolean;
+  automation_enabled?: boolean;
+  first_task_creation?: boolean;
+  sequence_enabled?: boolean;
+  sequence_exit_enabled?: boolean;
+  schedule_enabled?: boolean;
+  auto_complete_on_exit_enabled?: boolean;
+  tasks_configuration?: any;
+  schedule_configuration?: any;
 }
 
 export interface CategoryFormData {
@@ -21,8 +30,20 @@ export interface CategoryFormData {
   visible_team_ids: string[];
   locks_lower_categories: boolean;
   task_display_order: string;
+  hs_list_id?: string;
+  hs_list_object?: string;
+  first_task_creation?: boolean;
+  sequence_enabled?: boolean;
+  sequence_exit_enabled?: boolean;
+  schedule_enabled?: boolean;
+  auto_complete_on_exit_enabled?: boolean; // IMPORTANT: When adding new fields to UI, ensure they're included here and in updateCategory function below
+  tasks_configuration?: any;
+  schedule_configuration?: any;
 }
 
+export interface SequenceFormData {
+  categoryId: number;
+}
 
 export const useTaskCategoriesManagement = () => {
   const [categories, setCategories] = useState<TaskCategoryManagement[]>([]);
@@ -51,7 +72,9 @@ export const useTaskCategoriesManagement = () => {
           ? (category.visible_team_ids as string[])
           : [],
         locks_lower_categories: category.locks_lower_categories ?? false,
-        task_display_order: category.task_display_order ?? 'oldest_tasks_first'
+        task_display_order: category.task_display_order ?? 'oldest_tasks_first',
+        display_automation_card: category.display_automation_card ?? false,
+        automation_enabled: category.automation_enabled ?? true
       }));
       setCategories(transformedCategories);
     } catch (err) {
@@ -112,8 +135,34 @@ export const useTaskCategoriesManagement = () => {
         hs_queue_id: categoryData.hs_queue_id || null,
         visible_team_ids: categoryData.visible_team_ids || [],
         locks_lower_categories: categoryData.locks_lower_categories ?? false,
-        task_display_order: categoryData.task_display_order || 'oldest_tasks_first'
+        task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
+        hs_list_id: categoryData.hs_list_id || null,
+        hs_list_object: categoryData.hs_list_id ? 'contacts' : null
       };
+
+      // Add automation fields if they are provided
+      // IMPORTANT: When adding new UI fields, ensure they're handled here for database persistence
+      if (categoryData.first_task_creation !== undefined) {
+        updatePayload.first_task_creation = categoryData.first_task_creation;
+      }
+      if (categoryData.sequence_enabled !== undefined) {
+        updatePayload.sequence_enabled = categoryData.sequence_enabled;
+      }
+      if (categoryData.sequence_exit_enabled !== undefined) {
+        updatePayload.sequence_exit_enabled = categoryData.sequence_exit_enabled;
+      }
+      if (categoryData.schedule_enabled !== undefined) {
+        updatePayload.schedule_enabled = categoryData.schedule_enabled;
+      }
+      if (categoryData.auto_complete_on_exit_enabled !== undefined) {
+        updatePayload.auto_complete_on_exit_enabled = categoryData.auto_complete_on_exit_enabled;
+      }
+      if (categoryData.tasks_configuration !== undefined) {
+        updatePayload.tasks_configuration = categoryData.tasks_configuration;
+      }
+      if (categoryData.schedule_configuration !== undefined) {
+        updatePayload.schedule_configuration = categoryData.schedule_configuration;
+      }
 
       // Optimistically update local state first
       setCategories(prev => prev.map(cat => 
@@ -240,6 +289,66 @@ export const useTaskCategoriesManagement = () => {
     }
   };
 
+  const createSequence = async (sequenceData: SequenceFormData) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('task_categories')
+        .update({ display_automation_card: true })
+        .eq('id', sequenceData.categoryId);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error creating sequence:', err);
+      throw err;
+    }
+  };
+
+  const hideAutomation = async (categoryId: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('task_categories')
+        .update({ display_automation_card: false })
+        .eq('id', categoryId);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error hiding automation:', err);
+      throw err;
+    }
+  };
+
+  const toggleAutomationEnabled = async (categoryId: number, enabled: boolean) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('task_categories')
+        .update({ automation_enabled: enabled })
+        .eq('id', categoryId);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // Refresh categories list
+      await fetchCategories();
+    } catch (err) {
+      console.error('Error toggling automation:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -252,6 +361,9 @@ export const useTaskCategoriesManagement = () => {
     createCategory,
     updateCategory,
     deleteCategory,
-    updateCategoryOrder
+    updateCategoryOrder,
+    createSequence,
+    hideAutomation,
+    toggleAutomationEnabled
   };
 };
