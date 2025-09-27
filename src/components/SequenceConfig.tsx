@@ -398,6 +398,14 @@ export const SequenceConfig = ({
         console.log('Schedule Configuration (ordered):', JSON.stringify(orderedSchedule, null, 2));
       }
 
+      // Debug: log what we'll send to Settings onSave
+      console.log('[SequenceConfig] onSave payload preview', {
+        booleanFlags,
+        selectedListId,
+        tasksConfiguration,
+        scheduleConfiguration
+      });
+
       await onSave({
         categoryId,
         createInitialTask,

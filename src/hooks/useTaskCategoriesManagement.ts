@@ -173,12 +173,18 @@ export const useTaskCategoriesManagement = () => {
         } : cat
       ));
 
+      // Debug: log update payload
+      console.log('[useTaskCategoriesManagement] Updating category', id, updatePayload);
+
       const { data, error: updateError } = await supabase
         .from('task_categories')
         .update(updatePayload)
         .eq('id', id)
         .select()
         .single();
+
+      // Debug: log update response
+      console.log('[useTaskCategoriesManagement] Update response', { data, updateError });
 
       if (updateError) {
         console.error('Database update error:', updateError);
