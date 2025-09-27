@@ -27,6 +27,7 @@ interface ContactListCardProps {
   selectedListId?: string;
   onListChange: (listId: string) => void;
   validationError?: string;
+  usedListIds?: string[];
 }
 
 export const ContactListCard = ({
@@ -36,7 +37,8 @@ export const ContactListCard = ({
   onRefreshLists,
   selectedListId,
   onListChange,
-  validationError
+  validationError,
+  usedListIds = []
 }: ContactListCardProps) => {
   const [listPopoverOpen, setListPopoverOpen] = useState(false);
 
@@ -87,28 +89,44 @@ export const ContactListCard = ({
                     <CommandList>
                       <CommandEmpty>Aucune liste trouvée.</CommandEmpty>
                       <CommandGroup>
-                        {hubspotLists.map((list) => (
-                          <CommandItem
-                            key={list.listId}
-                            value={list.name}
-                            onSelect={() => {
-                              onListChange(list.listId);
-                              setListPopoverOpen(false);
-                            }}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <span className="truncate">{list.name}</span>
-                              <Badge variant="secondary" className="ml-2 flex-shrink-0">
-                                {list.additionalProperties?.hs_list_size || '0'}
-                              </Badge>
-                            </div>
-                            <Check
-                              className={`ml-auto h-4 w-4 ${
-                                selectedListId === list.listId ? "opacity-100" : "opacity-0"
-                              }`}
-                            />
-                          </CommandItem>
-                        ))}
+                        {hubspotLists.map((list) => {
+                          const isUsed = usedListIds.includes(list.listId);
+                          const isSelected = selectedListId === list.listId;
+                          
+                          return (
+                            <CommandItem
+                              key={list.listId}
+                              value={list.name}
+                              disabled={isUsed}
+                              onSelect={() => {
+                                if (!isUsed) {
+                                  onListChange(list.listId);
+                                  setListPopoverOpen(false);
+                                }
+                              }}
+                              className={isUsed ? "opacity-50 cursor-not-allowed" : ""}
+                            >
+                              <div className="flex flex-col gap-1 w-full">
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="truncate">{list.name}</span>
+                                  <Badge variant="secondary" className="ml-2 flex-shrink-0">
+                                    {list.additionalProperties?.hs_list_size || '0'}
+                                  </Badge>
+                                </div>
+                                {isUsed && (
+                                  <span className="text-xs text-muted-foreground italic">
+                                    Liste déjà utilisée ailleurs
+                                  </span>
+                                )}
+                              </div>
+                              <Check
+                                className={`ml-auto h-4 w-4 ${
+                                  isSelected ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                            </CommandItem>
+                          );
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>

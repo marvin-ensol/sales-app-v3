@@ -257,6 +257,16 @@ export const useTaskAutomationsManagement = () => {
     }
   };
 
+  const getUsedListIds = (excludeAutomationId?: string): string[] => {
+    return automations
+      .filter(automation => 
+        automation.hs_list_id && 
+        automation.id !== excludeAutomationId
+      )
+      .map(automation => automation.hs_list_id!)
+      .filter(Boolean);
+  };
+
   useEffect(() => {
     fetchAutomations();
   }, []);
@@ -272,6 +282,7 @@ export const useTaskAutomationsManagement = () => {
     deleteAutomation,
     toggleAutomationEnabled,
     hideAutomation,
-    showAutomation
+    showAutomation,
+    getUsedListIds
   };
 };

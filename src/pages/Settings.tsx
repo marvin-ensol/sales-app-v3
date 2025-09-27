@@ -26,7 +26,7 @@ const Settings = () => {
   const { toast } = useToast();
   const { teams } = useTeams();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
-  const { automations, loading: automationsLoading, createAutomation, updateAutomation, deleteAutomation, toggleAutomationEnabled, hideAutomation, getAutomationsByCategory } = useTaskAutomationsManagement();
+  const { automations, loading: automationsLoading, createAutomation, updateAutomation, deleteAutomation, toggleAutomationEnabled, hideAutomation, getAutomationsByCategory, getUsedListIds } = useTaskAutomationsManagement();
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -900,25 +900,26 @@ const Settings = () => {
                                         </div>
                                        
                                         {/* Automation Configuration */}
-                                          <SequenceConfig
-                                            categoryId={automation.task_category_id}
-                                            onSave={async (config) => {
-                                              await handleEditSequenceSave(config);
+                                           <SequenceConfig
+                                             categoryId={automation.task_category_id}
+                                             onSave={async (config) => {
+                                               await handleEditSequenceSave(config);
+                                             }}
+                                            onCancel={handleEditSequenceCancel}
+                                            onDelete={() => {
+                                              deleteAutomation(automation.id);
+                                              setEditingSequence(null);
                                             }}
-                                           onCancel={handleEditSequenceCancel}
-                                           onDelete={() => {
-                                             deleteAutomation(automation.id);
-                                             setEditingSequence(null);
-                                           }}
-                                           isSubmitting={isSubmitting}
-                                           hubspotLists={hubspotLists}
-                                           listsLoading={listsLoading}
-                                           refreshingLists={refreshingLists}
-                                           onRefreshLists={handleRefreshLists}
-                                           selectedListId={sequenceForm.hs_list_id}
-                                           onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
-                                           initialAutomation={automation}
-                                         />
+                                            isSubmitting={isSubmitting}
+                                            hubspotLists={hubspotLists}
+                                            listsLoading={listsLoading}
+                                            refreshingLists={refreshingLists}
+                                            onRefreshLists={handleRefreshLists}
+                                            selectedListId={sequenceForm.hs_list_id}
+                                            onListChange={(listId) => setSequenceForm(prev => ({ ...prev, hs_list_id: listId }))}
+                                            initialAutomation={automation}
+                                            usedListIds={getUsedListIds(automation.id)}
+                                          />
                                      </div>
                                 ) : (
                                     /* View Mode */

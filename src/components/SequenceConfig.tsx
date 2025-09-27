@@ -67,6 +67,7 @@ interface SequenceConfigProps {
   selectedListId?: string;
   onListChange: (listId: string) => void;
   initialAutomation?: TaskAutomation;
+  usedListIds?: string[];
 }
 
 interface SequenceConfig {
@@ -101,7 +102,8 @@ export const SequenceConfig = ({
   onRefreshLists,
   selectedListId,
   onListChange,
-  initialAutomation
+  initialAutomation,
+  usedListIds = []
 }: SequenceConfigProps) => {
   const [createInitialTask, setCreateInitialTask] = useState(true);
   const [initialTaskName, setInitialTaskName] = useState("");
@@ -538,6 +540,7 @@ export const SequenceConfig = ({
           selectedListId={selectedListId}
           onListChange={onListChange}
           validationError={validationErrors.contactList}
+          usedListIds={usedListIds}
         />
       )}
 
