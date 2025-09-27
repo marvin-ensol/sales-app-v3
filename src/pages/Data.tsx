@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Database, Download, Users, CheckCircle, Clock, XCircle, RefreshCw, Trash2, Hash } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,7 @@ const Data = () => {
   });
   const [isRunning, setIsRunning] = useState(false);
   const [isOwnersSyncing, setIsOwnersSyncing] = useState(false);
+  const [isPopulatingSequence, setIsPopulatingSequence] = useState(false);
   const { toast } = useToast();
   const { stats: orphanStats, isDeleting, deleteOrphanTasks } = useOrphanTasks();
 
@@ -194,6 +195,39 @@ const Data = () => {
 
   const handleDeleteOrphanTasks = async () => {
     await deleteOrphanTasks();
+  };
+
+  const handlePopulateSequenceNumbers = async () => {
+    setIsPopulatingSequence(true);
+    
+    try {
+      const response = await supabase.functions.invoke('populate-task-sequence-numbers', {
+        body: {}
+      });
+
+      if (response.error) {
+        throw new Error(`Function error: ${response.error.message}`);
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Unknown error occurred');
+      }
+
+      const stats = response.data.stats;
+      toast({
+        title: "Sequence Numbers Updated",
+        description: `Successfully updated ${stats.total_processed} tasks (Rule 1: ${stats.rule1_updated}, Rule 2: ${stats.rule2_updated})`,
+      });
+    } catch (error: any) {
+      console.error('Sequence population error:', error);
+      toast({
+        title: "Sequence Population Failed",
+        description: error.message || 'Unknown error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setIsPopulatingSequence(false);
+    }
   };
 
   const getStatusIcon = (status: SyncOperation['status']) => {
@@ -399,6 +433,50 @@ const Data = () => {
                     <>
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete {orphanStats.count} Orphan Tasks
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Hash className="h-5 w-5" />
+                Task Sequence Numbers
+              </CardTitle>
+              <CardDescription>
+                Populate the sequence position for tasks based on subject patterns and creation order within queues.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600 space-y-2">
+                  <div>
+                    <strong>Rule 1:</strong> Extract sequence numbers from "Tentative [X]" subject patterns
+                  </div>
+                  <div>
+                    <strong>Rule 2:</strong> Calculate sequence position based on creation order within queue/contact combinations
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handlePopulateSequenceNumbers}
+                  disabled={isPopulatingSequence}
+                  className="w-full"
+                  size="lg"
+                  variant="outline"
+                >
+                  {isPopulatingSequence ? (
+                    <>
+                      <Hash className="mr-2 h-4 w-4 animate-pulse" />
+                      Populating Sequence Numbers...
+                    </>
+                  ) : (
+                    <>
+                      <Hash className="mr-2 h-4 w-4" />
+                      Populate Task Sequence Numbers
                     </>
                   )}
                 </Button>
