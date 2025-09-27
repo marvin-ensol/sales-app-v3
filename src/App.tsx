@@ -9,7 +9,25 @@ import Data from "./pages/Data";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: (failureCount, error) => {
+        // Don't retry on 4xx errors
+        if (error && typeof error === 'object' && 'status' in error) {
+          const status = error.status as number;
+          if (status >= 400 && status < 500) return false;
+        }
+        return failureCount < 2;
+      }
+    },
+    mutations: {
+      retry: 1
+    }
+  }
+});
 
 const App = () => {
   console.log('=== APP COMPONENT RENDERING ===');

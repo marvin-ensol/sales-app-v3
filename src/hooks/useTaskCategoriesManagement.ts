@@ -157,7 +157,16 @@ export const useTaskCategoriesManagement = () => {
         updatePayload.schedule_configuration = categoryData.schedule_configuration;
       }
 
-      console.log('Updating category with payload:', updatePayload);
+      // Optimistically update local state first
+      setCategories(prev => prev.map(cat => 
+        cat.id === id ? { 
+          ...cat, 
+          ...updatePayload,
+          visible_team_ids: Array.isArray(updatePayload.visible_team_ids) 
+            ? updatePayload.visible_team_ids 
+            : []
+        } : cat
+      ));
 
       const { data, error: updateError } = await supabase
         .from('task_categories')
@@ -168,13 +177,21 @@ export const useTaskCategoriesManagement = () => {
 
       if (updateError) {
         console.error('Database update error:', updateError);
+        // Revert optimistic update on error
+        await fetchCategories();
         throw updateError;
       }
 
-      console.log('Updated category result:', data);
-
-      // Refresh categories list
-      await fetchCategories();
+      // Update with actual server response
+      setCategories(prev => prev.map(cat => 
+        cat.id === id ? { 
+          ...cat, 
+          ...data,
+          visible_team_ids: Array.isArray(data.visible_team_ids) 
+            ? data.visible_team_ids as string[]
+            : []
+        } : cat
+      ));
       
       return data;
     } catch (err) {
@@ -249,7 +266,10 @@ export const useTaskCategoriesManagement = () => {
         throw updateError2;
       }
 
-      // No need to refresh - let the Settings component handle optimistic updates
+      // Optimistically update local state
+      const newCategories = [...categories];
+      [newCategories[currentIndex], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[currentIndex]];
+      setCategories(newCategories);
     } catch (err) {
       console.error('Error updating category order:', err);
       throw err;
