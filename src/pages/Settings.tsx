@@ -26,7 +26,7 @@ const Settings = () => {
   const { toast } = useToast();
   const { teams } = useTeams();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, updateCategoryOrder, refetch: fetchCategories } = useTaskCategoriesManagement();
-  const { automations, loading: automationsLoading, createAutomation, updateAutomation, deleteAutomation, toggleAutomationEnabled, hideAutomation, getAutomationsByCategory, getUsedListIds } = useTaskAutomationsManagement();
+  const { automations, loading: automationsLoading, createAutomation, updateAutomation, deleteAutomation, toggleAutomationEnabled, getAutomationsByCategory, getUsedListIds } = useTaskAutomationsManagement();
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -267,21 +267,21 @@ const Settings = () => {
   };
 
   const handleDeleteSequence = async (automationId: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir masquer cette automatisation ?")) {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cette automatisation ?")) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await hideAutomation(automationId);
+      await deleteAutomation(automationId);
       toast({
         title: "Succès",
-        description: "Automatisation masquée avec succès"
+        description: "Automatisation supprimée avec succès"
       });
     } catch (error) {
       toast({
         title: "Erreur",
-        description: "Impossible de masquer l'automatisation",
+        description: "Impossible de supprimer l'automatisation",
         variant: "destructive"
       });
     } finally {

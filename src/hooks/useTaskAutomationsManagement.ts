@@ -15,7 +15,6 @@ export interface TaskAutomation {
   schedule_enabled?: boolean;
   schedule_configuration?: any;
   tasks_configuration?: any;
-  hide_automation_card?: boolean;
   created_at?: string;
   updated_at?: string;
   task_categories?: {
@@ -39,7 +38,6 @@ export interface AutomationFormData {
   schedule_enabled?: boolean;
   schedule_configuration?: any;
   tasks_configuration?: any;
-  hide_automation_card?: boolean;
 }
 
 export const useTaskAutomationsManagement = () => {
@@ -105,8 +103,7 @@ export const useTaskAutomationsManagement = () => {
           auto_complete_on_exit_enabled: automationData.auto_complete_on_exit_enabled ?? null,
           schedule_enabled: automationData.schedule_enabled ?? null,
           schedule_configuration: automationData.schedule_configuration ?? null,
-          tasks_configuration: automationData.tasks_configuration ?? null,
-          hide_automation_card: automationData.hide_automation_card ?? false
+          tasks_configuration: automationData.tasks_configuration ?? null
         })
         .select('*')
         .single();
@@ -142,7 +139,6 @@ export const useTaskAutomationsManagement = () => {
       if (automationData.schedule_enabled !== undefined) updatePayload.schedule_enabled = automationData.schedule_enabled;
       if (automationData.schedule_configuration !== undefined) updatePayload.schedule_configuration = automationData.schedule_configuration;
       if (automationData.tasks_configuration !== undefined) updatePayload.tasks_configuration = automationData.tasks_configuration;
-      if (automationData.hide_automation_card !== undefined) updatePayload.hide_automation_card = automationData.hide_automation_card;
 
       // Optimistically update local state first
       setAutomations(prev => prev.map(automation => 
@@ -217,46 +213,6 @@ export const useTaskAutomationsManagement = () => {
     }
   };
 
-  const hideAutomation = async (id: string) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('task_automations')
-        .update({ hide_automation_card: true })
-        .eq('id', id);
-
-      if (updateError) {
-        console.error('Database update error:', updateError);
-        throw updateError;
-      }
-
-      // Refresh automations list
-      await fetchAutomations();
-    } catch (err) {
-      console.error('Error hiding automation:', err);
-      throw err;
-    }
-  };
-
-  const showAutomation = async (id: string) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('task_automations')
-        .update({ hide_automation_card: false })
-        .eq('id', id);
-
-      if (updateError) {
-        console.error('Database update error:', updateError);
-        throw updateError;
-      }
-
-      // Refresh automations list
-      await fetchAutomations();
-    } catch (err) {
-      console.error('Error showing automation:', err);
-      throw err;
-    }
-  };
-
   const getUsedListIds = (excludeAutomationId?: string): string[] => {
     return automations
       .filter(automation => 
@@ -281,8 +237,6 @@ export const useTaskAutomationsManagement = () => {
     updateAutomation,
     deleteAutomation,
     toggleAutomationEnabled,
-    hideAutomation,
-    showAutomation,
     getUsedListIds
   };
 };
