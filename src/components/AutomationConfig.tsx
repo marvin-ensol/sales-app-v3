@@ -33,6 +33,32 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
   onToggleEnabled,
   onHide
 }) => {
+  // Debug logging
+  console.log('AutomationConfig received automation:', automation);
+  console.log('tasks_configuration:', automation.tasks_configuration);
+  console.log('schedule_configuration:', automation.schedule_configuration);
+
+  // Normalize configuration data with proper defaults
+  const normalizeTasksConfig = (config: any) => {
+    if (!config || typeof config !== 'object') {
+      console.log('Invalid tasks_configuration, using default:', config);
+      return { tasks: [] as TaskConfig[] };
+    }
+    if (!Array.isArray(config.tasks)) {
+      console.log('tasks_configuration.tasks is not an array, using default:', config.tasks);
+      return { tasks: [] as TaskConfig[] };
+    }
+    return config;
+  };
+
+  const normalizeScheduleConfig = (config: any) => {
+    if (!config || typeof config !== 'object') {
+      console.log('Invalid schedule_configuration, using default:', config);
+      return { delay: 1, unit: 'hours' };
+    }
+    return config;
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [localConfig, setLocalConfig] = useState({
     name: automation.name,
@@ -42,11 +68,12 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
     first_task_creation: automation.first_task_creation || false,
     auto_complete_on_exit_enabled: automation.auto_complete_on_exit_enabled || false,
     schedule_enabled: automation.schedule_enabled || false,
-    schedule_configuration: automation.schedule_configuration || { delay: 1, unit: 'hours' },
-    tasks_configuration: automation.tasks_configuration || { tasks: [] as TaskConfig[] }
+    schedule_configuration: normalizeScheduleConfig(automation.schedule_configuration),
+    tasks_configuration: normalizeTasksConfig(automation.tasks_configuration)
   });
 
   useEffect(() => {
+    console.log('AutomationConfig useEffect triggered with automation:', automation);
     setLocalConfig({
       name: automation.name,
       hs_list_id: automation.hs_list_id || '',
@@ -55,8 +82,8 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
       first_task_creation: automation.first_task_creation || false,
       auto_complete_on_exit_enabled: automation.auto_complete_on_exit_enabled || false,
       schedule_enabled: automation.schedule_enabled || false,
-      schedule_configuration: automation.schedule_configuration || { delay: 1, unit: 'hours' },
-      tasks_configuration: automation.tasks_configuration || { tasks: [] as TaskConfig[] }
+      schedule_configuration: normalizeScheduleConfig(automation.schedule_configuration),
+      tasks_configuration: normalizeTasksConfig(automation.tasks_configuration)
     });
   }, [automation]);
 
@@ -78,8 +105,8 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
       first_task_creation: automation.first_task_creation || false,
       auto_complete_on_exit_enabled: automation.auto_complete_on_exit_enabled || false,
       schedule_enabled: automation.schedule_enabled || false,
-      schedule_configuration: automation.schedule_configuration || { delay: 1, unit: 'hours' },
-      tasks_configuration: automation.tasks_configuration || { tasks: [] as TaskConfig[] }
+      schedule_configuration: normalizeScheduleConfig(automation.schedule_configuration),
+      tasks_configuration: normalizeTasksConfig(automation.tasks_configuration)
     });
     setIsEditing(false);
   };
@@ -90,7 +117,7 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
       tasks_configuration: {
         ...prev.tasks_configuration,
         tasks: [
-          ...prev.tasks_configuration.tasks,
+          ...(prev.tasks_configuration?.tasks || []),
           { delay: 1, title: '', description: '' }
         ]
       }
@@ -102,7 +129,7 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
       ...prev,
       tasks_configuration: {
         ...prev.tasks_configuration,
-        tasks: prev.tasks_configuration.tasks.map((task, i) => 
+        tasks: (prev.tasks_configuration?.tasks || []).map((task, i) => 
           i === index ? { ...task, [field]: value } : task
         )
       }
@@ -114,7 +141,7 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
       ...prev,
       tasks_configuration: {
         ...prev.tasks_configuration,
-        tasks: prev.tasks_configuration.tasks.filter((_, i) => i !== index)
+        tasks: (prev.tasks_configuration?.tasks || []).filter((_, i) => i !== index)
       }
     }));
   };
@@ -268,7 +295,7 @@ export const AutomationConfig: React.FC<AutomationConfigProps> = ({
                   )}
                 </div>
 
-                {localConfig.tasks_configuration.tasks.map((task, index) => (
+                {(localConfig.tasks_configuration?.tasks || []).map((task, index) => (
                   <Card key={index} className="p-3">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">

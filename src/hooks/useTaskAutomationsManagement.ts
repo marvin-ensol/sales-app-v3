@@ -46,10 +46,37 @@ export const useTaskAutomationsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Normalize automation data to ensure consistent structure
+  const normalizeAutomation = (automation: any): TaskAutomation => {
+    const normalized = {
+      ...automation,
+      tasks_configuration: automation.tasks_configuration || { tasks: [] },
+      schedule_configuration: automation.schedule_configuration || { delay: 1, unit: 'hours' },
+      sequence_enabled: automation.sequence_enabled || false,
+      sequence_exit_enabled: automation.sequence_exit_enabled || false,
+      first_task_creation: automation.first_task_creation || false,
+      auto_complete_on_exit_enabled: automation.auto_complete_on_exit_enabled || false,
+      schedule_enabled: automation.schedule_enabled || false
+    };
+    
+    // Additional safety check for tasks_configuration
+    if (!normalized.tasks_configuration || typeof normalized.tasks_configuration !== 'object') {
+      normalized.tasks_configuration = { tasks: [] };
+    }
+    if (!Array.isArray(normalized.tasks_configuration.tasks)) {
+      normalized.tasks_configuration.tasks = [];
+    }
+    
+    console.log('Normalized automation:', automation.id, normalized);
+    return normalized;
+  };
+
   const fetchAutomations = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('Fetching automations...');
       
       const { data, error: fetchError } = await supabase
         .from('task_automations')
@@ -71,7 +98,13 @@ export const useTaskAutomationsManagement = () => {
         return;
       }
 
-      setAutomations(data || []);
+      console.log('Raw automations data:', data);
+      
+      // Normalize each automation
+      const normalizedAutomations = (data || []).map(normalizeAutomation);
+      console.log('Normalized automations:', normalizedAutomations);
+      
+      setAutomations(normalizedAutomations);
     } catch (err) {
       console.error('Unexpected error fetching automations:', err);
       setError('An unexpected error occurred');
@@ -83,9 +116,18 @@ export const useTaskAutomationsManagement = () => {
 
   const createAutomation = async (automationData: AutomationFormData) => {
     try {
+      // Ensure proper default structure for new automations
+      const normalizedData = {
+        ...automationData,
+        tasks_configuration: automationData.tasks_configuration || { tasks: [] },
+        schedule_configuration: automationData.schedule_configuration || { delay: 1, unit: 'hours' }
+      };
+      
+      console.log('Creating automation with data:', normalizedData);
+      
       const { data, error: createError } = await supabase
         .from('task_automations')
-        .insert([automationData])
+        .insert([normalizedData])
         .select(`
           *,
           task_categories (
@@ -103,9 +145,10 @@ export const useTaskAutomationsManagement = () => {
         throw createError;
       }
 
-      setAutomations(prev => [data, ...prev]);
+      const normalizedAutomation = normalizeAutomation(data);
+      setAutomations(prev => [normalizedAutomation, ...prev]);
       toast.success('Automation created successfully');
-      return data;
+      return normalizedAutomation;
     } catch (err) {
       console.error('Error creating automation:', err);
       throw err;
@@ -114,6 +157,8 @@ export const useTaskAutomationsManagement = () => {
 
   const updateAutomation = async (id: string, automationData: Partial<AutomationFormData>) => {
     try {
+      console.log('Updating automation:', id, 'with data:', automationData);
+      
       const { data, error: updateError } = await supabase
         .from('task_automations')
         .update(automationData)
@@ -135,13 +180,14 @@ export const useTaskAutomationsManagement = () => {
         throw updateError;
       }
 
+      const normalizedAutomation = normalizeAutomation(data);
       setAutomations(prev => 
         prev.map(automation => 
-          automation.id === id ? data : automation
+          automation.id === id ? normalizedAutomation : automation
         )
       );
       toast.success('Automation updated successfully');
-      return data;
+      return normalizedAutomation;
     } catch (err) {
       console.error('Error updating automation:', err);
       throw err;
