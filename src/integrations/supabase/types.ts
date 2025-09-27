@@ -59,35 +59,35 @@ export type Database = {
       hs_list_memberships: {
         Row: {
           created_at: string
+          hs_list_entry_date: string | null
           hs_list_id: string | null
+          hs_list_object: string | null
           hs_object_id: string | null
           hs_queue_id: string | null
           id: string
-          list_entry_date: string | null
           list_exit_date: string | null
-          object: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          hs_list_entry_date?: string | null
           hs_list_id?: string | null
+          hs_list_object?: string | null
           hs_object_id?: string | null
           hs_queue_id?: string | null
           id?: string
-          list_entry_date?: string | null
           list_exit_date?: string | null
-          object?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          hs_list_entry_date?: string | null
           hs_list_id?: string | null
+          hs_list_object?: string | null
           hs_object_id?: string | null
           hs_queue_id?: string | null
           id?: string
-          list_entry_date?: string | null
           list_exit_date?: string | null
-          object?: string | null
           updated_at?: string
         }
         Relationships: []
