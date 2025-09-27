@@ -21,10 +21,14 @@ interface HubSpotMembershipsResponse {
   total: number;
 }
 
-interface TaskCategory {
+interface TaskAutomation {
+  id: string;
+  task_category_id: number;
+  name: string;
   hs_list_id: string;
   hs_list_object: string;
-  hs_queue_id: string;
+  automation_enabled: boolean;
+  task_categories: any; // Use any to handle Supabase's join structure
 }
 
 interface ExistingMembership {
@@ -56,20 +60,28 @@ serve(async (req) => {
     
     console.log(`[${executionId}] ⏰ Sync started at: ${syncStartTime}`);
 
-    console.log(`[${executionId}] 🔍 Fetching active automation categories...`);
+    console.log(`[${executionId}] 🔍 Fetching active task automations...`);
 
-    // Get all task categories with automation enabled
-    const { data: categories, error: categoriesError } = await supabase
-      .from('task_categories')
-      .select('hs_list_id, hs_list_object, hs_queue_id')
+    // Get all task automations with automation enabled
+    const { data: automations, error: automationsError } = await supabase
+      .from('task_automations')
+      .select(`
+        id,
+        task_category_id,
+        name,
+        hs_list_id,
+        hs_list_object,
+        automation_enabled,
+        task_categories(hs_queue_id)
+      `)
       .eq('automation_enabled', true)
       .not('hs_list_id', 'is', null);
 
-    if (categoriesError) {
-      throw new Error(`Failed to fetch categories: ${categoriesError.message}`);
+    if (automationsError) {
+      throw new Error(`Failed to fetch automations: ${automationsError.message}`);
     }
 
-    if (!categories || categories.length === 0) {
+    if (!automations || automations.length === 0) {
       console.log(`[${executionId}] ✅ No active automations found - sync complete`);
       return new Response(JSON.stringify({ 
         success: true, 
@@ -80,15 +92,25 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[${executionId}] 📊 Found ${categories.length} active automation(s)`);
+    console.log(`[${executionId}] 📊 Found ${automations.length} active automation(s)`);
 
     let totalProcessed = 0;
     let totalErrors = 0;
 
-    // Process each list
-    for (const category of categories as TaskCategory[]) {
+    // Process each automation
+    for (const automation of automations) {
       try {
-        console.log(`[${executionId}] 📄 Processing list ${category.hs_list_id}...`);
+        // Get the hs_queue_id from the joined task_categories (handle array structure)
+        const taskCategory = Array.isArray(automation.task_categories) 
+          ? automation.task_categories[0] 
+          : automation.task_categories;
+        const hs_queue_id = taskCategory?.hs_queue_id;
+        if (!hs_queue_id) {
+          console.warn(`[${executionId}] ⚠️ Skipping automation ${automation.id} - no hs_queue_id found`);
+          continue;
+        }
+        
+        console.log(`[${executionId}] 📄 Processing automation ${automation.id} for list ${automation.hs_list_id}...`);
         
         // Fetch all members from HubSpot list with pagination
         const allMembers: HubSpotMember[] = [];
@@ -96,9 +118,9 @@ serve(async (req) => {
         let page = 1;
 
         do {
-          const url = `https://api.hubapi.com/crm/v3/lists/${category.hs_list_id}/memberships?limit=250${after ? `&after=${after}` : ''}`;
+          const url = `https://api.hubapi.com/crm/v3/lists/${automation.hs_list_id}/memberships?limit=250${after ? `&after=${after}` : ''}`;
           
-          console.log(`[${executionId}] 🌐 Fetching page ${page} for list ${category.hs_list_id}...`);
+          console.log(`[${executionId}] 🌐 Fetching page ${page} for list ${automation.hs_list_id}...`);
           
           const response = await fetch(url, {
             headers: {
@@ -125,13 +147,13 @@ serve(async (req) => {
           }
         } while (after);
 
-        console.log(`[${executionId}] 🎯 Total members fetched for list ${category.hs_list_id}: ${allMembers.length}`);
+        console.log(`[${executionId}] 🎯 Total members fetched for list ${automation.hs_list_id}: ${allMembers.length}`);
 
-        // Get existing memberships for this list (only active ones)
+        // Get existing memberships for this automation (only active ones)
         const { data: existingMemberships, error: existingError } = await supabase
           .from('hs_list_memberships')
           .select('id, hs_object_id, hs_list_entry_date, list_exit_date')
-          .eq('hs_list_id', category.hs_list_id)
+          .eq('automation_id', automation.id)
           .is('list_exit_date', null);
 
         if (existingError) {
@@ -153,7 +175,7 @@ serve(async (req) => {
         const { data: exitedMemberships, error: exitedError } = await supabase
           .from('hs_list_memberships')
           .select('hs_object_id')
-          .eq('hs_list_id', category.hs_list_id)
+          .eq('automation_id', automation.id)
           .not('list_exit_date', 'is', null);
           
         if (exitedError) {
@@ -176,9 +198,10 @@ serve(async (req) => {
             
             // New member or re-entered member - create new record
             newMemberships.push({
-              hs_list_id: category.hs_list_id,
-              hs_list_object: category.hs_list_object,
-              hs_queue_id: category.hs_queue_id,
+              hs_list_id: automation.hs_list_id,
+              hs_list_object: automation.hs_list_object,
+              hs_queue_id: hs_queue_id,
+              automation_id: automation.id,
               hs_object_id: member.recordId,
               hs_list_entry_date: member.membershipTimestamp,
               list_exit_date: null,
@@ -264,27 +287,27 @@ serve(async (req) => {
 
         // Log re-entries if any
         if (reenteredMembers.length > 0) {
-          console.log(`[${executionId}] 🔄 Detected ${reenteredMembers.length} re-entries for list ${category.hs_list_id}`);
+          console.log(`[${executionId}] 🔄 Detected ${reenteredMembers.length} re-entries for automation ${automation.id}`);
         }
         
-        console.log(`[${executionId}] ✅ Completed processing list ${category.hs_list_id} (last_api_call: ${syncStartTime})`);
+        console.log(`[${executionId}] ✅ Completed processing automation ${automation.id} (last_api_call: ${syncStartTime})`);
         totalProcessed++;
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[${executionId}] ❌ Error processing list ${category.hs_list_id}:`, errorMessage);
+        console.error(`[${executionId}] ❌ Error processing automation ${automation.id}:`, errorMessage);
         totalErrors++;
       }
     }
 
     const duration = Date.now() - new Date(syncStartTime).getTime();
-    console.log(`[${executionId}] 🎉 Sync completed: ${totalProcessed}/${categories.length} lists processed, ${totalErrors} errors, duration: ${duration}ms`);
+    console.log(`[${executionId}] 🎉 Sync completed: ${totalProcessed}/${automations.length} automations processed, ${totalErrors} errors, duration: ${duration}ms`);
 
     return new Response(JSON.stringify({
       success: true,
       executionId,
-      listsProcessed: totalProcessed,
-      listsTotal: categories.length,
+      automationsProcessed: totalProcessed,
+      automationsTotal: automations.length,
       errors: totalErrors,
       durationMs: duration
     }), {

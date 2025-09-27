@@ -58,6 +58,7 @@ export type Database = {
       }
       hs_list_memberships: {
         Row: {
+          automation_id: string | null
           created_at: string
           hs_list_entry_date: string | null
           hs_list_id: string | null
@@ -70,6 +71,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          automation_id?: string | null
           created_at?: string
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
@@ -82,6 +84,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          automation_id?: string | null
           created_at?: string
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
@@ -93,7 +96,15 @@ export type Database = {
           list_exit_date?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "hs_list_memberships_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "task_automations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hs_tasks: {
         Row: {
@@ -333,6 +344,68 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      task_automations: {
+        Row: {
+          auto_complete_on_exit_enabled: boolean | null
+          automation_enabled: boolean
+          created_at: string
+          first_task_creation: boolean | null
+          hs_list_id: string | null
+          hs_list_object: string | null
+          id: string
+          name: string
+          schedule_configuration: Json | null
+          schedule_enabled: boolean | null
+          sequence_enabled: boolean | null
+          sequence_exit_enabled: boolean | null
+          task_category_id: number
+          tasks_configuration: Json | null
+          updated_at: string
+        }
+        Insert: {
+          auto_complete_on_exit_enabled?: boolean | null
+          automation_enabled?: boolean
+          created_at?: string
+          first_task_creation?: boolean | null
+          hs_list_id?: string | null
+          hs_list_object?: string | null
+          id?: string
+          name: string
+          schedule_configuration?: Json | null
+          schedule_enabled?: boolean | null
+          sequence_enabled?: boolean | null
+          sequence_exit_enabled?: boolean | null
+          task_category_id: number
+          tasks_configuration?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          auto_complete_on_exit_enabled?: boolean | null
+          automation_enabled?: boolean
+          created_at?: string
+          first_task_creation?: boolean | null
+          hs_list_id?: string | null
+          hs_list_object?: string | null
+          id?: string
+          name?: string
+          schedule_configuration?: Json | null
+          schedule_enabled?: boolean | null
+          sequence_enabled?: boolean | null
+          sequence_exit_enabled?: boolean | null
+          task_category_id?: number
+          tasks_configuration?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_task_category"
+            columns: ["task_category_id"]
+            isOneToOne: false
+            referencedRelation: "task_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_categories: {
         Row: {
