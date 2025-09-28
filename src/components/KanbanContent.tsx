@@ -76,6 +76,17 @@ const KanbanContent = ({
     return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
   };
 
+  const getOverdueTasksByQueue = (queue: TaskQueue) => {
+    const currentTime = new Date();
+    return allTasks.filter(task => 
+      task.queue === queue && 
+      task.status !== 'completed' && 
+      task.status !== 'deleted' &&
+      task.hsTimestamp && 
+      new Date(task.hsTimestamp) < currentTime
+    ).length;
+  };
+
   // Check if a column is completely empty (no to-do tasks and no completed tasks)
   const isColumnCompletelyEmpty = (columnId: string) => {
     const todoCount = getTasksByQueue(columnId as TaskQueue).length;
@@ -136,7 +147,7 @@ const KanbanContent = ({
             key={column.id}
             title={column.title}
             color={column.color}
-            count={columnTasks.length}
+            count={getOverdueTasksByQueue(column.id as TaskQueue)}
             completedCount={getCompletedTasksByQueue(column.id as TaskQueue)}
             isExpanded={expandedColumn === column.id}
             onToggle={() => onColumnToggle(column.id)}
