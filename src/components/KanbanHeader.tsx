@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Task } from "@/types/task";
 import { isTaskOverdue } from "@/lib/dateUtils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsCompactView } from "@/hooks/useIsCompactView";
 import OwnerSelector from "./OwnerSelector";
 import { PerformanceIndicator } from "./PerformanceIndicator";
 import DateRangeFilter from "./DateRangeFilter";
@@ -48,7 +48,7 @@ const KanbanHeader = ({
   onDateRangeClear
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const { isCompact, containerRef } = useIsCompactView(600);
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   const [expandedMobileComponent, setExpandedMobileComponent] = useState<'search' | 'filter' | null>(null);
 
@@ -65,7 +65,7 @@ const KanbanHeader = ({
   };
 
   return (
-    <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
+    <div ref={containerRef} className="p-3 border-b border-gray-200 space-y-3 bg-white">
       {/* First Row: Owner Selection, Task Count (desktop only), and Action Buttons */}
       <div className="relative flex items-center justify-between">
         <OwnerSelector
@@ -79,7 +79,7 @@ const KanbanHeader = ({
         />
 
         {/* Task count - desktop only */}
-        {!isMobile && (
+        {!isCompact && (
           <div className="absolute left-1/2 transform -translate-x-1/2">
             <span className="text-sm text-muted-foreground">
               {tasksOverdue} tâche{tasksOverdue !== 1 ? 's' : ''} à faire | {tasksFuture} tâche{tasksFuture !== 1 ? 's' : ''} à venir
@@ -110,7 +110,7 @@ const KanbanHeader = ({
       </div>
 
       {/* Second Row: Mobile icons or Desktop search/filter */}
-      {isMobile ? (
+      {isCompact ? (
         <div className="space-y-3">
           {/* Mobile Icons Row */}
           <div className="flex items-center justify-between">
