@@ -35,7 +35,7 @@ export const useUsers = () => {
 
       // Transform data to match HubSpotOwner interface
       const transformedOwners: HubSpotOwner[] = (data || []).map(user => ({
-        id: user.user_id,
+        id: user.owner_id,
         ownerId: user.owner_id,
         firstName: user.first_name || '',
         lastName: user.last_name || '',
