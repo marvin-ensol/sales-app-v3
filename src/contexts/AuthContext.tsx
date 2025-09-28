@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   userEmail: string | null;
+  justSignedIn: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -24,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [justSignedIn, setJustSignedIn] = useState(false);
 
   useEffect(() => {
     console.log('=== AuthContext: Starting initialization ===');
@@ -34,6 +36,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('=== Auth State Change ===', { event, session: !!session, user: !!session?.user });
+        if (event === 'SIGNED_IN') {
+          setJustSignedIn(true);
+          console.log('AuthContext: justSignedIn set to true');
+        } else if (event === 'SIGNED_OUT') {
+          setJustSignedIn(false);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -66,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     session,
     loading,
     userEmail: user?.email || null,
+    justSignedIn,
     signOut,
   };
 

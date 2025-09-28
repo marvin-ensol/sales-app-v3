@@ -4,9 +4,10 @@ import { HubSpotOwner } from '@/hooks/useUsers';
 
 const STORAGE_KEY = "kanban_selected_owner";
 
-export const useOwnerSelection = (owners: HubSpotOwner[], userEmail?: string | null) => {
+export const useOwnerSelection = (owners: HubSpotOwner[], userEmail?: string | null, options?: { skipLocalStorage?: boolean }) => {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [ownerSelectionInitialized, setOwnerSelectionInitialized] = useState(false);
+  const { skipLocalStorage = false } = options || {};
 
   // Owner selection logic - prioritizes email matching over localStorage
   useEffect(() => {
@@ -15,6 +16,14 @@ export const useOwnerSelection = (owners: HubSpotOwner[], userEmail?: string | n
       console.log('Owners loaded:', owners.length);
       console.log('User email:', userEmail);
       console.log('Already initialized:', ownerSelectionInitialized);
+      console.log('Skip localStorage:', skipLocalStorage);
+      
+      // If we're on a fresh login and email isn't available yet, wait instead of using localStorage
+      if (skipLocalStorage && !userEmail && !ownerSelectionInitialized) {
+        console.log('⏳ Fresh login: waiting for user email before owner selection (skipping localStorage)');
+        console.log('=== END OWNER SELECTION ===');
+        return;
+      }
       
       let selectedOwner: HubSpotOwner | null = null;
       let selectionReason = '';
@@ -63,7 +72,7 @@ export const useOwnerSelection = (owners: HubSpotOwner[], userEmail?: string | n
       
       console.log('=== END OWNER SELECTION ===');
     }
-  }, [owners, userEmail, ownerSelectionInitialized]);
+  }, [owners, userEmail, ownerSelectionInitialized, skipLocalStorage]);
 
   // Handle manual owner selection changes
   const handleOwnerChange = (ownerId: string) => {

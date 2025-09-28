@@ -27,13 +27,14 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   console.log('Initializing hooks...');
   
   // Auth context
-  const { userEmail } = useAuth();
+  const { userEmail, justSignedIn } = useAuth();
   
   // Owner management
   const { owners, loading: ownersLoading, error: ownersError, refetch: refetchOwners } = useUsers();
   console.log('Owners hook result:', { owners: owners?.length, ownersLoading, ownersError });
   
-  const { selectedOwnerId, ownerSelectionInitialized, handleOwnerChange, getSelectedOwnerName } = useOwnerSelection(owners, userEmail);
+  const skipLocalStorage = !!justSignedIn && !userEmail;
+  const { selectedOwnerId, ownerSelectionInitialized, handleOwnerChange, getSelectedOwnerName } = useOwnerSelection(owners, userEmail, { skipLocalStorage });
   console.log('Owner selection hook result:', { selectedOwnerId, ownerSelectionInitialized });
   
   // Task management
