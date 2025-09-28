@@ -1,4 +1,4 @@
-export type TaskQueue = "rappels" | "new" | "simulations" | "communications" | "attempted" | "other";
+export type TaskQueue = string; // Dynamic category IDs from database
 
 export type TaskStatus = "not_started" | "completed" | "waiting" | "deleted";
 

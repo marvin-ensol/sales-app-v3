@@ -11,14 +11,14 @@ export interface TaskCategory {
   task_display_order?: string;
 }
 
-// Fallback categories in case database fetch fails
+// Fallback categories in case database fetch fails - using database IDs
 const FALLBACK_CATEGORIES: TaskCategory[] = [
-  { id: "rappels", title: "Rappels & RDV", color: "#9333ea", queueId: "22933271", order: 1, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
-  { id: "new", title: "New", color: "#3b82f6", queueId: "22859489", order: 2, locks_lower_categories: true, task_display_order: "oldest_tasks_first" },
-  { id: "simulations", title: "Simulations", color: "#22c55e", queueId: "22934016", order: 3, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
-  { id: "communications", title: "Communications", color: "#eab308", queueId: "22934015", order: 4, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
-  { id: "attempted", title: "Attempted", color: "#f97316", queueId: "22859490", order: 5, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
-  { id: "other", title: "Autres", color: "#6b7280", queueId: null, order: 6, locks_lower_categories: false, task_display_order: "oldest_tasks_first" }
+  { id: "4", title: "Rappels & RDV", color: "#a78bfa", queueId: "22933271", order: 1, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "1", title: "New", color: "#60a5fa", queueId: "22859489", order: 2, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "5", title: "Simulations", color: "#4ade80", queueId: "22934016", order: 3, locks_lower_categories: true, task_display_order: "oldest_tasks_first" },
+  { id: "6", title: "Communications", color: "#facc15", queueId: "22934015", order: 5, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "3", title: "Attempted", color: "#fb923c", queueId: "22859490", order: 4, locks_lower_categories: false, task_display_order: "oldest_tasks_first" },
+  { id: "7", title: "Autres", color: "#9ca3af", queueId: null, order: 8, locks_lower_categories: false, task_display_order: "oldest_tasks_first" }
 ];
 
 export const useTaskCategories = (userTeamId?: string | null) => {
@@ -43,9 +43,9 @@ export const useTaskCategories = (userTeamId?: string | null) => {
 
       console.log('Raw category data from database:', data);
 
-      // Transform data to match expected interface
+// Transform data to match expected interface - use database IDs directly
       const transformedCategories: TaskCategory[] = (data || []).map((category: any) => ({
-        id: getColumnIdFromQueueId(category.hs_queue_id),
+        id: category.id.toString(), // Use database ID directly instead of hardcoded mapping
         title: category.label || '',
         color: category.color || '#6b7280', // Store raw hex color, fallback to gray
         queueId: category.hs_queue_id,
@@ -72,23 +72,7 @@ export const useTaskCategories = (userTeamId?: string | null) => {
     }
   };
 
-  // Map queue IDs to column IDs based on existing logic
-  const getColumnIdFromQueueId = (queueId: string | null): string => {
-    if (queueId === null || queueId === undefined) {
-      return 'other'; // Fallback category for null queue IDs
-    }
-    
-    switch (queueId) {
-      case '22933271': return 'rappels';
-      case '22859489': return 'new';
-      case '22859490': return 'attempted';
-      case '22934016': return 'simulations';
-      case '22934015': return 'communications';
-      case '22697278': return 'upsell';
-      case '22839689': return 'securisation';
-      default: return 'other'; // Fallback for unmatched queue IDs
-    }
-  };
+// No longer needed - using database IDs directly
 
   useEffect(() => {
     fetchCategories();

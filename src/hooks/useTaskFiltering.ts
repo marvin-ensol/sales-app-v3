@@ -29,7 +29,7 @@ export const useTaskFiltering = ({
   );
 
   const newQueueTasks = useMemo(() => 
-    notStartedTasks.filter(task => task.queue === 'new'), 
+    notStartedTasks.filter(task => task.queue === '1'), // Use database ID for "New" category
     [notStartedTasks]
   );
 
@@ -71,11 +71,11 @@ export const useTaskFiltering = ({
       }
       
       // For unassigned "New" tasks, apply special filtering logic
-      if (task.isUnassigned && task.queue === 'new') {
+      if (task.isUnassigned && task.queue === '1') { // Use database ID for "New" category
         // Check if the user has any assigned "New" tasks
         const userHasAssignedNewTasks = notStartedTasks.some(t => 
           !t.isUnassigned && 
-          t.queue === 'new' && 
+          t.queue === '1' && // Use database ID for "New" category
           t.owner === getSelectedOwnerName()
         );
         
@@ -87,7 +87,7 @@ export const useTaskFiltering = ({
         // Only show the oldest unassigned "New" task
         const unassignedNewTasks = notStartedTasks.filter(t => 
           t.isUnassigned && 
-          t.queue === 'new' &&
+          t.queue === '1' && // Use database ID for "New" category
           (t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
            t.contact.toLowerCase().includes(searchTerm.toLowerCase()))
         );
