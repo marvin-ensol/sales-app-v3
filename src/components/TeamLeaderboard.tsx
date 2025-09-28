@@ -5,6 +5,7 @@ import { useTeamStats, TeamMemberStats } from "@/hooks/useTeamStats";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Task } from "@/types/task";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect, useCallback } from "react";
 
 interface TeamLeaderboardProps {
   teamMembers: HubSpotOwner[];
@@ -26,10 +27,28 @@ const TeamMemberCard = ({
 }) => {
   const isTopPerformer = rank === 1 && stats.completedTodayCount > 0;
   const initials = `${stats.owner.firstName.charAt(0)}${stats.owner.lastName.charAt(0)}`.toUpperCase();
+  
+  // Badge rotation state
+  const [showCompletedBadge, setShowCompletedBadge] = useState(true);
+  
+  // 7-second rotation timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowCompletedBadge(prev => !prev);
+    }, 7000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Click handler to switch badge and reset timer
+  const handleBadgeClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setShowCompletedBadge(prev => !prev);
+  }, []);
 
   return (
     <div 
-      className={`relative flex flex-col items-center p-3 rounded-lg transition-all duration-300 cursor-pointer group hover:shadow-lg ${
+      className={`relative flex flex-col items-center p-2 rounded-lg transition-all duration-300 cursor-pointer group hover:shadow-lg w-20 ${
         isSelected 
           ? 'bg-primary/10 border-2 border-primary shadow-md' 
           : 'bg-card border border-border hover:bg-accent/50'
@@ -38,15 +57,15 @@ const TeamMemberCard = ({
     >
       {/* Trophy for top performer */}
       {isTopPerformer && (
-        <div className="absolute -top-2 -right-2 z-10">
-          <div className="bg-yellow-400 text-yellow-900 rounded-full p-1 shadow-lg">
-            <Trophy className="w-4 h-4" />
+        <div className="absolute -top-1 -right-1 z-10">
+          <div className="bg-yellow-400 text-yellow-900 rounded-full p-0.5 shadow-lg">
+            <Trophy className="w-3 h-3" />
           </div>
         </div>
       )}
 
       {/* Rank indicator */}
-      <div className={`absolute -top-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+      <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
         rank === 1 ? 'bg-yellow-400 text-yellow-900' :
         rank === 2 ? 'bg-gray-300 text-gray-700' :
         rank === 3 ? 'bg-orange-300 text-orange-800' :
@@ -57,7 +76,7 @@ const TeamMemberCard = ({
 
       {/* Avatar */}
       <div className="relative mb-1">
-        <Avatar className={`w-8 h-8 border-2 transition-all duration-300 ${
+        <Avatar className={`w-7 h-7 border-2 transition-all duration-300 ${
           isSelected ? 'border-primary' : 'border-border group-hover:border-accent-foreground'
         } ${isTopPerformer ? 'ring-2 ring-yellow-400 ring-offset-1' : ''}`}>
           <AvatarImage 
@@ -65,7 +84,7 @@ const TeamMemberCard = ({
             alt={stats.owner.fullName}
             className="object-cover"
           />
-          <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+          <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -73,46 +92,46 @@ const TeamMemberCard = ({
 
       {/* Name */}
       <div className="text-center mb-1">
-        <p className={`text-xs font-medium truncate max-w-20 ${
+        <p className={`text-xs font-medium truncate w-full ${
           isSelected ? 'text-primary' : 'text-foreground'
         }`}>
           {stats.owner.firstName}
         </p>
       </div>
 
-      {/* Stacked Badges */}
-      <div className="flex flex-col gap-1 items-center">
-        {/* Completed today badge (top) */}
-        <Badge 
-          variant="secondary" 
-          className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 ${
-            stats.completedTodayCount > 0 
-              ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-              : 'bg-secondary text-secondary-foreground'
-          }`}
-        >
-          <Check className="w-2.5 h-2.5 flex-shrink-0" />
-          <span>{stats.completedTodayCount}</span>
-        </Badge>
-
-        {/* Overdue badge (bottom) */}
-        <Badge 
-          variant="secondary" 
-          className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 ${
-            stats.overdueCount > 0 
-              ? 'bg-red-100 text-red-800 hover:bg-red-200 animate-pulse' 
-              : 'bg-secondary text-secondary-foreground'
-          }`}
-        >
-          <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-          <span>{stats.overdueCount}</span>
-        </Badge>
+      {/* Single rotating badge */}
+      <div className="flex justify-center" onClick={handleBadgeClick}>
+        {showCompletedBadge ? (
+          <Badge 
+            variant="secondary" 
+            className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 transition-opacity duration-300 cursor-pointer ${
+              stats.completedTodayCount > 0 
+                ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            <Check className="w-2.5 h-2.5 flex-shrink-0" />
+            <span>{stats.completedTodayCount}</span>
+          </Badge>
+        ) : (
+          <Badge 
+            variant="secondary" 
+            className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 transition-opacity duration-300 cursor-pointer ${
+              stats.overdueCount > 0 
+                ? 'bg-red-100 text-red-800 hover:bg-red-200 animate-pulse' 
+                : 'bg-secondary text-secondary-foreground'
+            }`}
+          >
+            <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+            <span>{stats.overdueCount}</span>
+          </Badge>
+        )}
       </div>
 
       {/* Performance indicator */}
       {stats.completedTodayCount > 3 && (
-        <div className="absolute top-1 left-1">
-          <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+        <div className="absolute top-0.5 left-0.5">
+          <Star className="w-2.5 h-2.5 text-yellow-500 fill-yellow-500" />
         </div>
       )}
     </div>
