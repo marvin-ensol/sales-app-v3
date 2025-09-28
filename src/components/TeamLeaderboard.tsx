@@ -191,17 +191,30 @@ export const TeamLeaderboard = ({
 
   // Calculate proper ranks with ties
   const topPerformers = sortedTeamStats.slice(0, Math.min(sortedTeamStats.length, 8));
-  const rankedPerformers = topPerformers.map((stats, index) => {
-    let rank = 1;
-    for (let i = 0; i < index; i++) {
-      const prev = topPerformers[i];
-      if (prev.completedTodayCount !== stats.completedTodayCount || prev.overdueCount !== stats.overdueCount) {
-        rank = i + 2;
-        break;
+  
+  // Implement proper ranking algorithm that handles ties
+  const rankedPerformers = [];
+  let currentRank = 1;
+  
+  for (let i = 0; i < topPerformers.length; i++) {
+    const currentStats = topPerformers[i];
+    
+    // If this is not the first performer, check if tied with previous
+    if (i > 0) {
+      const prevStats = topPerformers[i - 1];
+      const isTied = 
+        currentStats.completedTodayCount === prevStats.completedTodayCount && 
+        currentStats.overdueCount === prevStats.overdueCount;
+      
+      if (!isTied) {
+        // Not tied, so rank becomes the current position + 1
+        currentRank = i + 1;
       }
+      // If tied, keep the same currentRank
     }
-    return { ...stats, rank };
-  });
+    
+    rankedPerformers.push({ ...currentStats, rank: currentRank });
+  }
 
   return (
     <div className="border-t border-border bg-gradient-to-r from-card to-accent/20 shadow-lg">
