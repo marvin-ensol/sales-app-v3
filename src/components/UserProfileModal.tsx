@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Camera, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { cropProfileImage } from '@/lib/imageCropping';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -28,9 +29,10 @@ export const UserProfileModal = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCropping, setIsCropping] = useState(false);
   const { toast } = useToast();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
@@ -51,9 +53,31 @@ export const UserProfileModal = ({
         return;
       }
 
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setIsCropping(true);
+      
+      try {
+        // Automatically crop the image to square format
+        const croppedFile = await cropProfileImage(file);
+        setSelectedFile(croppedFile);
+        
+        // Create preview URL for the cropped image
+        const url = URL.createObjectURL(croppedFile);
+        setPreviewUrl(url);
+        
+        toast({
+          title: "Image traitée",
+          description: "L'image a été automatiquement recadrée au format carré.",
+        });
+      } catch (error) {
+        console.error('Error cropping image:', error);
+        toast({
+          title: "Erreur de traitement",
+          description: "Impossible de traiter l'image. Veuillez réessayer.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCropping(false);
+      }
     }
   };
 
@@ -121,6 +145,7 @@ export const UserProfileModal = ({
   const handleClose = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
+    setIsCropping(false);
     onClose();
   };
 
@@ -154,12 +179,18 @@ export const UserProfileModal = ({
               accept="image/*"
               onChange={handleFileSelect}
               className="cursor-pointer"
+              disabled={isCropping}
             />
+            {isCropping && (
+              <div className="text-sm text-muted-foreground">
+                Traitement de l'image en cours...
+              </div>
+            )}
           </div>
 
-          {selectedFile && (
+          {selectedFile && !isCropping && (
             <div className="text-sm text-muted-foreground">
-              Fichier sélectionné: {selectedFile.name}
+              Image sélectionnée et recadrée: {selectedFile.name}
             </div>
           )}
         </div>
@@ -170,9 +201,9 @@ export const UserProfileModal = ({
           </Button>
           <Button 
             onClick={handleUpload} 
-            disabled={!selectedFile || isUploading}
+            disabled={!selectedFile || isUploading || isCropping}
           >
-            {isUploading ? "Téléchargement..." : "Confirmer"}
+            {isUploading ? "Téléchargement..." : isCropping ? "Traitement..." : "Confirmer"}
           </Button>
         </DialogFooter>
       </DialogContent>
