@@ -21,7 +21,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [lockedColumns, setLockedColumns] = useState<string[]>([]);
   const [lowerBound, setLowerBound] = useState("tout");
-  const [upperBound, setUpperBound] = useState("tout");
+  const [upperBound, setUpperBound] = useState("aujourd_hui");
 
   console.log('Initializing hooks...');
   

@@ -39,12 +39,12 @@ const DateRangeFilter = ({
     <div className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
       isFilterActive 
         ? 'bg-primary/5 border-primary/20' 
-        : 'bg-background border-border'
-    }`}>
+        : 'border-border'
+    }`} style={{ backgroundColor: '#f3f3f3' }}>
       <Calendar className="h-4 w-4 text-muted-foreground" />
       
       <div className="flex items-center gap-1 text-sm text-muted-foreground">
-        <span>Du</span>
+        <span>De</span>
         <Select value={lowerBound} onValueChange={onLowerBoundChange}>
           <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
             <SelectValue />
@@ -58,7 +58,7 @@ const DateRangeFilter = ({
           </SelectContent>
         </Select>
         
-        <span>au</span>
+        <span>à</span>
         <Select value={upperBound} onValueChange={onUpperBoundChange}>
           <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
             <SelectValue />

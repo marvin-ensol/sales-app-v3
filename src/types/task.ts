@@ -1,6 +1,6 @@
 export type TaskQueue = "rappels" | "new" | "simulations" | "communications" | "attempted" | "other";
 
-export type TaskStatus = "not_started" | "completed";
+export type TaskStatus = "not_started" | "completed" | "waiting" | "deleted";
 
 export interface Task {
   id: string;

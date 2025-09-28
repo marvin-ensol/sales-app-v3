@@ -19,7 +19,7 @@ export const useTaskFiltering = ({
   dateRange
 }: UseTaskFilteringProps) => {
   const notStartedTasks = useMemo(() => 
-    tasks.filter(task => task.status === 'not_started'), 
+    tasks.filter(task => task.status === 'not_started' || task.status === 'waiting'), 
     [tasks]
   );
   
@@ -37,6 +37,10 @@ export const useTaskFiltering = ({
 
   const filteredTasks = useMemo(() => {
     return notStartedTasks.filter(task => {
+      // Exclude deleted tasks completely
+      if (task.status === 'deleted') {
+        return false;
+      }
       // First check if the task is in a locked column and we have a search term
       if (searchTerm && lockedColumns.includes(task.queue)) {
         return false; // Don't show tasks from locked columns in search results
