@@ -147,7 +147,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onSearchChange={handleSearchChange}
         onRefresh={handleRefresh}
         isLoading={tasksLoading || ownersLoading || categoriesLoading}
-        taskCount={tasks.length}
+        tasks={tasks}
         lowerBound={lowerBound}
         upperBound={upperBound}
         onLowerBoundChange={setLowerBound}

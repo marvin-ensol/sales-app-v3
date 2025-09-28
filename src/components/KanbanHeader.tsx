@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { HubSpotOwner } from "@/hooks/useUsers";
+import { Task } from "@/types/task";
+import { isTaskOverdue } from "@/lib/dateUtils";
 import OwnerSelector from "./OwnerSelector";
 import { PerformanceIndicator } from "./PerformanceIndicator";
 import DateRangeFilter from "./DateRangeFilter";
@@ -19,7 +21,7 @@ interface KanbanHeaderProps {
   onSearchChange: (term: string) => void;
   onRefresh: () => void;
   isLoading: boolean;
-  taskCount?: number;
+  tasks: Task[];
   lowerBound: string;
   upperBound: string;
   onLowerBoundChange: (value: string) => void;
@@ -37,7 +39,7 @@ const KanbanHeader = ({
   onSearchChange,
   onRefresh,
   isLoading,
-  taskCount = 0,
+  tasks,
   lowerBound,
   upperBound,
   onLowerBoundChange,
@@ -46,6 +48,10 @@ const KanbanHeader = ({
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
+
+  // Calculate overdue and future tasks
+  const tasksOverdue = tasks.filter(task => task.dueDate && isTaskOverdue(task.dueDate)).length;
+  const tasksFuture = tasks.filter(task => task.dueDate && !isTaskOverdue(task.dueDate)).length;
 
   const handleClearSearch = () => {
     onSearchChange("");
@@ -67,7 +73,7 @@ const KanbanHeader = ({
 
         <div className="absolute left-1/2 transform -translate-x-1/2">
           <span className="text-sm text-muted-foreground">
-            {taskCount} tâche{taskCount !== 1 ? 's' : ''}
+            {tasksOverdue} tâche{tasksOverdue !== 1 ? 's' : ''} à faire | {tasksFuture} tâche{tasksFuture !== 1 ? 's' : ''} à venir
           </span>
         </div>
 
