@@ -56,10 +56,10 @@ const TeamMemberCard = ({
       </div>
 
       {/* Avatar */}
-      <div className="relative mb-2">
-        <Avatar className={`w-12 h-12 border-2 transition-all duration-300 ${
+      <div className="relative mb-1">
+        <Avatar className={`w-8 h-8 border-2 transition-all duration-300 ${
           isSelected ? 'border-primary' : 'border-border group-hover:border-accent-foreground'
-        } ${isTopPerformer ? 'ring-2 ring-yellow-400 ring-offset-2' : ''}`}>
+        } ${isTopPerformer ? 'ring-2 ring-yellow-400 ring-offset-1' : ''}`}>
           <AvatarImage 
             src={stats.owner.profilePictureUrl} 
             alt={stats.owner.fullName}
@@ -72,7 +72,7 @@ const TeamMemberCard = ({
       </div>
 
       {/* Name */}
-      <div className="text-center mb-2">
+      <div className="text-center mb-1">
         <p className={`text-xs font-medium truncate max-w-20 ${
           isSelected ? 'text-primary' : 'text-foreground'
         }`}>
@@ -134,15 +134,11 @@ export const TeamLeaderboard = ({
   if (!teamStats.length) {
     return (
       <div className="border-t border-border bg-card">
-        <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Trophy className="w-5 h-5 text-yellow-500" />
-          <h3 className="font-semibold text-foreground">Productivité de l'équipe</h3>
-        </div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="p-2">
+          <div className="flex gap-3 overflow-x-auto pb-1">
             {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
               <div key={i} className="flex flex-col items-center min-w-0">
-                <Skeleton className="w-12 h-12 rounded-full mb-2" />
+                <Skeleton className="w-8 h-8 rounded-full mb-1" />
                 <Skeleton className="w-16 h-3 mb-1" />
                 <Skeleton className="w-12 h-3" />
               </div>
@@ -157,16 +153,8 @@ export const TeamLeaderboard = ({
 
   return (
     <div className="border-t border-border bg-gradient-to-r from-card to-accent/20 shadow-lg">
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Trophy className="w-5 h-5 text-yellow-500" />
-          <h3 className="font-semibold text-foreground">Productivité de l'équipe</h3>
-          <Badge variant="outline" className="text-xs">
-            {teamStats.reduce((sum, stat) => sum + stat.completedTodayCount, 0)} validées aujourd'hui
-          </Badge>
-        </div>
-        
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="p-2">
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
           {topPerformers.map((stats, index) => (
             <div key={stats.owner.id} className="min-w-0 flex-shrink-0">
               <TeamMemberCard
@@ -180,7 +168,7 @@ export const TeamLeaderboard = ({
         </div>
         
         {teamStats.length > 8 && (
-          <div className="text-center mt-2">
+          <div className="text-center mt-1">
             <Badge variant="secondary" className="text-xs">
               +{teamStats.length - 8} more team members
             </Badge>
