@@ -66,6 +66,12 @@ const KanbanHeader = ({
     setActiveCompactComponent(prev => prev === 'search' ? 'filter' : 'search');
   };
 
+  const handleLogout = () => {
+    if (confirm("Êtes-vous sûr(e) de vouloir vous déconnecter ?")) {
+      signOut();
+    }
+  };
+
   return (
     <div ref={containerRef} className="p-3 border-b border-gray-200 space-y-3 bg-white">
       {/* First Row: Owner Selection, Task Count (desktop only), and Action Buttons */}
@@ -102,20 +108,20 @@ const KanbanHeader = ({
           <Button 
             variant="outline" 
             size="icon"
-            onClick={signOut}
-            title="Se déconnecter"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-
-          <Button 
-            variant="outline" 
-            size="icon"
             onClick={onRefresh} 
             disabled={isLoading}
             title="Actualiser"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleLogout}
+            title="Se déconnecter"
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
