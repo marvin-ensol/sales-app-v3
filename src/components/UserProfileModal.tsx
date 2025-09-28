@@ -85,7 +85,7 @@ export const UserProfileModal = ({
       const { error: updateError } = await supabase
         .from('hs_users')
         .update({ profile_picture_url: publicUrl })
-        .eq('owner_id', userId);
+        .eq('user_id', userId);
 
       if (updateError) throw updateError;
 
