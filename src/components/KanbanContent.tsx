@@ -200,7 +200,7 @@ const KanbanContent = ({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-1">
+    <div className="flex-1 overflow-y-auto px-1 pb-24">
       {sortedColumns.map((column) => {
         const columnTasks = getTasksByQueue(column.id as TaskQueue);
         const isLocked = lockedColumns.includes(column.id);

@@ -166,16 +166,20 @@ export const TeamLeaderboard = ({
 
   if (loading || !summaryData) {
     return (
-      <div className="border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 z-10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
-        <div className="p-2">
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
-              <div key={i} className="flex flex-col items-center min-w-0">
-                <Skeleton className="w-8 h-8 rounded-full mb-1" />
-                <Skeleton className="w-16 h-3 mb-1" />
-                <Skeleton className="w-12 h-3" />
+      <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+        <div className="mx-auto max-w-7xl px-2 pointer-events-auto">
+          <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
+            <div className="p-2">
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
+                  <div key={i} className="flex flex-col items-center min-w-0">
+                    <Skeleton className="w-8 h-8 rounded-full mb-1" />
+                    <Skeleton className="w-16 h-3 mb-1" />
+                    <Skeleton className="w-12 h-3" />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </div>
@@ -229,31 +233,34 @@ export const TeamLeaderboard = ({
     rankedPerformers.every(p => p.completedTodayCount === rankedPerformers[0].completedTodayCount);
 
   return (
-    <div className="border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 z-10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
-      <div className="p-2">
-        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-          {rankedPerformers.map((stats) => (
-            <div key={stats.owner.id} className="min-w-0 flex-shrink-0">
-              <TeamMemberCard
-                stats={stats}
-                rank={stats.rank}
-                isSelected={selectedOwnerId === stats.owner.id}
-                onClick={() => onMemberClick?.(stats.owner.id)}
-                showCompletedBadge={showCompletedBadge}
-                onBadgeClick={handleBadgeClick}
-                hideRankBadge={allSamePerformance}
-              />
+    <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+      <div className="mx-auto max-w-7xl px-2 pointer-events-auto">
+        <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
+          <div className="p-2">
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+              {rankedPerformers.map((stats) => (
+                <div key={stats.owner.id} className="min-w-0 flex-shrink-0">
+                  <TeamMemberCard
+                    stats={stats}
+                    rank={stats.rank}
+                    isSelected={selectedOwnerId === stats.owner.id}
+                    onClick={() => onMemberClick?.(stats.owner.id)}
+                    showCompletedBadge={showCompletedBadge}
+                    onBadgeClick={handleBadgeClick}
+                    hideRankBadge={allSamePerformance}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        
-        {sortedTeamStats.length > 8 && (
-          <div className="text-center mt-1">
-            <Badge variant="secondary" className="text-xs">
-              +{sortedTeamStats.length - 8} more team members
-            </Badge>
+            {sortedTeamStats.length > 8 && (
+              <div className="text-center mt-1">
+                <Badge variant="secondary" className="text-xs">
+                  +{sortedTeamStats.length - 8} more team members
+                </Badge>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
