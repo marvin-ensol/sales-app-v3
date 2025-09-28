@@ -9,6 +9,7 @@ export interface TaskCategory {
   order: number;
   locks_lower_categories: boolean;
   task_display_order?: string;
+  order_by_position_in_sequence?: boolean;
 }
 
 // Fallback categories in case database fetch fails - using database IDs
@@ -51,7 +52,8 @@ export const useTaskCategories = (userTeamId?: string | null) => {
         queueId: category.hs_queue_id,
         order: category.order_column || 999,
         locks_lower_categories: category.locks_lower_categories || false,
-        task_display_order: category.task_display_order || 'oldest_tasks_first'
+        task_display_order: category.task_display_order || 'oldest_tasks_first',
+        order_by_position_in_sequence: category.order_by_position_in_sequence || false
       }));
 
       console.log('Transformed categories:', transformedCategories);

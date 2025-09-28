@@ -19,4 +19,6 @@ export interface Task {
   isUnassigned?: boolean;
   completionDate?: Date | null;
   hsTimestamp?: Date | null;
+  numberInSequence?: number | null;
+  createdByAutomationId?: string | null;
 }

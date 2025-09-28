@@ -3,7 +3,8 @@ import VerticalKanbanColumn from "./VerticalKanbanColumn";
 import TaskCard from "./TaskCard";
 import { Task, TaskQueue } from "@/types/task";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
-import { sortTasksByDisplayOrder } from "@/utils/taskSorting";
+import { sortTasksByDisplayOrder, sortTasksWithSequenceGrouping } from "@/utils/taskSorting";
+import SequenceGroup from "./SequenceGroup";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -56,20 +57,29 @@ const KanbanContent = ({
     // Find the category for this queue to get its display order setting
     const category = kanbanColumns.find(col => col.id === queue);
     const displayOrder = category?.task_display_order || 'oldest_tasks_first';
+    const useSequenceOrdering = category?.order_by_position_in_sequence || false;
     
-    console.log(`\n🏷️ Queue "${queue}": Found category:`, category ? `"${category.title}" with display order: "${displayOrder}"` : 'NOT FOUND, using default');
+    console.log(`\n🏷️ Queue "${queue}": Found category:`, category ? `"${category.title}" with display order: "${displayOrder}", sequence ordering: ${useSequenceOrdering}` : 'NOT FOUND, using defaults');
     console.log(`📦 Processing ${uniqueTasks.length} unique tasks for queue "${queue}"`);
     
-    // Debug: Check if tasks have hsTimestamp
+    // Debug: Check if tasks have hsTimestamp and sequence numbers
     const tasksWithTimestamp = uniqueTasks.filter(t => t.hsTimestamp);
     const tasksWithoutTimestamp = uniqueTasks.filter(t => !t.hsTimestamp);
+    const tasksWithSequence = uniqueTasks.filter(t => t.numberInSequence);
     console.log(`⏰ Tasks with hsTimestamp: ${tasksWithTimestamp.length}, without: ${tasksWithoutTimestamp.length}`);
+    console.log(`🔢 Tasks with sequence number: ${tasksWithSequence.length}`);
     
-    // Sort tasks using the utility function
-    const sortedTasks = sortTasksByDisplayOrder(uniqueTasks, displayOrder);
-    console.log(`✅ Sorting complete for queue "${queue}"\n`);
-    
-    return sortedTasks;
+    if (useSequenceOrdering) {
+      // Return grouped tasks for sequence-based ordering
+      const groupedTasks = sortTasksWithSequenceGrouping(uniqueTasks, displayOrder);
+      console.log(`✅ Sequence grouping complete for queue "${queue}"\n`);
+      return groupedTasks;
+    } else {
+      // Sort tasks using the standard utility function
+      const sortedTasks = sortTasksByDisplayOrder(uniqueTasks, displayOrder);
+      console.log(`✅ Standard sorting complete for queue "${queue}"\n`);
+      return sortedTasks;
+    }
   };
 
   const getCompletedTasksByQueue = (queue: TaskQueue) => {
@@ -89,7 +99,11 @@ const KanbanContent = ({
 
   // Check if a column is completely empty (no to-do tasks and no completed tasks)
   const isColumnCompletelyEmpty = (columnId: string) => {
-    const todoCount = getTasksByQueue(columnId as TaskQueue).length;
+    const tasks = getTasksByQueue(columnId as TaskQueue);
+    // Handle both regular arrays and grouped arrays
+    const todoCount = Array.isArray(tasks) && tasks.length > 0 && 'sequenceNumber' in tasks[0]
+      ? (tasks as any[]).reduce((sum, group) => sum + group.tasks.length, 0)
+      : (tasks as any[]).length;
     const completedCount = getCompletedTasksByQueue(columnId as TaskQueue);
     return todoCount === 0 && completedCount === 0;
   };
@@ -109,8 +123,16 @@ const KanbanContent = ({
 
   // Sort columns: first those with tasks, then those without, maintaining database order within each group
   const sortedColumns = [...visibleColumns].sort((a, b) => {
-    const aTaskCount = getTasksByQueue(a.id as TaskQueue).length;
-    const bTaskCount = getTasksByQueue(b.id as TaskQueue).length;
+    const aTasks = getTasksByQueue(a.id as TaskQueue);
+    const bTasks = getTasksByQueue(b.id as TaskQueue);
+    
+    // Handle both regular arrays and grouped arrays for task counting
+    const aTaskCount = Array.isArray(aTasks) && aTasks.length > 0 && 'sequenceNumber' in aTasks[0]
+      ? (aTasks as any[]).reduce((sum, group) => sum + group.tasks.length, 0)
+      : (aTasks as any[]).length;
+    const bTaskCount = Array.isArray(bTasks) && bTasks.length > 0 && 'sequenceNumber' in bTasks[0]
+      ? (bTasks as any[]).reduce((sum, group) => sum + group.tasks.length, 0)
+      : (bTasks as any[]).length;
     
     // If both have tasks or both are empty, maintain database order
     if ((aTaskCount > 0 && bTaskCount > 0) || (aTaskCount === 0 && bTaskCount === 0)) {
@@ -124,7 +146,13 @@ const KanbanContent = ({
     return 0;
   });
 
-  console.log('Sorted columns:', sortedColumns.map(c => ({ id: c.id, title: c.title, tasks: getTasksByQueue(c.id as TaskQueue).length })));
+  console.log('Sorted columns:', sortedColumns.map(c => {
+    const tasks = getTasksByQueue(c.id as TaskQueue);
+    const taskCount = Array.isArray(tasks) && tasks.length > 0 && 'sequenceNumber' in tasks[0]
+      ? (tasks as any[]).reduce((sum, group) => sum + group.tasks.length, 0)
+      : (tasks as any[]).length;
+    return { id: c.id, title: c.title, tasks: taskCount };
+  }));
 
   if (categoriesLoading) {
     return <div className="flex-1 flex items-center justify-center">Loading categories...</div>;
@@ -140,7 +168,12 @@ const KanbanContent = ({
         const columnTasks = getTasksByQueue(column.id as TaskQueue);
         const isLocked = lockedColumns.includes(column.id);
         const isLockedFromExpansion = lockedExpandableColumns.includes(column.id);
-        const hasContent = columnTasks.length > 0;
+        const useSequenceOrdering = column.order_by_position_in_sequence || false;
+        
+        // Handle both regular arrays and grouped arrays for hasContent check
+        const hasContent = Array.isArray(columnTasks) && columnTasks.length > 0 && 'sequenceNumber' in columnTasks[0]
+          ? (columnTasks as any[]).some(group => group.tasks.length > 0)
+          : (columnTasks as any[]).length > 0;
         
         return (
           <VerticalKanbanColumn
@@ -155,20 +188,39 @@ const KanbanContent = ({
             isLockedFromExpansion={isLockedFromExpansion}
             hasContent={hasContent}
           >
-            <div className="space-y-2">
-              {columnTasks.map(task => (
-                <TaskCard
-                  key={`${task.id}-${task.queue}`}
-                  task={task}
-                  onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
-                  onFrameUrlChange={onFrameUrlChange}
-                  onTaskAssigned={onTaskAssigned}
-                  onTaskDeleted={onTaskDeleted}
-                  categoryColor={column.color}
-                />
-              ))}
-            </div>
-            {columnTasks.length === 0 && !tasksLoading && ownerSelectionInitialized && (
+            {useSequenceOrdering ? (
+              // Render grouped tasks with sequence headers
+              <div className="space-y-1">
+                {(columnTasks as any[]).map((group, groupIndex) => (
+                  <SequenceGroup
+                    key={`${column.id}-group-${group.sequenceNumber || 'no-sequence'}-${groupIndex}`}
+                    sequenceNumber={group.sequenceNumber}
+                    tasks={group.tasks}
+                    categoryColor={column.color}
+                    onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
+                    onFrameUrlChange={onFrameUrlChange}
+                    onTaskAssigned={onTaskAssigned}
+                    onTaskDeleted={onTaskDeleted}
+                  />
+                ))}
+              </div>
+            ) : (
+              // Render regular task list
+              <div className="space-y-2">
+                {(columnTasks as any[]).map(task => (
+                  <TaskCard
+                    key={`${task.id}-${task.queue}`}
+                    task={task}
+                    onMove={(taskId, newStatus) => onTaskMove(taskId, newStatus as TaskQueue)}
+                    onFrameUrlChange={onFrameUrlChange}
+                    onTaskAssigned={onTaskAssigned}
+                    onTaskDeleted={onTaskDeleted}
+                    categoryColor={column.color}
+                  />
+                ))}
+              </div>
+            )}
+            {!hasContent && !tasksLoading && ownerSelectionInitialized && (
               <div className="text-center text-gray-500 py-8">
                 No tasks
               </div>

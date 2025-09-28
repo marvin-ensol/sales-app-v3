@@ -1,5 +1,10 @@
 import { Task } from '@/types/task';
 
+export interface TaskGroup {
+  sequenceNumber: number | null;
+  tasks: Task[];
+}
+
 /**
  * Sorts tasks based on the category's display order setting and hs_timestamp
  * @param tasks - Array of tasks to sort
@@ -60,4 +65,43 @@ export const sortTasksByDisplayOrder = (tasks: Task[], displayOrder: string = 'o
   });
   
   return sortedTasks;
+};
+
+/**
+ * Groups tasks by sequence position and sorts them for sequence-based ordering
+ * @param tasks - Array of tasks to group and sort
+ * @param displayOrder - The display order setting ('oldest_tasks_first' or 'newest_tasks_first')
+ * @returns Array of TaskGroup objects with sequence-based grouping
+ */
+export const sortTasksWithSequenceGrouping = (tasks: Task[], displayOrder: string = 'oldest_tasks_first'): TaskGroup[] => {
+  console.log(`🔄 Grouping ${tasks.length} tasks by sequence with displayOrder: ${displayOrder}`);
+  
+  // Group tasks by their sequence number
+  const groupMap = new Map<number | null, Task[]>();
+  
+  tasks.forEach(task => {
+    const sequenceNumber = task.numberInSequence;
+    if (!groupMap.has(sequenceNumber)) {
+      groupMap.set(sequenceNumber, []);
+    }
+    groupMap.get(sequenceNumber)!.push(task);
+  });
+  
+  // Convert to TaskGroup array and sort
+  const groups: TaskGroup[] = Array.from(groupMap.entries()).map(([sequenceNumber, groupTasks]) => ({
+    sequenceNumber,
+    tasks: sortTasksByDisplayOrder(groupTasks, displayOrder)
+  }));
+  
+  // Sort groups by sequence number (nulls last)
+  groups.sort((a, b) => {
+    if (a.sequenceNumber === null && b.sequenceNumber === null) return 0;
+    if (a.sequenceNumber === null) return 1;
+    if (b.sequenceNumber === null) return -1;
+    return a.sequenceNumber - b.sequenceNumber;
+  });
+  
+  console.log(`📋 Created ${groups.length} sequence groups:`, groups.map(g => `Seq ${g.sequenceNumber}: ${g.tasks.length} tasks`));
+  
+  return groups;
 };
