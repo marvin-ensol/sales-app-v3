@@ -8,13 +8,17 @@ interface UseColumnStateProps {
   hasNewTasks: boolean;
   lockedColumns: string[];
   categories: TaskCategory[];
+  searchTerm?: string;
+  queuesWithMatches?: string[];
 }
 
 export const useColumnState = ({
   notStartedTasks,
   hasNewTasks,
   lockedColumns,
-  categories
+  categories,
+  searchTerm = "",
+  queuesWithMatches = []
 }: UseColumnStateProps) => {
   const [expandedColumn, setExpandedColumn] = useState<string>("rappels");
   const [autoExpandInitialized, setAutoExpandInitialized] = useState(false);
@@ -57,6 +61,38 @@ export const useColumnState = ({
       setPreviousHasNewTasks(hasNewTasks);
     }
   }, [hasNewTasks, previousHasNewTasks, autoExpandInitialized]);
+
+  // Handle search-based column expansion
+  useEffect(() => {
+    if (!autoExpandInitialized) return;
+    
+    if (searchTerm && queuesWithMatches.length > 0) {
+      const lockedExpandableColumns = getLockedExpandableColumns();
+      // Find first queue with matches that isn't locked from expansion
+      const firstAvailableQueue = queuesWithMatches.find(queueId => 
+        !lockedExpandableColumns.includes(queueId)
+      );
+      
+      if (firstAvailableQueue && expandedColumn !== firstAvailableQueue) {
+        console.log(`Search detected, auto-expanding column with matches: ${firstAvailableQueue}`);
+        setExpandedColumn(firstAvailableQueue);
+      }
+    } else if (!searchTerm) {
+      // When search is cleared, revert to default expansion logic
+      const rappelsQueueTasks = notStartedTasks.filter(task => task.queue === 'rappels');
+      const hasRappelsTasks = rappelsQueueTasks.length > 0;
+      
+      if (hasNewTasks) {
+        setExpandedColumn("new");
+      } else if (hasRappelsTasks) {
+        setExpandedColumn("rappels");
+      } else if (lockedColumns.length > 0) {
+        setExpandedColumn("new");
+      } else {
+        setExpandedColumn("");
+      }
+    }
+  }, [searchTerm, queuesWithMatches, autoExpandInitialized, expandedColumn, hasNewTasks, notStartedTasks, lockedColumns]);
 
   // Update locked columns when categories or tasks change
   useEffect(() => {

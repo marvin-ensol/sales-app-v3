@@ -102,11 +102,17 @@ export const useTaskFiltering = ({
     });
   }, [notStartedTasks, searchTerm, lockedColumns, getSelectedOwnerName, dateRange]);
 
+  const queuesWithMatches = useMemo(() => {
+    if (!searchTerm) return [];
+    return [...new Set(filteredTasks.map(task => task.queue))];
+  }, [filteredTasks, searchTerm]);
+
   return {
     notStartedTasks,
     completedTasks,
     newQueueTasks,
     hasNewTasks,
-    filteredTasks
+    filteredTasks,
+    queuesWithMatches
   };
 };

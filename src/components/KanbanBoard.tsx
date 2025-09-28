@@ -51,7 +51,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   }, [lowerBound, upperBound]);
 
   // Task filtering
-  const { notStartedTasks, hasNewTasks, filteredTasks } = useTaskFiltering({
+  const { notStartedTasks, hasNewTasks, filteredTasks, queuesWithMatches } = useTaskFiltering({
     tasks,
     searchTerm,
     lockedColumns,
@@ -65,7 +65,9 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     notStartedTasks,
     hasNewTasks,
     lockedColumns,
-    categories
+    categories,
+    searchTerm,
+    queuesWithMatches
   });
   console.log('Column state result:', { expandedColumn, lockedExpandableColumns });
   

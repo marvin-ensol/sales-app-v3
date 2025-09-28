@@ -5,7 +5,7 @@ interface UseIsCompactViewReturn {
   containerRef: React.RefObject<HTMLDivElement>;
 }
 
-export function useIsCompactView(threshold = 600): UseIsCompactViewReturn {
+export function useIsCompactView(threshold = 750): UseIsCompactViewReturn {
   const [isCompact, setIsCompact] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
