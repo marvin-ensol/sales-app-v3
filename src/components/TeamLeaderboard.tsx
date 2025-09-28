@@ -229,7 +229,7 @@ export const TeamLeaderboard = ({
     rankedPerformers.every(p => p.completedTodayCount === rankedPerformers[0].completedTodayCount);
 
   return (
-    <div className="border-t border-border/30 bg-background/40 backdrop-blur-md shadow-lg border border-border/20">
+    <div className="border-t bg-white/10 dark:bg-gray-900/20 backdrop-blur-lg shadow-lg border border-white/20 dark:border-gray-700/30">
       <div className="p-2">
         <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
           {rankedPerformers.map((stats) => (
