@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown, Users, RefreshCw } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useUsers } from '@/hooks/useUsers';
-import { useTeams } from '@/hooks/useTeams';
 import { UserProfileModal } from './UserProfileModal';
+import { TeamCard } from './TeamCard';
 import { groupOwnersByTeam } from '@/utils/ownerGrouping';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export const UsersTeamsSection = () => {
   const { owners, loading, refetch } = useUsers();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
     name: string;
@@ -26,6 +29,40 @@ export const UsersTeamsSection = () => {
 
   const openProfileModal = (userId: string, userName: string, imageUrl?: string) => {
     setSelectedUser({ id: userId, name: userName, imageUrl });
+  };
+
+  const handleRefreshUsersTeams = async () => {
+    setIsRefreshing(true);
+    
+    try {
+      const response = await supabase.functions.invoke('sync-hubspot-owners', {
+        body: { manual_sync: true }
+      });
+
+      if (response.error) {
+        throw new Error(`Function error: ${response.error.message}`);
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Unknown error occurred');
+      }
+
+      toast({
+        title: "Synchronisation réussie",
+        description: `${response.data.stats?.users_processed || 0} utilisateurs et ${response.data.stats?.teams_fetched || 0} équipes synchronisés`,
+      });
+      
+      refetch(); // Refresh the local data
+    } catch (error: any) {
+      console.error('Users sync error:', error);
+      toast({
+        title: "Erreur de synchronisation",
+        description: error.message || 'Une erreur inconnue s\'est produite',
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   if (loading) {
@@ -51,76 +88,53 @@ export const UsersTeamsSection = () => {
           <CollapsibleTrigger asChild>
             <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Utilisateurs & équipes</CardTitle>
-                  <CardDescription>
-                    Vérifier la composition des équipes et modifier les photos de profil
-                  </CardDescription>
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <CardTitle>Utilisateurs & équipes</CardTitle>
+                    <CardDescription>
+                      Vérifier la composition des équipes et modifier les photos de profil
+                    </CardDescription>
+                  </div>
                 </div>
-                <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-4 w-4 transition-transform text-muted-foreground ${isOpen ? 'rotate-180' : ''}`} />
               </div>
             </CardHeader>
           </CollapsibleTrigger>
           
           <CollapsibleContent>
-            <CardContent className="pt-0">
-              <div className="space-y-6">
+            <CardContent className="pt-0 space-y-4">
+              <div className="space-y-3">
                 {groupedOwners.map((group) => (
-                  <div key={group.teamName} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-sm text-muted-foreground">
-                        {group.teamName}
-                      </h4>
-                      <div className="h-px bg-border flex-1" />
-                      <span className="text-xs text-muted-foreground">
-                        {group.owners.length} utilisateur{group.owners.length > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {group.owners.map((owner) => (
-                        <div 
-                          key={owner.id} 
-                          className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-0 h-auto"
-                            onClick={() => openProfileModal(
-                              owner.id, 
-                              owner.fullName,
-                              owner.profilePictureUrl
-                            )}
-                          >
-                            <Avatar className="w-8 h-8">
-                              {owner.profilePictureUrl ? (
-                                <AvatarImage 
-                                  src={owner.profilePictureUrl} 
-                                  alt={owner.fullName} 
-                                />
-                              ) : (
-                                <AvatarFallback className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                                  <Plus className="w-4 h-4" />
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                          </Button>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm">
-                              {owner.fullName}
-                            </div>
-                          </div>
-                          
-                          <div className="text-sm text-muted-foreground">
-                            {owner.email}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <TeamCard
+                    key={group.teamName}
+                    teamName={group.teamName}
+                    owners={group.owners}
+                    onProfileClick={openProfileModal}
+                  />
                 ))}
+              </div>
+              
+              <div className="pt-2 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshUsersTeams}
+                  disabled={isRefreshing}
+                  className="text-muted-foreground hover:text-primary"
+                >
+                  {isRefreshing ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Actualisation en cours...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Actualiser les utilisateurs & équipes
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </CollapsibleContent>

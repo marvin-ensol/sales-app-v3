@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Upload, X } from 'lucide-react';
+import { Camera, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -140,7 +140,7 @@ export const UserProfileModal = ({
                 <AvatarImage src={displayImageUrl} alt={userName} />
               ) : (
                 <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                  <Upload className="w-8 h-8" />
+                  <Camera className="w-8 h-8" />
                 </AvatarFallback>
               )}
             </Avatar>
