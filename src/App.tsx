@@ -34,6 +34,8 @@ const queryClient = new QueryClient({
 
 const App = () => {
   console.log('=== APP COMPONENT RENDERING ===');
+  console.log('Current pathname:', window.location.pathname);
+  console.log('BrowserRouter about to mount');
   
   return (
     <QueryClientProvider client={queryClient}>
