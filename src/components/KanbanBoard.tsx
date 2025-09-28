@@ -199,10 +199,10 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         />
         
         {/* Team Leaderboard - only show when a team member is selected */}
-        {teamMembers.length > 1 && allTasks && (
+        {teamMembers.length > 1 && (
           <TeamLeaderboard
             teamMembers={teamMembers}
-            allTasks={allTasks}
+            teamId={teamMembers[0]?.teamId}
             onMemberClick={handleMemberClick}
             selectedOwnerId={selectedOwnerId}
           />
