@@ -10,6 +10,7 @@ import { useTaskAssignment } from "@/hooks/useTaskAssignment";
 import { useColumnState } from "@/hooks/useColumnState";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
 import { calculateDateRange } from "@/lib/dateUtils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface KanbanBoardProps {
   onFrameUrlChange: (url: string) => void;
@@ -25,11 +26,14 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
 
   console.log('Initializing hooks...');
   
+  // Auth context
+  const { userEmail } = useAuth();
+  
   // Owner management
   const { owners, loading: ownersLoading, error: ownersError, refetch: refetchOwners } = useUsers();
   console.log('Owners hook result:', { owners: owners?.length, ownersLoading, ownersError });
   
-  const { selectedOwnerId, ownerSelectionInitialized, handleOwnerChange, getSelectedOwnerName } = useOwnerSelection(owners);
+  const { selectedOwnerId, ownerSelectionInitialized, handleOwnerChange, getSelectedOwnerName } = useOwnerSelection(owners, userEmail);
   console.log('Owner selection hook result:', { selectedOwnerId, ownerSelectionInitialized });
   
   // Task management
