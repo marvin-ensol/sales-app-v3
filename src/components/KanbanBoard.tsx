@@ -180,7 +180,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <KanbanContent
           filteredTasks={filteredTasks}
-          allTasks={tasks}
+          allTasks={allTasks}
           expandedColumn={expandedColumn}
           onColumnToggle={handleColumnToggle}
           onTaskMove={handleTaskMove}
