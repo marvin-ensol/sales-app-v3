@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff } from "lucide-react";
@@ -30,9 +31,9 @@ const Settings = () => {
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -93,13 +94,14 @@ const Settings = () => {
       hs_queue_id: category.hs_queue_id || "",
       visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
       locks_lower_categories: category.locks_lower_categories || false,
-      task_display_order: category.task_display_order || "oldest_tasks_first"
+      task_display_order: category.task_display_order || "oldest_tasks_first",
+      order_by_position_in_sequence: category.order_by_position_in_sequence || false
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
   };
 
   const handleEditSave = async () => {
@@ -118,7 +120,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -148,7 +150,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -539,21 +541,41 @@ const Settings = () => {
                                   </div>
                                 </div>
                               )}
-                                {/* Hide Queue ID field for the fallback "Autres" category */}
-                                {category.hs_queue_id !== null && (
-                                  <div>
-                                    <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                                    <Input
-                                      id={`edit-queue-${category.id}`}
-                                      value={editForm.hs_queue_id}
-                                      onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                      placeholder="ID de la queue HubSpot"
+                                 {/* Hide Queue ID field for the fallback "Autres" category */}
+                                 {category.hs_queue_id !== null && (
+                                   <div>
+                                     <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                     <Input
+                                       id={`edit-queue-${category.id}`}
+                                       value={editForm.hs_queue_id}
+                                       onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                       placeholder="ID de la queue HubSpot"
+                                     />
+                                   </div>
+                                 )}
+                                 
+                                 {/* Sequence Priority Checkbox */}
+                                 <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                   <div className="flex-1">
+                                     <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
+                                       [Séquence de tâches] Prioriser les tâches selon leur position dans une séquence
+                                     </Label>
+                                     {editForm.order_by_position_in_sequence && (
+                                       <div className="text-xs text-gray-500 mt-1">
+                                         Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelle quelles que soient les échéances
+                                       </div>
+                                     )}
+                                   </div>
+                                    <Checkbox
+                                      id={`edit-sequence-priority-${category.id}`}
+                                      checked={editForm.order_by_position_in_sequence}
+                                      onCheckedChange={(checked) => setEditForm({...editForm, order_by_position_in_sequence: Boolean(checked)})}
                                     />
-                                  </div>
-                                )}
-                                <div className="space-y-3">
-                                  <div>
-                                    <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
+                                 </div>
+                                 
+                                 <div className="space-y-3">
+                                   <div>
+                                     <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
                                     <RadioGroup
                                       value={editForm.task_display_order}
                                       onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
@@ -822,7 +844,7 @@ const Settings = () => {
                           variant="outline"
                            onClick={() => {
                              setShowCreateForm(false);
-                             setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first" });
+                             setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
                            }}
                           disabled={isSubmitting}
                         >

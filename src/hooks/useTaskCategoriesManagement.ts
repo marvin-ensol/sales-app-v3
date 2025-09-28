@@ -21,6 +21,7 @@ export interface CategoryFormData {
   visible_team_ids: string[];
   locks_lower_categories: boolean;
   task_display_order: string;
+  order_by_position_in_sequence: boolean;
 }
 
 export interface SequenceFormData {
@@ -86,7 +87,8 @@ export const useTaskCategoriesManagement = () => {
           order_column: nextOrder,
           system_default: false,
           locks_lower_categories: categoryData.locks_lower_categories ?? false,
-          task_display_order: categoryData.task_display_order || 'oldest_tasks_first'
+          task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
+          order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false
         })
         .select()
         .single();
@@ -115,7 +117,8 @@ export const useTaskCategoriesManagement = () => {
         hs_queue_id: categoryData.hs_queue_id || null,
         visible_team_ids: categoryData.visible_team_ids || [],
         locks_lower_categories: categoryData.locks_lower_categories ?? false,
-        task_display_order: categoryData.task_display_order || 'oldest_tasks_first'
+        task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
+        order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false
       };
 
       // Optimistically update local state first
