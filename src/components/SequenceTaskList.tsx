@@ -33,11 +33,16 @@ export const SequenceTaskList = ({
   onValidateDelay
 }: SequenceTaskListProps) => {
   const addTask = () => {
+    // Copy delay from the last task, or use default
+    const lastTaskDelay = tasks.length > 0 
+      ? tasks[tasks.length - 1].delay 
+      : { amount: 1, unit: 'hours' as const };
+    
     const newTask: SequenceTask = {
       id: `task-${Date.now()}`,
       taskName: '',
       owner: 'previous_task_owner',
-      delay: { amount: 1, unit: 'hours' }
+      delay: { ...lastTaskDelay }
     };
     onTasksChange([...tasks, newTask]);
   };

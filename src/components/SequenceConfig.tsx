@@ -232,12 +232,28 @@ export const SequenceConfig = ({
 
       // Delay validation
       const { amount, unit } = task.delay;
-      if (unit === 'hours' && (amount < 1 || amount > 24)) {
-        errors[`sequenceTask_${index}_delay`] = 'Les heures doivent être entre 1 et 24';
-      } else if (unit === 'minutes' && (amount < 5 || amount > 60)) {
-        errors[`sequenceTask_${index}_delay`] = 'Les minutes doivent être entre 5 et 60';
-      } else if (unit === 'days' && (amount < 1 || amount > 365)) {
-        errors[`sequenceTask_${index}_delay`] = 'Les jours doivent être entre 1 et 365';
+      if (unit === 'minutes') {
+        if (amount < 5 || amount > 90 || amount % 1 !== 0) {
+          errors[`sequenceTask_${index}_delay`] = 'Les minutes doivent être entre 5 et 90 (nombres entiers)';
+        }
+      } else if (unit === 'hours') {
+        if (amount < 1 || amount > 72) {
+          errors[`sequenceTask_${index}_delay`] = 'Les heures doivent être entre 1 et 72';
+        }
+        // Check for valid quarter increments
+        const decimal = amount % 1;
+        if (decimal !== 0 && decimal !== 0.25 && decimal !== 0.5 && decimal !== 0.75) {
+          errors[`sequenceTask_${index}_delay`] = 'Les heures doivent être en incréments de 0.25 (ex: 1.25, 2.50)';
+        }
+      } else if (unit === 'days') {
+        if (amount < 1) {
+          errors[`sequenceTask_${index}_delay`] = 'Les jours doivent être au minimum 1';
+        }
+        // Check for valid quarter increments
+        const decimal = amount % 1;
+        if (decimal !== 0 && decimal !== 0.25 && decimal !== 0.5 && decimal !== 0.75) {
+          errors[`sequenceTask_${index}_delay`] = 'Les jours doivent être en incréments de 0.25 (ex: 1.25, 2.50)';
+        }
       }
     });
 
@@ -510,12 +526,31 @@ export const SequenceConfig = ({
 
   const validateDelay = (amount: number, unit: string, fieldKey: string) => {
     let error = '';
-    if (unit === 'hours' && (amount < 1 || amount > 24)) {
-      error = 'Les heures doivent être entre 1 et 24';
-    } else if (unit === 'minutes' && (amount < 5 || amount > 60)) {
-      error = 'Les minutes doivent être entre 5 et 60';  
-    } else if (unit === 'days' && (amount < 1 || amount > 365)) {
-      error = 'Les jours doivent être entre 1 et 365';
+    
+    if (unit === 'minutes') {
+      if (amount < 5 || amount > 90 || amount % 1 !== 0) {
+        error = 'Les minutes doivent être entre 5 et 90 (nombres entiers)';
+      }
+    } else if (unit === 'hours') {
+      if (amount < 1 || amount > 72) {
+        error = 'Les heures doivent être entre 1 et 72';
+      } else {
+        // Check for valid quarter increments
+        const decimal = amount % 1;
+        if (decimal !== 0 && decimal !== 0.25 && decimal !== 0.5 && decimal !== 0.75) {
+          error = 'Les heures doivent être en incréments de 0.25 (ex: 1.25, 2.50)';
+        }
+      }
+    } else if (unit === 'days') {
+      if (amount < 1) {
+        error = 'Les jours doivent être au minimum 1';
+      } else {
+        // Check for valid quarter increments
+        const decimal = amount % 1;
+        if (decimal !== 0 && decimal !== 0.25 && decimal !== 0.5 && decimal !== 0.75) {
+          error = 'Les jours doivent être en incréments de 0.25 (ex: 1.25, 2.50)';
+        }
+      }
     }
     
     if (error) {
