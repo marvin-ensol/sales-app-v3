@@ -25,7 +25,8 @@ const TeamMemberCard = ({
   isSelected, 
   onClick,
   showCompletedBadge,
-  onBadgeClick
+  onBadgeClick,
+  hideRankBadge
 }: { 
   stats: TeamMemberStats; 
   rank: number; 
@@ -33,6 +34,7 @@ const TeamMemberCard = ({
   onClick: () => void;
   showCompletedBadge: boolean;
   onBadgeClick: (e: React.MouseEvent) => void;
+  hideRankBadge?: boolean;
 }) => {
   const isTopPerformer = rank === 1 && stats.completedTodayCount > 0;
   const initials = `${stats.owner.firstName.charAt(0)}${stats.owner.lastName.charAt(0)}`.toUpperCase();
@@ -56,14 +58,16 @@ const TeamMemberCard = ({
       )}
 
       {/* Rank indicator */}
-      <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-        rank === 1 ? 'bg-yellow-400 text-yellow-900' :
-        rank === 2 ? 'bg-gray-300 text-gray-700' :
-        rank === 3 ? 'bg-orange-300 text-orange-800' :
-        'bg-muted text-muted-foreground'
-      }`}>
-        {rank}
-      </div>
+      {!hideRankBadge && (
+        <div className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+          rank === 1 ? 'bg-yellow-400 text-yellow-900' :
+          rank === 2 ? 'bg-gray-300 text-gray-700' :
+          rank === 3 ? 'bg-orange-300 text-orange-800' :
+          'bg-muted text-muted-foreground'
+        }`}>
+          {rank}
+        </div>
+      )}
 
       {/* Avatar */}
       <div className="relative mb-1">
@@ -138,8 +142,8 @@ export const TeamLeaderboard = ({
   const [showCompletedBadge, setShowCompletedBadge] = useState(true);
   
   const { data: summaryData, loading } = useTeamSummary({ 
-    teamId: teamId || '',
-    ownerId: selectedOwnerId 
+    teamId: teamId || ''
+    // Remove ownerId to prevent re-fetching when switching team members
   });
 
   const handleBadgeClick = useCallback((e: React.MouseEvent) => {
@@ -208,8 +212,12 @@ export const TeamLeaderboard = ({
       lastCompletedCount = currentStats.completedTodayCount;
     }
     
-    rankedPerformers.push({ ...currentStats, rank: currentRank });
+  rankedPerformers.push({ ...currentStats, rank: currentRank });
   }
+
+  // Check if all team members have the same completedTodayCount
+  const allSamePerformance = rankedPerformers.length > 1 && 
+    rankedPerformers.every(p => p.completedTodayCount === rankedPerformers[0].completedTodayCount);
 
   return (
     <div className="border-t border-border bg-gradient-to-r from-card to-accent/20 shadow-lg">
@@ -224,6 +232,7 @@ export const TeamLeaderboard = ({
                 onClick={() => onMemberClick?.(stats.owner.id)}
                 showCompletedBadge={showCompletedBadge}
                 onBadgeClick={handleBadgeClick}
+                hideRankBadge={allSamePerformance}
               />
             </div>
           ))}
