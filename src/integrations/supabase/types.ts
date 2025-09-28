@@ -618,12 +618,14 @@ export type Database = {
           contact: string
           contact_id: string
           contact_phone: string
+          created_by_automation_id: string
           description: string
           due_date: string
           hs_timestamp: string
           hubspot_id: string
           id: string
           is_unassigned: boolean
+          number_in_sequence: number
           owner: string
           priority: string
           queue: string
@@ -639,12 +641,14 @@ export type Database = {
           contact: string
           contact_id: string
           contact_phone: string
+          created_by_automation_id: string
           description: string
           due_date: string
           hs_timestamp: string
           hubspot_id: string
           id: string
           is_unassigned: boolean
+          number_in_sequence: number
           owner: string
           priority: string
           queue: string
@@ -661,6 +665,7 @@ export type Database = {
           id: number
           label: string
           locks_lower_categories: boolean
+          order_by_position_in_sequence: boolean
           order_column: number
           task_display_order: string
         }[]
