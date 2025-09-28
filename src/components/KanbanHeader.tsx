@@ -50,7 +50,7 @@ const KanbanHeader = ({
   const navigate = useNavigate();
   const { isCompact, containerRef } = useIsCompactView(600);
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
-  const [expandedMobileComponent, setExpandedMobileComponent] = useState<'search' | 'filter' | null>(null);
+  const [activeCompactComponent, setActiveCompactComponent] = useState<'search' | 'filter'>('filter');
 
   // Calculate overdue and future tasks
   const tasksOverdue = tasks.filter(task => task.dueDate && isTaskOverdue(task.dueDate)).length;
@@ -60,8 +60,8 @@ const KanbanHeader = ({
     onSearchChange("");
   };
 
-  const handleMobileComponentToggle = (component: 'search' | 'filter') => {
-    setExpandedMobileComponent(prev => prev === component ? null : component);
+  const handleCompactComponentToggle = () => {
+    setActiveCompactComponent(prev => prev === 'search' ? 'filter' : 'search');
   };
 
   return (
@@ -109,35 +109,20 @@ const KanbanHeader = ({
         </div>
       </div>
 
-      {/* Second Row: Mobile icons or Desktop search/filter */}
+      {/* Second Row: Compact toggle layout or Desktop search/filter */}
       {isCompact ? (
-        <div className="space-y-3">
-          {/* Mobile Icons Row */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleMobileComponentToggle('search')}
-              className={expandedMobileComponent === 'search' ? 'bg-muted' : ''}
-              title="Recherche"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleMobileComponentToggle('filter')}
-              className={expandedMobileComponent === 'filter' ? 'bg-muted' : ''}
-              title="Filtrer par date"
-            >
-              <Calendar className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Mobile Expanded Components */}
-          {expandedMobileComponent === 'search' && (
-            <div className="relative">
+        <div className="flex items-center justify-between gap-2">
+          {activeCompactComponent === 'filter' ? (
+            <DateRangeFilter
+              lowerBound={lowerBound}
+              upperBound={upperBound}
+              onLowerBoundChange={onLowerBoundChange}
+              onUpperBoundChange={onUpperBoundChange}
+              onClear={onDateRangeClear}
+              isCompact={true}
+            />
+          ) : (
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
                 placeholder="Trouver une tâche ou un contact..."
@@ -158,16 +143,19 @@ const KanbanHeader = ({
               )}
             </div>
           )}
-
-          {expandedMobileComponent === 'filter' && (
-            <DateRangeFilter
-              lowerBound={lowerBound}
-              upperBound={upperBound}
-              onLowerBoundChange={onLowerBoundChange}
-              onUpperBoundChange={onUpperBoundChange}
-              onClear={onDateRangeClear}
-            />
-          )}
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCompactComponentToggle}
+            title={activeCompactComponent === 'filter' ? 'Recherche' : 'Filtrer par date'}
+          >
+            {activeCompactComponent === 'filter' ? (
+              <Search className="h-4 w-4" />
+            ) : (
+              <Calendar className="h-4 w-4" />
+            )}
+          </Button>
         </div>
       ) : (
         /* Desktop layout - unchanged */

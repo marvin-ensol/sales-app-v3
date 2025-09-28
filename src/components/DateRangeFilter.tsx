@@ -8,6 +8,7 @@ interface DateRangeFilterProps {
   onLowerBoundChange: (value: string) => void;
   onUpperBoundChange: (value: string) => void;
   onClear: () => void;
+  isCompact?: boolean;
 }
 
 const lowerBoundOptions = [
@@ -31,7 +32,8 @@ const DateRangeFilter = ({
   upperBound,
   onLowerBoundChange,
   onUpperBoundChange,
-  onClear
+  onClear,
+  isCompact = false
 }: DateRangeFilterProps) => {
   const isFilterActive = lowerBound !== 'tout' || upperBound !== 'tout';
 
@@ -44,7 +46,7 @@ const DateRangeFilter = ({
       <Calendar className="h-4 w-4 text-muted-foreground" />
       
       <div className="flex items-center gap-1 text-sm text-muted-foreground">
-        <span>Échéance de</span>
+        <span>{isCompact ? 'De' : 'Échéance de'}</span>
         <Select value={lowerBound} onValueChange={onLowerBoundChange}>
           <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
             <SelectValue />
@@ -73,7 +75,7 @@ const DateRangeFilter = ({
         </Select>
       </div>
 
-      {isFilterActive && (
+      {isFilterActive && !isCompact && (
         <Button
           variant="ghost"
           size="icon"
