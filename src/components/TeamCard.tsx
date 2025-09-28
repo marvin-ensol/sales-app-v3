@@ -69,7 +69,15 @@ export const TeamCard = ({ teamName, owners, onProfileClick }: TeamCardProps) =>
                   
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">
-                      {owner.fullName}
+                      <a
+                        href={`https://app-eu1.hubspot.com/settings/142467012/users/user/${owner.id}?tab=setupTab&subtab=teams`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-blue-600 hover:underline transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {owner.fullName}
+                      </a>
                     </div>
                   </div>
                   

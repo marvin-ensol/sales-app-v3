@@ -17,7 +17,7 @@ export const groupOwnersByTeam = (owners: HubSpotOwner[]): GroupedOwners[] => {
     teamGroups.get(teamKey)!.push(owner);
   });
   
-  // Convert to array and sort teams alphabetically, but keep "Sans équipe" last
+  // Convert to array and sort teams by number of users (descending), but keep "Sans équipe" last
   const sortedTeams = Array.from(teamGroups.entries())
     .map(([teamName, teamOwners]) => ({
       teamName,
@@ -27,8 +27,8 @@ export const groupOwnersByTeam = (owners: HubSpotOwner[]): GroupedOwners[] => {
       // Always put "Sans équipe" last
       if (a.teamName === 'Sans équipe') return 1;
       if (b.teamName === 'Sans équipe') return -1;
-      // Sort other teams alphabetically
-      return a.teamName.localeCompare(b.teamName);
+      // Sort other teams by number of users (descending)
+      return b.owners.length - a.owners.length;
     });
   
   return sortedTeams;

@@ -121,7 +121,7 @@ export const UsersTeamsSection = () => {
                   size="sm"
                   onClick={handleRefreshUsersTeams}
                   disabled={isRefreshing}
-                  className="text-muted-foreground hover:text-primary"
+                  className="text-blue-600 hover:text-blue-800"
                 >
                   {isRefreshing ? (
                     <>
