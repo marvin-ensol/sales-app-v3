@@ -211,6 +211,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
           lockedExpandableColumns={lockedExpandableColumns}
           selectedUserTeamId={selectedUserTeamId}
           tasks={tasks}
+          teamSummary={teamSummary}
         />
         
         {/* Team Leaderboard - only show when a team member is selected */}

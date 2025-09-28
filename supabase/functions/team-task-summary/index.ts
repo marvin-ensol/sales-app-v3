@@ -35,6 +35,10 @@ interface TaskSummaryResponse {
     completed_today_count: number;
     overdue_count: number;
   };
+  category_counts?: {
+    overdue_by_category: Record<string, number>;
+    completed_by_category: Record<string, number>;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -91,6 +95,28 @@ Deno.serve(async (req) => {
     const ownerIds = teamOwners.map(o => o.owner_id);
     console.log(`Found ${ownerIds.length} team owners:`, ownerIds);
 
+    // Get task categories for mapping
+    const { data: taskCategories, error: categoriesError } = await supabase
+      .from('task_categories')
+      .select('id, hs_queue_id')
+      .order('order_column');
+
+    if (categoriesError) {
+      throw new Error(`Failed to fetch task categories: ${categoriesError.message}`);
+    }
+
+    // Create mapping from hs_queue_id to category id
+    const queueToCategory = new Map<string, string>();
+    let fallbackCategoryId = 'other';
+    
+    for (const category of taskCategories || []) {
+      if (category.hs_queue_id === null) {
+        fallbackCategoryId = category.id.toString();
+      } else {
+        queueToCategory.set(category.hs_queue_id, category.id.toString());
+      }
+    }
+
     // Get all tasks for team owners
     const { data: tasks, error: tasksError } = await supabase
       .from('hs_tasks')
@@ -121,6 +147,16 @@ Deno.serve(async (req) => {
     const grandTotalsByQueue: Record<string, number> = {};
     let grandTotalAllTasks = 0;
 
+    // Category-specific counts for the requested owner
+    const categoryOverdueCounts: Record<string, number> = {};
+    const categoryCompletedCounts: Record<string, number> = {};
+
+    // Function to map queue to category
+    const mapQueueToCategory = (queueId: string | null): string => {
+      if (!queueId) return fallbackCategoryId;
+      return queueToCategory.get(queueId) || fallbackCategoryId;
+    };
+
     // Initialize owner summaries
     for (const owner of teamOwners) {
       const ownerTasks = tasks?.filter(t => t.hubspot_owner_id === owner.owner_id) || [];
@@ -137,6 +173,7 @@ Deno.serve(async (req) => {
       for (const task of ownerTasks) {
         ownerTotalTasks++;
         const queueId = task.hs_queue_membership_ids || 'null';
+        const categoryId = mapQueueToCategory(task.hs_queue_membership_ids);
         
         // Determine task status category
         let statusCategory: string | null = null;
@@ -149,11 +186,26 @@ Deno.serve(async (req) => {
           
           if (completionParisDate === parisToday) {
             statusCategory = 'COMPLETED_TODAY';
+            
+            // Count for category breakdown (if this is the requested owner)
+            if (owner_id && owner.owner_id === owner_id) {
+              categoryCompletedCounts[categoryId] = (categoryCompletedCounts[categoryId] || 0) + 1;
+            }
           }
         } else if (task.hs_task_status === 'NOT_STARTED') {
           statusCategory = 'NOT_STARTED';
         } else if (task.hs_task_status === 'WAITING') {
           statusCategory = 'WAITING';
+        }
+
+        // Check for overdue tasks (for category breakdown)
+        if (owner_id && owner.owner_id === owner_id && 
+            (task.hs_task_status === 'NOT_STARTED' || task.hs_task_status === 'WAITING') && 
+            task.hs_timestamp) {
+          const dueDate = new Date(task.hs_timestamp);
+          if (dueDate < now) {
+            categoryOverdueCounts[categoryId] = (categoryOverdueCounts[categoryId] || 0) + 1;
+          }
         }
 
         // Add to breakdowns if it matches our categories
@@ -243,6 +295,12 @@ Deno.serve(async (req) => {
       response.owner_header_summary = {
         completed_today_count: completedTodayCount,
         overdue_count: overdueCount
+      };
+
+      // Add category counts for the requested owner
+      response.category_counts = {
+        overdue_by_category: categoryOverdueCounts,
+        completed_by_category: categoryCompletedCounts
       };
     }
 

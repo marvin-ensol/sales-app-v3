@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isTaskOverdue } from "@/lib/dateUtils";
+import { TaskSummaryData } from "@/hooks/useTeamSummary";
 
 interface KanbanContentProps {
   filteredTasks: Task[];
@@ -28,6 +29,7 @@ interface KanbanContentProps {
   lockedExpandableColumns?: string[]; // New prop for expansion locking
   selectedUserTeamId?: string | null; // New prop for team-based category filtering
   tasks?: Task[]; // For mobile task count display
+  teamSummary?: TaskSummaryData | null;
 }
 
 const KanbanContent = ({
@@ -45,7 +47,8 @@ const KanbanContent = ({
   lockedColumns,
   lockedExpandableColumns = [],
   selectedUserTeamId,
-  tasks = []
+  tasks = [],
+  teamSummary
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
   const isMobile = useIsMobile();
@@ -92,6 +95,12 @@ const KanbanContent = ({
   };
 
   const getCompletedTasksByQueue = (queue: TaskQueue) => {
+    // Use centralized data when available for selected owner
+    if (teamSummary?.category_counts && selectedOwnerId !== 'all') {
+      return teamSummary.category_counts.completed_by_category[queue] || 0;
+    }
+    
+    // Fallback to local calculation for 'all' owners or when data unavailable
     return allTasks.filter(task => {
       // Map NULL queue to fallback category if needed
       const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
@@ -104,6 +113,12 @@ const KanbanContent = ({
   };
 
   const getOverdueTasksByQueue = (queue: TaskQueue) => {
+    // Use centralized data when available for selected owner
+    if (teamSummary?.category_counts && selectedOwnerId !== 'all') {
+      return teamSummary.category_counts.overdue_by_category[queue] || 0;
+    }
+    
+    // Fallback to local calculation for 'all' owners or when data unavailable
     const nowMs = Date.now();
     return allTasks.filter(task => {
       // Map NULL queue to fallback category if needed

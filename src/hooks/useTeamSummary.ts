@@ -26,6 +26,10 @@ export interface TaskSummaryData {
     completed_today_count: number;
     overdue_count: number;
   };
+  category_counts?: {
+    overdue_by_category: Record<string, number>;
+    completed_by_category: Record<string, number>;
+  };
 }
 
 interface UseTeamSummaryProps {
