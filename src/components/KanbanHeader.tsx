@@ -54,7 +54,7 @@ const KanbanHeader = ({
   return (
     <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
       {/* First Row: Owner Selection, Task Count (centered), and Action Buttons */}
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between">
         <OwnerSelector
           owners={owners}
           selectedOwnerId={selectedOwnerId}
@@ -65,7 +65,7 @@ const KanbanHeader = ({
           getSelectedOwnerName={getSelectedOwnerName}
         />
 
-        <div className="flex-1 flex justify-center">
+        <div className="absolute left-1/2 transform -translate-x-1/2">
           <span className="text-sm text-muted-foreground">
             {taskCount} tâche{taskCount !== 1 ? 's' : ''}
           </span>
@@ -93,16 +93,8 @@ const KanbanHeader = ({
         </div>
       </div>
 
-      {/* Second Row: Date Range Filter and Search */}
+      {/* Second Row: Search and Date Range Filter */}
       <div className="flex items-center justify-between gap-4">
-        <DateRangeFilter
-          lowerBound={lowerBound}
-          upperBound={upperBound}
-          onLowerBoundChange={onLowerBoundChange}
-          onUpperBoundChange={onUpperBoundChange}
-          onClear={onDateRangeClear}
-        />
-
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -123,6 +115,14 @@ const KanbanHeader = ({
             </Button>
           )}
         </div>
+
+        <DateRangeFilter
+          lowerBound={lowerBound}
+          upperBound={upperBound}
+          onLowerBoundChange={onLowerBoundChange}
+          onUpperBoundChange={onUpperBoundChange}
+          onClear={onDateRangeClear}
+        />
       </div>
     </div>
   );
