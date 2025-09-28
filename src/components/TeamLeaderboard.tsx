@@ -69,50 +69,44 @@ const TeamMemberCard = ({
             {initials}
           </AvatarFallback>
         </Avatar>
-        
-        {/* Overdue badge (top right) */}
-        <div className="absolute -top-1 -right-1">
-          <Badge 
-            variant="secondary" 
-            className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 ${
-              stats.overdueCount > 0 
-                ? 'bg-red-100 text-red-800 hover:bg-red-200 animate-pulse' 
-                : 'bg-secondary text-secondary-foreground'
-            }`}
-          >
-            <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-            <span>{stats.overdueCount}</span>
-          </Badge>
-        </div>
-
-        {/* Completed today badge (bottom right) */}
-        <div className="absolute -bottom-1 -right-1">
-          <Badge 
-            variant="secondary" 
-            className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 ${
-              stats.completedTodayCount > 0 
-                ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                : 'bg-secondary text-secondary-foreground'
-            }`}
-          >
-            <Check className="w-2.5 h-2.5 flex-shrink-0" />
-            <span>{stats.completedTodayCount}</span>
-          </Badge>
-        </div>
       </div>
 
       {/* Name */}
-      <div className="text-center">
+      <div className="text-center mb-2">
         <p className={`text-xs font-medium truncate max-w-20 ${
           isSelected ? 'text-primary' : 'text-foreground'
         }`}>
           {stats.owner.firstName}
         </p>
-        <p className={`text-xs truncate max-w-20 ${
-          isSelected ? 'text-primary/70' : 'text-muted-foreground'
-        }`}>
-          {stats.owner.lastName}
-        </p>
+      </div>
+
+      {/* Stacked Badges */}
+      <div className="flex flex-col gap-1 items-center">
+        {/* Completed today badge (top) */}
+        <Badge 
+          variant="secondary" 
+          className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 ${
+            stats.completedTodayCount > 0 
+              ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+              : 'bg-secondary text-secondary-foreground'
+          }`}
+        >
+          <Check className="w-2.5 h-2.5 flex-shrink-0" />
+          <span>{stats.completedTodayCount}</span>
+        </Badge>
+
+        {/* Overdue badge (bottom) */}
+        <Badge 
+          variant="secondary" 
+          className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 ${
+            stats.overdueCount > 0 
+              ? 'bg-red-100 text-red-800 hover:bg-red-200 animate-pulse' 
+              : 'bg-secondary text-secondary-foreground'
+          }`}
+        >
+          <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+          <span>{stats.overdueCount}</span>
+        </Badge>
       </div>
 
       {/* Performance indicator */}
@@ -141,10 +135,10 @@ export const TeamLeaderboard = ({
     return (
       <div className="border-t border-border bg-card">
         <div className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            <h3 className="font-semibold text-foreground">Team Performance</h3>
-          </div>
+        <div className="flex items-center gap-2 mb-3">
+          <Trophy className="w-5 h-5 text-yellow-500" />
+          <h3 className="font-semibold text-foreground">Productivité de l'équipe</h3>
+        </div>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
               <div key={i} className="flex flex-col items-center min-w-0">
@@ -166,9 +160,9 @@ export const TeamLeaderboard = ({
       <div className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <Trophy className="w-5 h-5 text-yellow-500" />
-          <h3 className="font-semibold text-foreground">Team Performance</h3>
+          <h3 className="font-semibold text-foreground">Productivité de l'équipe</h3>
           <Badge variant="outline" className="text-xs">
-            {teamStats.reduce((sum, stat) => sum + stat.completedTodayCount, 0)} completed today
+            {teamStats.reduce((sum, stat) => sum + stat.completedTodayCount, 0)} validées aujourd'hui
           </Badge>
         </div>
         
