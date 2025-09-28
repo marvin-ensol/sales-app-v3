@@ -25,10 +25,10 @@ export const useTeamStats = ({ teamMembers, allTasks }: UseTeamStatsProps) => {
     const now = new Date();
     
     const stats = teamMembers.map((owner, index) => {
+      // Use both ID and name for robust matching
       const { overdueCount, completedTodayCount } = computeOwnerStats(
         allTasks, 
-        owner.id, // Use HubSpot owner ID for primary matching
-        owner.fullName || '', // Fallback to name matching
+        { id: owner.id, fullName: owner.fullName || '' }, 
         now
       );
       
