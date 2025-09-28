@@ -53,7 +53,7 @@ const KanbanHeader = ({
 
   return (
     <div className="p-3 border-b border-gray-200 space-y-3 bg-white">
-      {/* First Row: Owner Selection and Action Buttons */}
+      {/* First Row: Owner Selection, Task Count (centered), and Action Buttons */}
       <div className="flex items-center justify-between">
         <OwnerSelector
           owners={owners}
@@ -64,6 +64,12 @@ const KanbanHeader = ({
           ownerSelectionInitialized={ownerSelectionInitialized}
           getSelectedOwnerName={getSelectedOwnerName}
         />
+
+        <div className="flex-1 flex justify-center">
+          <span className="text-sm text-muted-foreground">
+            {taskCount} tâche{taskCount !== 1 ? 's' : ''}
+          </span>
+        </div>
 
         <div className="flex items-center gap-2">
           <Button 
@@ -87,44 +93,36 @@ const KanbanHeader = ({
         </div>
       </div>
 
-      {/* Second Row: Search, Date Range Filter and Performance Indicator */}
+      {/* Second Row: Date Range Filter and Search */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Trouver une tâche ou un contact..."
-              className="pl-10 pr-10"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                onClick={handleClearSearch}
-                title="Clear search"
-              >
-                <X className="h-4 w-4 text-gray-400" />
-              </Button>
-            )}
-          </div>
-          
-          <DateRangeFilter
-            lowerBound={lowerBound}
-            upperBound={upperBound}
-            onLowerBoundChange={onLowerBoundChange}
-            onUpperBoundChange={onUpperBoundChange}
-            onClear={onDateRangeClear}
-          />
-        </div>
-
-        <PerformanceIndicator 
-          loading={isLoading}
-          taskCount={taskCount}
-          mode="text"
+        <DateRangeFilter
+          lowerBound={lowerBound}
+          upperBound={upperBound}
+          onLowerBoundChange={onLowerBoundChange}
+          onUpperBoundChange={onUpperBoundChange}
+          onClear={onDateRangeClear}
         />
+
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Trouver une tâche ou un contact..."
+            className="pl-10 pr-10"
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+              onClick={handleClearSearch}
+              title="Clear search"
+            >
+              <X className="h-4 w-4 text-gray-400" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

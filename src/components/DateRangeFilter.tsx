@@ -44,7 +44,7 @@ const DateRangeFilter = ({
       <Calendar className="h-4 w-4 text-muted-foreground" />
       
       <div className="flex items-center gap-1 text-sm text-muted-foreground">
-        <span>De</span>
+        <span>Échéance de</span>
         <Select value={lowerBound} onValueChange={onLowerBoundChange}>
           <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
             <SelectValue />
