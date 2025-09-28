@@ -146,6 +146,15 @@ export const TeamLeaderboard = ({
     // Remove ownerId to prevent re-fetching when switching team members
   });
 
+  // Auto-rotate badges every 7 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowCompletedBadge(prev => !prev);
+    }, 7000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleBadgeClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setShowCompletedBadge(prev => !prev);
