@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
       const fullName = [firstName, lastName].filter(Boolean).join(' ') || null
 
       return {
+        user_id: user.id,
         owner_id: user.properties.hubspot_owner_id || null,
         first_name: firstName,
         last_name: lastName,
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
     const { error: upsertError } = await supabase
       .from('hs_users')
       .upsert(processedUsers, { 
-        onConflict: 'owner_id',
+        onConflict: 'user_id',
         ignoreDuplicates: false
       })
 

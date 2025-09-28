@@ -23,7 +23,7 @@ serve(async (req) => {
     // Query the hs_users table directly instead of HubSpot API
     const { data: owners, error: dbError } = await supabase
       .from('hs_users')
-      .select('owner_id, first_name, last_name, full_name, email, team_id, team_name')
+      .select('user_id, owner_id, first_name, last_name, full_name, email, team_id, team_name')
       .eq('archived', false)
       .order('full_name');
 
@@ -45,7 +45,8 @@ serve(async (req) => {
 
     // Transform database result to match expected API format
     const transformedOwners = (owners || []).map(owner => ({
-      id: owner.owner_id,
+      id: owner.user_id,
+      ownerId: owner.owner_id,
       firstName: owner.first_name || '',
       lastName: owner.last_name || '',
       email: owner.email || '',

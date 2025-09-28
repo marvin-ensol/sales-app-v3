@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface HubSpotOwner {
-  id: string;
+  id: string; // HubSpot user ID
+  ownerId: string; // HubSpot owner ID (for backwards compatibility)
   firstName: string;
   lastName: string;
   email: string;
@@ -24,7 +25,7 @@ export const useUsers = () => {
       
       const { data, error: queryError } = await supabase
         .from('hs_users')
-        .select('owner_id, first_name, last_name, full_name, email, team_id, team_name, profile_picture_url')
+        .select('user_id, owner_id, first_name, last_name, full_name, email, team_id, team_name, profile_picture_url')
         .eq('archived', false)
         .order('full_name');
 
@@ -34,7 +35,8 @@ export const useUsers = () => {
 
       // Transform data to match HubSpotOwner interface
       const transformedOwners: HubSpotOwner[] = (data || []).map(user => ({
-        id: user.owner_id,
+        id: user.user_id,
+        ownerId: user.owner_id,
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || '',
