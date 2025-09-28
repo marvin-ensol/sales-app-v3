@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Task } from "@/types/task";
-import { isTaskOverdue } from "@/lib/dateUtils";
+import { isTaskOverdueUtc } from "@/lib/taskMetrics";
 import { useIsCompactView } from "@/hooks/useIsCompactView";
 import OwnerSelector from "./OwnerSelector";
 import { PerformanceIndicator } from "./PerformanceIndicator";
@@ -54,9 +54,10 @@ const KanbanHeader = ({
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   const [activeCompactComponent, setActiveCompactComponent] = useState<'search' | 'filter'>('filter');
 
-  // Calculate overdue and future tasks
-  const tasksOverdue = tasks.filter(task => task.dueDate && isTaskOverdue(task.dueDate)).length;
-  const tasksFuture = tasks.filter(task => task.dueDate && !isTaskOverdue(task.dueDate)).length;
+  // Calculate overdue and future tasks using the same logic as leaderboard
+  const nowMs = Date.now();
+  const tasksOverdue = tasks.filter(task => isTaskOverdueUtc(task, nowMs)).length;
+  const tasksFuture = tasks.filter(task => task.hsTimestamp && !isTaskOverdueUtc(task, nowMs)).length;
 
   const handleClearSearch = () => {
     onSearchChange("");
