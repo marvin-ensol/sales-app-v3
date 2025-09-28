@@ -1,17 +1,22 @@
 import { Clock, Check, Trophy, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTeamStats, TeamMemberStats } from "@/hooks/useTeamStats";
+import { useTeamSummary, OwnerSummary } from "@/hooks/useTeamSummary";
 import { HubSpotOwner } from "@/hooks/useUsers";
-import { Task } from "@/types/task";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useCallback } from "react";
 
 interface TeamLeaderboardProps {
   teamMembers: HubSpotOwner[];
-  allTasks: Task[];
+  teamId?: string;
   onMemberClick?: (ownerId: string) => void;
   selectedOwnerId?: string;
+}
+
+interface TeamMemberStats {
+  owner: HubSpotOwner;
+  completedTodayCount: number;
+  overdueCount: number;
 }
 
 const TeamMemberCard = ({ 
@@ -140,17 +145,20 @@ const TeamMemberCard = ({
 
 export const TeamLeaderboard = ({ 
   teamMembers, 
-  allTasks, 
+  teamId, 
   onMemberClick,
   selectedOwnerId 
 }: TeamLeaderboardProps) => {
-  const teamStats = useTeamStats({ teamMembers, allTasks });
+  const { data: summaryData, loading } = useTeamSummary({ 
+    teamId: teamId || '',
+    ownerId: selectedOwnerId 
+  });
 
-  if (!teamMembers.length) {
+  if (!teamMembers.length || !teamId) {
     return null;
   }
 
-  if (!teamStats.length) {
+  if (loading || !summaryData) {
     return (
       <div className="border-t border-border bg-card">
         <div className="p-2">
@@ -168,7 +176,35 @@ export const TeamLeaderboard = ({
     );
   }
 
-  const topPerformers = teamStats.slice(0, Math.min(teamStats.length, 8));
+  // Convert summary data to team stats format
+  const teamStats: TeamMemberStats[] = summaryData.task_summary.owners.map(ownerSummary => {
+    const owner = teamMembers.find(m => m.id === ownerSummary.owner_id);
+    if (!owner) return null;
+
+    const completedTodayData = ownerSummary.tasks.find(t => t.status === 'COMPLETED_TODAY');
+    const notStartedData = ownerSummary.tasks.find(t => t.status === 'NOT_STARTED');
+    const waitingData = ownerSummary.tasks.find(t => t.status === 'WAITING');
+
+    // Calculate overdue count (would need to be added to summary data)
+    // For now, we'll use 0 as placeholder since the edge function doesn't separate overdue
+    const overdueCount = 0;
+
+    return {
+      owner,
+      completedTodayCount: completedTodayData?.total || 0,
+      overdueCount
+    };
+  }).filter(Boolean) as TeamMemberStats[];
+
+  // Sort by completed today (descending), then by overdue (ascending)
+  const sortedTeamStats = teamStats.sort((a, b) => {
+    if (b.completedTodayCount !== a.completedTodayCount) {
+      return b.completedTodayCount - a.completedTodayCount;
+    }
+    return a.overdueCount - b.overdueCount;
+  });
+
+  const topPerformers = sortedTeamStats.slice(0, Math.min(sortedTeamStats.length, 8));
 
   return (
     <div className="border-t border-border bg-gradient-to-r from-card to-accent/20 shadow-lg">
@@ -186,10 +222,10 @@ export const TeamLeaderboard = ({
           ))}
         </div>
         
-        {teamStats.length > 8 && (
+        {sortedTeamStats.length > 8 && (
           <div className="text-center mt-1">
             <Badge variant="secondary" className="text-xs">
-              +{teamStats.length - 8} more team members
+              +{sortedTeamStats.length - 8} more team members
             </Badge>
           </div>
         )}
