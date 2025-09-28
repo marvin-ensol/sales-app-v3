@@ -5,6 +5,7 @@ import KanbanContent from "./KanbanContent";
 import { TeamLeaderboard } from "./TeamLeaderboard";
 import { useUsers } from "@/hooks/useUsers";
 import { useLocalTasks } from "@/hooks/useLocalTasks";
+import { useAllTasks } from "@/hooks/useAllTasks";
 import { useOwnerSelection } from "@/hooks/useOwnerSelection";
 import { useTaskFiltering } from "@/hooks/useTaskFiltering";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
@@ -41,6 +42,10 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   // Task management
   const { tasks, loading: tasksLoading, error: tasksError, refetch } = useLocalTasks(selectedOwnerId);
   console.log('Tasks hook result:', { tasks: tasks?.length, tasksLoading, tasksError });
+  
+  // All tasks for team leaderboard
+  const { tasks: allTasks } = useAllTasks();
+  console.log('All tasks result:', { allTasks: allTasks?.length });
   
   // Get selected user's team ID for category filtering
   const selectedUser = owners.find(owner => owner.id === selectedOwnerId);
@@ -194,10 +199,10 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         />
         
         {/* Team Leaderboard - only show when a team member is selected */}
-        {teamMembers.length > 1 && tasks && (
+        {teamMembers.length > 1 && allTasks && (
           <TeamLeaderboard
             teamMembers={teamMembers}
-            allTasks={tasks}
+            allTasks={allTasks}
             onMemberClick={handleMemberClick}
             selectedOwnerId={selectedOwnerId}
           />
