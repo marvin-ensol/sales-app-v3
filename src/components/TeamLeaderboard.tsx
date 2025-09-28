@@ -166,7 +166,7 @@ export const TeamLeaderboard = ({
 
   if (loading || !summaryData) {
     return (
-      <div className="border-t border-border bg-card">
+      <div className="border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 z-10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
         <div className="p-2">
           <div className="flex gap-3 overflow-x-auto pb-1">
             {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
@@ -229,7 +229,7 @@ export const TeamLeaderboard = ({
     rankedPerformers.every(p => p.completedTodayCount === rankedPerformers[0].completedTodayCount);
 
   return (
-    <div className="border-t bg-white/10 dark:bg-gray-900/20 backdrop-blur-lg shadow-lg border border-white/20 dark:border-gray-700/30">
+    <div className="border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 z-10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
       <div className="p-2">
         <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
           {rankedPerformers.map((stats) => (
