@@ -554,23 +554,21 @@ const Settings = () => {
                                    </div>
                                  )}
                                  
-                                 {/* Sequence Priority Checkbox */}
+                                 {/* Sequence Priority Toggle */}
                                  <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
                                    <div className="flex-1">
                                      <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
                                        [Séquence de tâches] Prioriser les tâches selon leur position dans une séquence
                                      </Label>
-                                     {editForm.order_by_position_in_sequence && (
-                                       <div className="text-xs text-gray-500 mt-1">
-                                         Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelle quelles que soient les échéances
-                                       </div>
-                                     )}
+                                     <div className="text-xs text-gray-500 mt-1">
+                                       Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelle quelles que soient les échéances
+                                     </div>
                                    </div>
-                                    <Checkbox
-                                      id={`edit-sequence-priority-${category.id}`}
-                                      checked={editForm.order_by_position_in_sequence}
-                                      onCheckedChange={(checked) => setEditForm({...editForm, order_by_position_in_sequence: Boolean(checked)})}
-                                    />
+                                   <Switch
+                                     id={`edit-sequence-priority-${category.id}`}
+                                     checked={editForm.order_by_position_in_sequence}
+                                     onCheckedChange={(checked) => setEditForm({...editForm, order_by_position_in_sequence: Boolean(checked)})}
+                                   />
                                  </div>
                                  
                                  <div className="space-y-3">
