@@ -209,6 +209,11 @@ Deno.serve(async (req) => {
           if (dueDate < now) {
             ownerOverdueCount++;
             
+            // Debug logging for first few overdue tasks
+            if (ownerOverdueCount <= 3) {
+              console.log(`📋 Overdue task for ${owner.full_name}: Due: ${dueDate.toISOString()}, Now: ${now.toISOString()}`);
+            }
+            
             // Count for category breakdown (if this is the requested owner)
             if (owner_id && owner.owner_id === owner_id) {
               categoryOverdueCounts[categoryId] = (categoryOverdueCounts[categoryId] || 0) + 1;
@@ -251,6 +256,9 @@ Deno.serve(async (req) => {
           });
         }
       }
+
+      // Debug logging for owner counts
+      console.log(`👤 Owner: ${owner.full_name} (${owner.owner_id}) - Total: ${ownerTotalTasks}, Overdue: ${ownerOverdueCount}, Completed Today: ${ownerCompletedTodayCount}`);
 
       // Always include owner summary, even with 0 tasks (for leaderboard)
       ownerSummaries.push({
