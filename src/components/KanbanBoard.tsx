@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { TaskQueue } from "@/types/task";
 import KanbanHeader from "./KanbanHeader";
 import KanbanContent from "./KanbanContent";
+import { TeamLeaderboard } from "./TeamLeaderboard";
 import { useUsers } from "@/hooks/useUsers";
 import { useLocalTasks } from "@/hooks/useLocalTasks";
 import { useOwnerSelection } from "@/hooks/useOwnerSelection";
@@ -140,6 +141,17 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     );
   }
 
+  // Get team members for the leaderboard
+  const teamMembers = useMemo(() => {
+    if (!selectedUser?.teamId) return [];
+    return owners.filter(owner => owner.teamId === selectedUser.teamId);
+  }, [owners, selectedUser?.teamId]);
+
+  const handleMemberClick = (ownerId: string) => {
+    console.log('Switching to team member:', ownerId);
+    handleOwnerChange(ownerId);
+  };
+
   return (
     <div className="flex flex-col h-screen">
       <KanbanHeader
@@ -160,25 +172,37 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onDateRangeClear={handleDateRangeClear}
       />
       
-      <KanbanContent
-        filteredTasks={filteredTasks}
-        allTasks={tasks}
-        expandedColumn={expandedColumn}
-        onColumnToggle={handleColumnToggle}
-        onTaskMove={handleTaskMove}
-        onFrameUrlChange={onFrameUrlChange}
-        searchTerm={searchTerm}
-        setExpandedColumn={() => {}} // Not used anymore, kept for backward compatibility
-        tasksLoading={tasksLoading}
-        ownerSelectionInitialized={ownerSelectionInitialized}
-        onTaskAssigned={handleTaskAssigned}
-        onTaskDeleted={handleTaskDeleted}
-        selectedOwnerId={selectedOwnerId}
-        lockedColumns={lockedColumns}
-        lockedExpandableColumns={lockedExpandableColumns}
-        selectedUserTeamId={selectedUserTeamId}
-        tasks={tasks}
-      />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <KanbanContent
+          filteredTasks={filteredTasks}
+          allTasks={tasks}
+          expandedColumn={expandedColumn}
+          onColumnToggle={handleColumnToggle}
+          onTaskMove={handleTaskMove}
+          onFrameUrlChange={onFrameUrlChange}
+          searchTerm={searchTerm}
+          setExpandedColumn={() => {}} // Not used anymore, kept for backward compatibility
+          tasksLoading={tasksLoading}
+          ownerSelectionInitialized={ownerSelectionInitialized}
+          onTaskAssigned={handleTaskAssigned}
+          onTaskDeleted={handleTaskDeleted}
+          selectedOwnerId={selectedOwnerId}
+          lockedColumns={lockedColumns}
+          lockedExpandableColumns={lockedExpandableColumns}
+          selectedUserTeamId={selectedUserTeamId}
+          tasks={tasks}
+        />
+        
+        {/* Team Leaderboard - only show when a team member is selected */}
+        {teamMembers.length > 1 && tasks && (
+          <TeamLeaderboard
+            teamMembers={teamMembers}
+            allTasks={tasks}
+            onMemberClick={handleMemberClick}
+            selectedOwnerId={selectedOwnerId}
+          />
+        )}
+      </div>
     </div>
   );
 };
