@@ -29,6 +29,8 @@ interface KanbanHeaderProps {
   onLowerBoundChange: (value: string) => void;
   onUpperBoundChange: (value: string) => void;
   onDateRangeClear: () => void;
+  overdueCount?: number;
+  futureCount?: number;
 }
 
 const KanbanHeader = ({
@@ -46,7 +48,9 @@ const KanbanHeader = ({
   upperBound,
   onLowerBoundChange,
   onUpperBoundChange,
-  onDateRangeClear
+  onDateRangeClear,
+  overdueCount,
+  futureCount
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
@@ -54,10 +58,10 @@ const KanbanHeader = ({
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   const [activeCompactComponent, setActiveCompactComponent] = useState<'search' | 'filter'>('filter');
 
-  // Calculate overdue and future tasks using the same logic as leaderboard
+  // Use passed overdue/future counts if available, otherwise calculate from tasks
   const nowMs = Date.now();
-  const tasksOverdue = tasks.filter(task => isTaskOverdueUtc(task, nowMs)).length;
-  const tasksFuture = tasks.filter(task => task.hsTimestamp && !isTaskOverdueUtc(task, nowMs)).length;
+  const tasksOverdue = overdueCount !== undefined ? overdueCount : tasks.filter(task => isTaskOverdueUtc(task, nowMs)).length;
+  const tasksFuture = futureCount !== undefined ? futureCount : tasks.filter(task => task.hsTimestamp && !isTaskOverdueUtc(task, nowMs)).length;
 
   const handleClearSearch = () => {
     onSearchChange("");

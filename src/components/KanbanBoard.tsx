@@ -13,6 +13,7 @@ import { useColumnState } from "@/hooks/useColumnState";
 import { useTaskCategories } from "@/hooks/useTaskCategories";
 import { calculateDateRange } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTeamSummary } from "@/hooks/useTeamSummary";
 
 interface KanbanBoardProps {
   onFrameUrlChange: (url: string) => void;
@@ -46,6 +47,15 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   // All tasks for team leaderboard
   const { tasks: allTasks } = useAllTasks();
   console.log('All tasks result:', { allTasks: allTasks?.length });
+  
+  // Get team summary data for accurate header counts
+  const selectedOwner = owners.find(owner => owner.id === selectedOwnerId);
+  const teamId = selectedOwner?.teamId;
+  const { data: teamSummary } = useTeamSummary({ 
+    teamId: teamId || '', 
+    ownerId: selectedOwnerId !== 'all' ? selectedOwnerId : undefined 
+  });
+  console.log('Team summary result:', teamSummary?.owner_header_summary);
   
   // Get selected user's team ID for category filtering
   const selectedUser = owners.find(owner => owner.id === selectedOwnerId);
@@ -175,6 +185,11 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onLowerBoundChange={setLowerBound}
         onUpperBoundChange={setUpperBound}
         onDateRangeClear={handleDateRangeClear}
+        overdueCount={teamSummary?.owner_header_summary?.overdue_count}
+        futureCount={teamSummary?.owner_header_summary ? 
+          teamSummary.task_summary.grand_totals.total_all_tasks - teamSummary.owner_header_summary.overdue_count - teamSummary.owner_header_summary.completed_today_count : 
+          undefined
+        }
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">

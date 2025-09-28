@@ -92,20 +92,31 @@ const KanbanContent = ({
   };
 
   const getCompletedTasksByQueue = (queue: TaskQueue) => {
-    return allTasks.filter(task => task.queue === queue && task.status === 'completed').length;
+    return allTasks.filter(task => {
+      // Map NULL queue to fallback category if needed
+      const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
+      
+      return taskQueue === queue && 
+        task.status === 'completed' &&
+        // When a specific owner is selected, only count their tasks
+        (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId);
+    }).length;
   };
 
   const getOverdueTasksByQueue = (queue: TaskQueue) => {
-    const currentTime = new Date();
-    return allTasks.filter(task => 
-      task.queue === queue && 
-      task.status !== 'completed' && 
-      task.status !== 'deleted' &&
-      task.hsTimestamp && 
-      new Date(task.hsTimestamp) < currentTime &&
-      // When a specific owner is selected, only count their tasks
-      (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId)
-    ).length;
+    const nowMs = Date.now();
+    return allTasks.filter(task => {
+      // Map NULL queue to fallback category if needed
+      const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
+      
+      return taskQueue === queue && 
+        task.status !== 'completed' && 
+        task.status !== 'deleted' &&
+        task.hsTimestamp && 
+        task.hsTimestamp.getTime() < nowMs &&
+        // When a specific owner is selected, only count their tasks
+        (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId);
+    }).length;
   };
 
   // Check if a column is completely empty (no to-do tasks and no completed tasks)
