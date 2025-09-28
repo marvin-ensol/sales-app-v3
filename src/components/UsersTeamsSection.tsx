@@ -69,22 +69,6 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
     }
   };
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Utilisateurs & équipes</CardTitle>
-          <CardDescription>
-            Vérifier la composition des équipes et modifier les photos de profil
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4">Chargement...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <>
       <Card>
@@ -108,38 +92,44 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
           
           <CollapsibleContent>
             <CardContent className="pt-0 space-y-4">
-              <div className="space-y-3">
-                {groupedOwners.map((group) => (
-                  <TeamCard
-                    key={group.teamName}
-                    teamName={group.teamName}
-                    owners={group.owners}
-                    onProfileClick={openProfileModal}
-                  />
-                ))}
-              </div>
-              
-              <div className="pt-2 border-t">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRefreshUsersTeams}
-                  disabled={isRefreshing}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  {isRefreshing ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Actualisation en cours...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Actualiser les utilisateurs & équipes
-                    </>
-                  )}
-                </Button>
-              </div>
+              {loading ? (
+                <div className="text-center py-4">Chargement...</div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {groupedOwners.map((group) => (
+                      <TeamCard
+                        key={group.teamName}
+                        teamName={group.teamName}
+                        owners={group.owners}
+                        onProfileClick={openProfileModal}
+                      />
+                    ))}
+                  </div>
+                  
+                  <div className="pt-2 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshUsersTeams}
+                      disabled={isRefreshing}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      {isRefreshing ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Actualisation en cours...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Actualiser les utilisateurs & équipes
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
