@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Task, TaskQueue } from '@/types/task';
+import { Task, TaskQueue, TaskStatus } from '@/types/task';
 
 export const useLocalTasks = (selectedOwnerId: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -34,7 +34,7 @@ export const useLocalTasks = (selectedOwnerId: string) => {
         contact: task.contact,
         contactId: task.contact_id,
         contactPhone: task.contact_phone,
-        status: task.status as 'not_started' | 'completed',
+        status: task.status as TaskStatus,
         dueDate: task.due_date,
         priority: task.priority as 'high' | 'medium' | 'low',
         owner: task.owner,

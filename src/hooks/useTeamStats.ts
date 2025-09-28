@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Task } from '@/types/task';
 import { HubSpotOwner } from '@/hooks/useUsers';
-import { getCurrentParisTime } from '@/lib/dateUtils';
+import { computeOwnerStats } from '@/lib/taskMetrics';
 
 export interface TeamMemberStats {
   owner: HubSpotOwner;
@@ -22,29 +22,23 @@ export const useTeamStats = ({ teamMembers, allTasks }: UseTeamStatsProps) => {
       return [];
     }
 
-    const currentTime = getCurrentParisTime();
-    const todayStart = new Date(currentTime);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(currentTime);
-    todayEnd.setHours(23, 59, 59, 999);
-
-    return teamMembers.map(owner => {
-      // Filter tasks for this owner
-      const ownerTasks = allTasks.filter(task => task.owner === owner.fullName);
-
-      // Calculate overdue tasks (not completed and past due date)
-      const overdueCount = ownerTasks.filter(task => {
-        if (task.status === 'completed') return false;
-        if (!task.hsTimestamp) return false;
-        return task.hsTimestamp < currentTime;
-      }).length;
-
-      // Calculate tasks completed today
-      const completedTodayCount = ownerTasks.filter(task => {
-        if (task.status !== 'completed' || !task.completionDate) return false;
-        const completionTime = new Date(task.completionDate);
-        return completionTime >= todayStart && completionTime <= todayEnd;
-      }).length;
+    const now = new Date();
+    
+    const stats = teamMembers.map((owner, index) => {
+      const { overdueCount, completedTodayCount } = computeOwnerStats(
+        allTasks, 
+        owner.fullName || '', 
+        now
+      );
+      
+      // Debug log for first 3 team members to validate counts
+      if (index < 3) {
+        console.log(`🔍 Team stats for ${owner.fullName}:`, {
+          overdueCount,
+          completedTodayCount,
+          totalTasksForOwner: allTasks.filter(t => t.owner === owner.fullName).length
+        });
+      }
 
       return {
         owner,
@@ -52,6 +46,8 @@ export const useTeamStats = ({ teamMembers, allTasks }: UseTeamStatsProps) => {
         completedTodayCount,
       };
     });
+    
+    return stats;
   }, [teamMembers, allTasks]);
 
   useEffect(() => {
