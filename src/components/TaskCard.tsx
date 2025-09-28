@@ -19,7 +19,7 @@ interface TaskCardProps {
 }
 
 const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, categoryColor }: TaskCardProps) => {
-  const { counter, isOverdue } = useOverdueCounter(task.dueDate);
+  const { counter, isOverdue } = useOverdueCounter(task.hsTimestamp);
   const [showDescription, setShowDescription] = useState(false);
   const { isAssigning, assignTask } = useTaskAssignment();
   const { isDeleting, deleteTask } = useTaskDeletion();

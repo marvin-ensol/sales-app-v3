@@ -1,7 +1,6 @@
 
 import { useMemo } from 'react';
 import { Task } from '@/types/task';
-import { parseTaskDate } from '@/lib/dateUtils';
 
 interface UseTaskFilteringProps {
   tasks: Task[];
@@ -53,19 +52,12 @@ export const useTaskFiltering = ({
       if (!matchesSearch) return false;
 
       // Apply date range filter
-      if (dateRange && (dateRange.startDate || dateRange.endDate)) {
-        try {
-          const taskDate = parseTaskDate(task.dueDate);
-          
-          if (dateRange.startDate && taskDate < dateRange.startDate) {
-            return false;
-          }
-          
-          if (dateRange.endDate && taskDate > dateRange.endDate) {
-            return false;
-          }
-        } catch (error) {
-          console.error('Error parsing task date for filtering:', error);
+      if (dateRange && (dateRange.startDate || dateRange.endDate) && task.hsTimestamp) {
+        if (dateRange.startDate && task.hsTimestamp < dateRange.startDate) {
+          return false;
+        }
+        
+        if (dateRange.endDate && task.hsTimestamp > dateRange.endDate) {
           return false;
         }
       }
@@ -93,20 +85,12 @@ export const useTaskFiltering = ({
         );
         
         if (unassignedNewTasks.length > 1) {
-          // Sort by creation date (oldest first) and only return the first one
+          // Sort by timestamp (oldest first) and only return the first one
           unassignedNewTasks.sort((a, b) => {
-            // Parse the dates - assuming format is "DD/MM à HH:MM"
-            const parseDate = (dateStr: string) => {
-              const [datePart, timePart] = dateStr.split(' à ');
-              const [day, month] = datePart.split('/');
-              const [hours, minutes] = timePart.split(':');
-              const currentYear = new Date().getFullYear();
-              return new Date(currentYear, parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-            };
-            
-            const dateA = parseDate(a.dueDate);
-            const dateB = parseDate(b.dueDate);
-            return dateA.getTime() - dateB.getTime();
+            if (!a.hsTimestamp && !b.hsTimestamp) return 0;
+            if (!a.hsTimestamp) return 1;
+            if (!b.hsTimestamp) return -1;
+            return a.hsTimestamp.getTime() - b.hsTimestamp.getTime();
           });
           
           // Only show this task if it's the oldest one

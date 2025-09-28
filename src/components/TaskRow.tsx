@@ -29,7 +29,7 @@ const TaskRow = ({
   showDateColumns = true 
 }: TaskRowProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const { counter, isOverdue } = useOverdueCounter(task.dueDate);
+  const { counter, isOverdue } = useOverdueCounter(task.hsTimestamp);
   const { isAssigning, assignTask } = useTaskAssignment();
   const { isDeleting, deleteTask } = useTaskDeletion();
 

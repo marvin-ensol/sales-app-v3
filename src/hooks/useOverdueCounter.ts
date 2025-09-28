@@ -1,13 +1,12 @@
 
 import { useState, useEffect } from 'react';
-import { parseTaskDate, getCurrentParisTime } from '@/lib/dateUtils';
 
-export const useOverdueCounter = (dueDate: string) => {
+export const useOverdueCounter = (hsTimestamp: Date | null) => {
   const [counter, setCounter] = useState('');
   const [isOverdue, setIsOverdue] = useState(false);
 
   useEffect(() => {
-    if (!dueDate) {
+    if (!hsTimestamp) {
       setCounter('');
       setIsOverdue(false);
       return;
@@ -15,11 +14,8 @@ export const useOverdueCounter = (dueDate: string) => {
 
     const updateCounter = () => {
       try {
-        // Parse the due date using our fixed parseTaskDate function
-        const taskDate = parseTaskDate(dueDate);
-        const currentParisTime = getCurrentParisTime();
-        
-        const diff = currentParisTime.getTime() - taskDate.getTime();
+        const currentTime = new Date();
+        const diff = currentTime.getTime() - hsTimestamp.getTime();
         
         if (diff > 0) {
           // Task is overdue
@@ -47,7 +43,7 @@ export const useOverdueCounter = (dueDate: string) => {
     const interval = setInterval(updateCounter, 1000);
 
     return () => clearInterval(interval);
-  }, [dueDate]);
+  }, [hsTimestamp]);
 
   return { counter, isOverdue };
 };
