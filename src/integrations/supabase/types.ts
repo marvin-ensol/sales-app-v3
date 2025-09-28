@@ -674,6 +674,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string[]
       }
+      validate_company_email_hook: {
+        Args: { user_data: Json }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
