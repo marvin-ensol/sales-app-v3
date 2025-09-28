@@ -560,9 +560,9 @@ const Settings = () => {
                                       <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
                                         Prioriser les tâches selon leur position dans une séquence
                                       </Label>
-                                     <div className="text-xs text-gray-500 mt-1">
-                                       Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelle quelles que soient les échéances
-                                     </div>
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelles que soient les échéances
+                                      </div>
                                    </div>
                                    <Switch
                                      id={`edit-sequence-priority-${category.id}`}
