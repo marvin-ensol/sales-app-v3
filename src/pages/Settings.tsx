@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TeamSelector } from "@/components/TeamSelector";
 import { useTeams } from "@/hooks/useTeams";
 import { SequenceModal } from "@/components/SequenceModal";
+import { UsersTeamsSection } from "@/components/UsersTeamsSection";
 import { SequenceConfig } from "@/components/SequenceConfig";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -425,6 +426,9 @@ const Settings = () => {
             <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
           </div>
         </div>
+
+        {/* Users & Teams Section */}
+        <UsersTeamsSection />
 
         {/* Task Categories Section */}
         <Card>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
+import { HubSpotOwner } from "@/hooks/useUsers";
 import { groupOwnersByTeam } from "@/utils/ownerGrouping";
 
 interface OwnerSelectorProps {

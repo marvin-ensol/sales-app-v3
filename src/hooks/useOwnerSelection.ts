@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { HubSpotOwner } from '@/hooks/useHubSpotOwners';
+import { HubSpotOwner } from '@/hooks/useUsers';
 
 const STORAGE_KEY = "kanban_selected_owner";
 

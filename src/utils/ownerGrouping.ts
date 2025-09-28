@@ -1,4 +1,4 @@
-import { HubSpotOwner } from "@/hooks/useHubSpotOwners";
+import { HubSpotOwner } from "@/hooks/useUsers";
 
 export interface GroupedOwners {
   teamName: string;

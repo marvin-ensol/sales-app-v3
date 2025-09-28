@@ -137,6 +137,7 @@ export type Database = {
           hubspot_owner_assigneddate: string | null
           hubspot_owner_id: string | null
           hubspot_team_id: string | null
+          number_in_sequence: number | null
           updated_at: string
         }
         Insert: {
@@ -169,6 +170,7 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
+          number_in_sequence?: number | null
           updated_at?: string
         }
         Update: {
@@ -201,6 +203,7 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
+          number_in_sequence?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -223,6 +226,7 @@ export type Database = {
           id: string
           last_name: string | null
           owner_id: string
+          profile_picture_url: string | null
           team_id: string | null
           team_name: string | null
           updated_at: string
@@ -236,6 +240,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           owner_id: string
+          profile_picture_url?: string | null
           team_id?: string | null
           team_name?: string | null
           updated_at?: string
@@ -249,6 +254,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           owner_id?: string
+          profile_picture_url?: string | null
           team_id?: string | null
           team_name?: string | null
           updated_at?: string
@@ -351,7 +357,6 @@ export type Database = {
           automation_enabled: boolean
           created_at: string
           first_task_creation: boolean | null
-          hide_automation_card: boolean | null
           hs_list_id: string | null
           hs_list_object: string | null
           id: string
@@ -369,7 +374,6 @@ export type Database = {
           automation_enabled?: boolean
           created_at?: string
           first_task_creation?: boolean | null
-          hide_automation_card?: boolean | null
           hs_list_id?: string | null
           hs_list_object?: string | null
           id?: string
@@ -387,7 +391,6 @@ export type Database = {
           automation_enabled?: boolean
           created_at?: string
           first_task_creation?: boolean | null
-          hide_automation_card?: boolean | null
           hs_list_id?: string | null
           hs_list_object?: string | null
           id?: string
@@ -425,6 +428,7 @@ export type Database = {
           id: number
           label: string | null
           locks_lower_categories: boolean | null
+          order_by_position_in_sequence: boolean | null
           order_column: number
           system_default: boolean | null
           task_display_order: string | null
@@ -437,6 +441,7 @@ export type Database = {
           id?: number
           label?: string | null
           locks_lower_categories?: boolean | null
+          order_by_position_in_sequence?: boolean | null
           order_column: number
           system_default?: boolean | null
           task_display_order?: string | null
@@ -449,6 +454,7 @@ export type Database = {
           id?: number
           label?: string | null
           locks_lower_categories?: boolean | null
+          order_by_position_in_sequence?: boolean | null
           order_column?: number
           system_default?: boolean | null
           task_display_order?: string | null
