@@ -11,6 +11,8 @@ export interface OwnerSummary {
   owner_id: string;
   tasks: TasksByStatus[];
   total_tasks: number;
+  overdue_count: number;
+  completed_today_count: number;
 }
 
 export interface TaskSummaryData {

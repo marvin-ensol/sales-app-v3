@@ -20,6 +20,8 @@ interface OwnerSummary {
   owner_id: string;
   tasks: TasksByStatus[];
   total_tasks: number;
+  overdue_count: number;
+  completed_today_count: number;
 }
 
 interface TaskSummaryResponse {
@@ -168,6 +170,8 @@ Deno.serve(async (req) => {
       };
 
       let ownerTotalTasks = 0;
+      let ownerOverdueCount = 0;
+      let ownerCompletedTodayCount = 0;
 
       // Process each task for this owner
       for (const task of ownerTasks) {
@@ -186,6 +190,7 @@ Deno.serve(async (req) => {
           
           if (completionParisDate === parisToday) {
             statusCategory = 'COMPLETED_TODAY';
+            ownerCompletedTodayCount++;
             
             // Count for category breakdown (if this is the requested owner)
             if (owner_id && owner.owner_id === owner_id) {
@@ -198,13 +203,16 @@ Deno.serve(async (req) => {
           statusCategory = 'WAITING';
         }
 
-        // Check for overdue tasks (for category breakdown)
-        if (owner_id && owner.owner_id === owner_id && 
-            (task.hs_task_status === 'NOT_STARTED' || task.hs_task_status === 'WAITING') && 
-            task.hs_timestamp) {
+        // Check for overdue tasks
+        if ((task.hs_task_status === 'NOT_STARTED' || task.hs_task_status === 'WAITING') && task.hs_timestamp) {
           const dueDate = new Date(task.hs_timestamp);
           if (dueDate < now) {
-            categoryOverdueCounts[categoryId] = (categoryOverdueCounts[categoryId] || 0) + 1;
+            ownerOverdueCount++;
+            
+            // Count for category breakdown (if this is the requested owner)
+            if (owner_id && owner.owner_id === owner_id) {
+              categoryOverdueCounts[categoryId] = (categoryOverdueCounts[categoryId] || 0) + 1;
+            }
           }
         }
 
@@ -244,13 +252,14 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (ownerTotalTasks > 0) {
-        ownerSummaries.push({
-          owner_id: owner.owner_id,
-          tasks: ownerTasksByStatus,
-          total_tasks: ownerTotalTasks
-        });
-      }
+      // Always include owner summary, even with 0 tasks (for leaderboard)
+      ownerSummaries.push({
+        owner_id: owner.owner_id,
+        tasks: ownerTasksByStatus,
+        total_tasks: ownerTotalTasks,
+        overdue_count: ownerOverdueCount,
+        completed_today_count: ownerCompletedTodayCount
+      });
     }
 
     // Build response

@@ -181,19 +181,10 @@ export const TeamLeaderboard = ({
     const owner = teamMembers.find(m => m.id === ownerSummary.owner_id);
     if (!owner) return null;
 
-    const completedTodayData = ownerSummary.tasks.find(t => t.status === 'COMPLETED_TODAY');
-    const notStartedData = ownerSummary.tasks.find(t => t.status === 'NOT_STARTED');
-    const waitingData = ownerSummary.tasks.find(t => t.status === 'WAITING');
-
-    // Use overdue count from the owner header summary if this is the selected owner
-    const overdueCount = (selectedOwnerId === ownerSummary.owner_id && summaryData.owner_header_summary) 
-      ? summaryData.owner_header_summary.overdue_count 
-      : 0;
-
     return {
       owner,
-      completedTodayCount: completedTodayData?.total || 0,
-      overdueCount
+      completedTodayCount: ownerSummary.completed_today_count,
+      overdueCount: ownerSummary.overdue_count
     };
   }).filter(Boolean) as TeamMemberStats[];
 
