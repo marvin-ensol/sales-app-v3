@@ -41,7 +41,7 @@ const Settings = () => {
   
   // Sequences state
   const [showSequenceModal, setShowSequenceModal] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<'categories' | 'sequences' | null>(null);
+  const [expandedSection, setExpandedSection] = useState<'users' | 'categories' | 'sequences' | null>(null);
   const [editingSequence, setEditingSequence] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
@@ -427,9 +427,28 @@ const Settings = () => {
           </div>
         </div>
 
+        {/* 
+          IMPORTANT: Consistent spacing and single-section expansion rules
+          
+          1. SPACING: All section cards are wrapped in a container with `space-y-6` 
+             to ensure consistent vertical spacing between sections.
+             
+          2. EXPANSION: Only ONE section can be expanded at a time using the shared
+             `expandedSection` state. This prevents information overload and maintains
+             a clean interface.
+             
+          When adding new settings sections:
+          - Add them inside this `space-y-6` container
+          - Use the shared `expandedSection` state with a unique section key
+          - Follow the pattern: open={expandedSection === 'sectionKey'}
+          - Use onOpenChange={(open) => setExpandedSection(open ? 'sectionKey' : null)}
+        */}
         <div className="space-y-6">
           {/* Users & Teams Section */}
-          <UsersTeamsSection />
+          <UsersTeamsSection 
+            isOpen={expandedSection === 'users'} 
+            onOpenChange={(open) => setExpandedSection(open ? 'users' : null)}
+          />
 
           {/* Task Categories Section */}
           <Card>

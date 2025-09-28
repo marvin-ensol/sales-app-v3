@@ -10,10 +10,14 @@ import { groupOwnersByTeam } from '@/utils/ownerGrouping';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export const UsersTeamsSection = () => {
+interface UsersTeamsSectionProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSectionProps) => {
   const { owners, loading, refetch } = useUsers();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
@@ -84,7 +88,7 @@ export const UsersTeamsSection = () => {
   return (
     <>
       <Card>
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <Collapsible open={isOpen} onOpenChange={onOpenChange}>
           <CollapsibleTrigger asChild>
             <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="flex items-center justify-between">
