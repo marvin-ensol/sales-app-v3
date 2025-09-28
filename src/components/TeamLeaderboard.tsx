@@ -185,9 +185,10 @@ export const TeamLeaderboard = ({
     const notStartedData = ownerSummary.tasks.find(t => t.status === 'NOT_STARTED');
     const waitingData = ownerSummary.tasks.find(t => t.status === 'WAITING');
 
-    // Calculate overdue count (would need to be added to summary data)
-    // For now, we'll use 0 as placeholder since the edge function doesn't separate overdue
-    const overdueCount = 0;
+    // Use overdue count from the owner header summary if this is the selected owner
+    const overdueCount = (selectedOwnerId === ownerSummary.owner_id && summaryData.owner_header_summary) 
+      ? summaryData.owner_header_summary.overdue_count 
+      : 0;
 
     return {
       owner,

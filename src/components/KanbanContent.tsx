@@ -102,7 +102,9 @@ const KanbanContent = ({
       task.status !== 'completed' && 
       task.status !== 'deleted' &&
       task.hsTimestamp && 
-      new Date(task.hsTimestamp) < currentTime
+      new Date(task.hsTimestamp) < currentTime &&
+      // When a specific owner is selected, only count their tasks
+      (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId)
     ).length;
   };
 
