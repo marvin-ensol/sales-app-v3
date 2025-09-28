@@ -192,25 +192,27 @@ export const TeamLeaderboard = ({
   // Calculate proper ranks with ties
   const topPerformers = sortedTeamStats.slice(0, Math.min(sortedTeamStats.length, 8));
   
-  // Implement proper ranking algorithm that handles ties
+  // Implement proper ranking algorithm that handles ties correctly
   const rankedPerformers = [];
   let currentRank = 1;
   
   for (let i = 0; i < topPerformers.length; i++) {
     const currentStats = topPerformers[i];
     
-    // If this is not the first performer, check if tied with previous
+    // Check if this performer has different metrics than the first performer of current rank
     if (i > 0) {
-      const prevStats = topPerformers[i - 1];
-      const isTied = 
-        currentStats.completedTodayCount === prevStats.completedTodayCount && 
-        currentStats.overdueCount === prevStats.overdueCount;
-      
-      if (!isTied) {
-        // Not tied, so rank becomes the current position + 1
-        currentRank = i + 1;
+      // Find the first performer with the current rank to compare metrics
+      const firstWithCurrentRank = rankedPerformers.find(p => p.rank === currentRank);
+      if (firstWithCurrentRank) {
+        const isDifferentPerformance = 
+          currentStats.completedTodayCount !== firstWithCurrentRank.completedTodayCount || 
+          currentStats.overdueCount !== firstWithCurrentRank.overdueCount;
+        
+        if (isDifferentPerformance) {
+          // Performance is different, so assign next available rank
+          currentRank = i + 1;
+        }
       }
-      // If tied, keep the same currentRank
     }
     
     rankedPerformers.push({ ...currentStats, rank: currentRank });
