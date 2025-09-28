@@ -7,6 +7,8 @@ import { sortTasksByDisplayOrder, sortTasksWithSequenceGrouping } from "@/utils/
 import SequenceGroup from "./SequenceGroup";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { isTaskOverdue } from "@/lib/dateUtils";
 
 interface KanbanContentProps {
   filteredTasks: Task[];
@@ -25,6 +27,7 @@ interface KanbanContentProps {
   lockedColumns: string[];
   lockedExpandableColumns?: string[]; // New prop for expansion locking
   selectedUserTeamId?: string | null; // New prop for team-based category filtering
+  tasks?: Task[]; // For mobile task count display
 }
 
 const KanbanContent = ({
@@ -41,10 +44,16 @@ const KanbanContent = ({
   selectedOwnerId,
   lockedColumns,
   lockedExpandableColumns = [],
-  selectedUserTeamId
+  selectedUserTeamId,
+  tasks = []
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
+  const isMobile = useIsMobile();
   const { categories: kanbanColumns, loading: categoriesLoading, error: categoriesError } = useTaskCategories(selectedUserTeamId);
+
+  // Calculate task counts for mobile display
+  const tasksOverdue = tasks.filter(task => task.dueDate && isTaskOverdue(task.dueDate)).length;
+  const tasksFuture = tasks.filter(task => task.dueDate && !isTaskOverdue(task.dueDate)).length;
   
   console.log('KanbanContent render - Categories:', kanbanColumns.length, 'Loading:', categoriesLoading, 'Error:', categoriesError);
 
@@ -249,6 +258,15 @@ const KanbanContent = ({
               </>
             )}
           </Button>
+        </div>
+      )}
+
+      {/* Mobile task count display */}
+      {isMobile && tasks.length > 0 && (
+        <div className="flex justify-center py-2">
+          <span className="text-sm text-gray-400">
+            {tasksOverdue} tâche{tasksOverdue !== 1 ? 's' : ''} à faire | {tasksFuture} tâche{tasksFuture !== 1 ? 's' : ''} à venir
+          </span>
         </div>
       )}
     </div>

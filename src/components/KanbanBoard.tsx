@@ -172,6 +172,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         lockedColumns={lockedColumns}
         lockedExpandableColumns={lockedExpandableColumns}
         selectedUserTeamId={selectedUserTeamId}
+        tasks={tasks}
       />
     </div>
   );
