@@ -601,6 +601,15 @@ export const SequenceConfig = ({
           {validationErrors.initialTaskName && (
             <p className="text-sm text-destructive">{validationErrors.initialTaskName}</p>
           )}
+
+          {/* Owner selector for Task 1 - only shown when checkbox is checked */}
+          {createInitialTask && (
+            <TaskOwnerSelector
+              value={initialTaskOwner}
+              onChange={setInitialTaskOwner}
+              excludeOptions={['previous_task_owner']}
+            />
+          )}
         </div>
 
         {/* Divider - always present */}

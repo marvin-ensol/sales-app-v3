@@ -4,14 +4,19 @@ import { TaskOwnerType } from "./SequenceTaskList";
 interface TaskOwnerSelectorProps {
   value: TaskOwnerType;
   onChange: (value: TaskOwnerType) => void;
+  excludeOptions?: TaskOwnerType[];
 }
 
-export const TaskOwnerSelector = ({ value, onChange }: TaskOwnerSelectorProps) => {
-  const ownerOptions = [
+export const TaskOwnerSelector = ({ value, onChange, excludeOptions = [] }: TaskOwnerSelectorProps) => {
+  const allOwnerOptions = [
     { value: 'no_owner', label: 'Aucun owner' },
     { value: 'contact_owner', label: 'Owner du contact' },
     { value: 'previous_task_owner', label: 'Owner de la tâche précédente' }
   ];
+
+  const ownerOptions = allOwnerOptions.filter(option => 
+    !excludeOptions.includes(option.value as TaskOwnerType)
+  );
 
   return (
     <div className="space-y-2">
