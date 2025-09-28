@@ -114,6 +114,7 @@ export type Database = {
           associated_deal_id: string | null
           created_at: string
           created_by_automation: boolean | null
+          created_by_automation_id: string | null
           hs_body_preview: string | null
           hs_created_by_user_id: string | null
           hs_createdate: string | null
@@ -147,6 +148,7 @@ export type Database = {
           associated_deal_id?: string | null
           created_at?: string
           created_by_automation?: boolean | null
+          created_by_automation_id?: string | null
           hs_body_preview?: string | null
           hs_created_by_user_id?: string | null
           hs_createdate?: string | null
@@ -180,6 +182,7 @@ export type Database = {
           associated_deal_id?: string | null
           created_at?: string
           created_by_automation?: boolean | null
+          created_by_automation_id?: string | null
           hs_body_preview?: string | null
           hs_created_by_user_id?: string | null
           hs_createdate?: string | null
