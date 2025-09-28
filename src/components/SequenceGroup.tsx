@@ -24,13 +24,11 @@ const SequenceGroup = ({
 
   return (
     <div className="mb-4">
-      {sequenceNumber !== null && (
-        <div className="mb-2 px-2 py-1 bg-muted/30 rounded-md border-l-2 border-muted">
-          <span className="text-sm font-medium text-muted-foreground">
-            Séquence : tâche {sequenceNumber}
-          </span>
-        </div>
-      )}
+      <div className="mb-2 px-2 py-1 bg-muted/30 rounded-md border-l-2 border-muted">
+        <span className="text-sm font-medium text-muted-foreground">
+          {sequenceNumber !== null ? `Séquence : tâche ${sequenceNumber}` : 'Hors séquence'}
+        </span>
+      </div>
       <div className="space-y-2">
         {tasks.map(task => (
           <TaskCard
