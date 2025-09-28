@@ -48,7 +48,7 @@ const KanbanContent = ({
   console.log('KanbanContent render - Categories:', kanbanColumns.length, 'Loading:', categoriesLoading, 'Error:', categoriesError);
 
   const getTasksByQueue = (queue: TaskQueue) => {
-    const tasks = filteredTasks.filter(task => task.queue === queue && task.status === 'not_started');
+    const tasks = filteredTasks.filter(task => task.queue === queue && (task.status === 'not_started' || task.status === 'waiting'));
     const uniqueTasks = tasks.filter((task, index, arr) => 
       arr.findIndex(t => t.id === task.id) === index
     );
