@@ -9,7 +9,7 @@ import { HubSpotOwner } from '@/hooks/useUsers';
 interface TeamCardProps {
   teamName: string;
   owners: HubSpotOwner[];
-  onProfileClick: (userId: string, userName: string, imageUrl?: string) => void;
+  onProfileClick: (userId: string, ownerId: string, userName: string, imageUrl?: string) => void;
 }
 
 export const TeamCard = ({ teamName, owners, onProfileClick }: TeamCardProps) => {
@@ -49,7 +49,8 @@ export const TeamCard = ({ teamName, owners, onProfileClick }: TeamCardProps) =>
                     size="sm"
                     className="p-0 h-auto"
                     onClick={() => onProfileClick(
-                      owner.id, 
+                      owner.userId,
+                      owner.ownerId,
                       owner.fullName,
                       owner.profilePictureUrl || undefined
                     )}

@@ -21,6 +21,7 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
+    ownerId: string;
     name: string;
     imageUrl?: string;
   } | null>(null);
@@ -31,8 +32,8 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
     refetch(); // Refresh the users list to show updated image
   };
 
-  const openProfileModal = (userId: string, userName: string, imageUrl?: string) => {
-    setSelectedUser({ id: userId, name: userName, imageUrl });
+  const openProfileModal = (userId: string, ownerId: string, userName: string, imageUrl?: string) => {
+    setSelectedUser({ id: userId, ownerId, name: userName, imageUrl });
   };
 
   const handleRefreshUsersTeams = async () => {
@@ -156,6 +157,7 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
           isOpen={!!selectedUser}
           onClose={() => setSelectedUser(null)}
           userId={selectedUser.id}
+          ownerId={selectedUser.ownerId}
           userName={selectedUser.name}
           currentImageUrl={selectedUser.imageUrl}
           onImageUpdated={handleImageUpdated}

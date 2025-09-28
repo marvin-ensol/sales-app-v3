@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface HubSpotOwner {
-  id: string; // HubSpot user ID
+  id: string; // HubSpot owner ID (for backwards compatibility)
   ownerId: string; // HubSpot owner ID (for backwards compatibility)
+  userId: string; // HubSpot user ID (for database operations)
   firstName: string;
   lastName: string;
   email: string;
@@ -37,6 +38,7 @@ export const useUsers = () => {
       const transformedOwners: HubSpotOwner[] = (data || []).map(user => ({
         id: user.owner_id,
         ownerId: user.owner_id,
+        userId: user.user_id,
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || '',

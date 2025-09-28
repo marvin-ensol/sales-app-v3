@@ -12,7 +12,8 @@ import { cropProfileImage } from '@/lib/imageCropping';
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userId: string;
+  userId: string; // For database operations
+  ownerId: string; // For storage file naming
   userName: string;
   currentImageUrl?: string;
   onImageUpdated: (newImageUrl: string) => void;
@@ -21,7 +22,8 @@ interface UserProfileModalProps {
 export const UserProfileModal = ({ 
   isOpen, 
   onClose, 
-  userId, 
+  userId,
+  ownerId, 
   userName, 
   currentImageUrl, 
   onImageUpdated 
@@ -87,9 +89,9 @@ export const UserProfileModal = ({
     setIsUploading(true);
     
     try {
-      // Upload to storage
+      // Upload to storage (use ownerId for filename consistency)
       const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const fileName = `${ownerId}-${Date.now()}.${fileExt}`;
       const filePath = `profiles/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
