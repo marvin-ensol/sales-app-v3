@@ -1,9 +1,10 @@
 
 import { useState } from "react";
-import { Search, RefreshCw, X, Settings, Calendar } from "lucide-react";
+import { Search, RefreshCw, X, Settings, Calendar, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Task } from "@/types/task";
 import { isTaskOverdue } from "@/lib/dateUtils";
@@ -48,6 +49,7 @@ const KanbanHeader = ({
   onDateRangeClear
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const { isCompact, containerRef } = useIsCompactView(600);
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   const [activeCompactComponent, setActiveCompactComponent] = useState<'search' | 'filter'>('filter');
@@ -95,6 +97,15 @@ const KanbanHeader = ({
             title="Paramètres"
           >
             <Settings className="h-4 w-4" />
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={signOut}
+            title="Se déconnecter"
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
 
           <Button 
