@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Users, Camera } from 'lucide-react';
+import { ChevronDown, Users, Camera, HelpCircle } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -14,6 +14,7 @@ interface TeamCardProps {
 
 export const TeamCard = ({ teamName, owners, onProfileClick }: TeamCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const TeamIcon = teamName === 'Sans équipe' ? HelpCircle : Users;
 
   return (
     <Card>
@@ -22,7 +23,7 @@ export const TeamCard = ({ teamName, owners, onProfileClick }: TeamCardProps) =>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <TeamIcon className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <CardTitle className="text-base">{teamName}</CardTitle>
                   <CardDescription>

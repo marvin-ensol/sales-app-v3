@@ -427,11 +427,12 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Users & Teams Section */}
-        <UsersTeamsSection />
+        <div className="space-y-6">
+          {/* Users & Teams Section */}
+          <UsersTeamsSection />
 
-        {/* Task Categories Section */}
-        <Card>
+          {/* Task Categories Section */}
+          <Card>
           <Collapsible open={expandedSection === 'categories'} onOpenChange={(open) => setExpandedSection(open ? 'categories' : null)}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -868,8 +869,8 @@ const Settings = () => {
           </Collapsible>
         </Card>
 
-        {/* Task Sequences Section */}
-        <Card className="mt-6">
+          {/* Task Sequences Section */}
+          <Card>
           <Collapsible open={expandedSection === 'sequences'} onOpenChange={(open) => setExpandedSection(open ? 'sequences' : null)}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1083,6 +1084,7 @@ const Settings = () => {
           onCreateSequence={handleCreateSequence}
           isSubmitting={isSubmitting}
         />
+        </div>
       </div>
     </div>
   );
