@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Users, RefreshCw } from 'lucide-react';
+import { ChevronDown, Users, RefreshCw, ExternalLink } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,7 +79,7 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
                 <div className="flex items-center gap-3">
                   <Users className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <CardTitle>Utilisateurs & équipes</CardTitle>
+                    <CardTitle>Utilisateurs et équipes</CardTitle>
                     <CardDescription>
                       Vérifier la composition des équipes et modifier les photos de profil
                     </CardDescription>
@@ -107,13 +107,29 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
                     ))}
                   </div>
                   
-                  <div className="pt-2 border-t">
+                  <div className="pt-2 border-t space-y-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      asChild
+                    >
+                      <a
+                        href="https://app-eu1.hubspot.com/settings/142467012/users/teams"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Gérer les équipes dans HubSpot
+                      </a>
+                    </Button>
+                    
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleRefreshUsersTeams}
                       disabled={isRefreshing}
-                      className="text-blue-600 hover:text-blue-800"
+                      className="text-blue-600 hover:text-blue-800 w-full"
                     >
                       {isRefreshing ? (
                         <>
@@ -123,7 +139,7 @@ export const UsersTeamsSection = ({ isOpen = false, onOpenChange }: UsersTeamsSe
                       ) : (
                         <>
                           <RefreshCw className="mr-2 h-4 w-4" />
-                          Actualiser les utilisateurs & équipes
+                          Actualiser les utilisateurs et équipes
                         </>
                       )}
                     </Button>

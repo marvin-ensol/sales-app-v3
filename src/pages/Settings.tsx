@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff } from "lucide-react";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement, CategoryFormData } from "@/hooks/useTaskCategoriesManagement";
 import { useTaskAutomationsManagement, TaskAutomation } from "@/hooks/useTaskAutomationsManagement";
@@ -872,14 +872,31 @@ const Settings = () => {
                     </div>
                   </div>
                 ) : (
-                  <Button
-                    onClick={() => setShowCreateForm(true)}
-                    className="w-full bg-black hover:bg-gray-800 text-white"
-                    disabled={isSubmitting}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter une catégorie
-                  </Button>
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => setShowCreateForm(true)}
+                      className="w-full bg-black hover:bg-gray-800 text-white"
+                      disabled={isSubmitting}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Ajouter une catégorie
+                    </Button>
+                    
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      asChild
+                    >
+                      <a
+                        href="https://app-eu1.hubspot.com/tasks/142467012/queues"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Gérer les catégories (files d'attente) dans HubSpot
+                      </a>
+                    </Button>
+                  </div>
                 )}
               </>
             )}

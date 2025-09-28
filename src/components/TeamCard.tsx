@@ -17,7 +17,7 @@ export const TeamCard = ({ teamName, owners, onProfileClick }: TeamCardProps) =>
   const TeamIcon = teamName === 'Sans équipe' ? HelpCircle : Users;
 
   return (
-    <Card>
+    <Card style={{ backgroundColor: '#f3f3f3' }}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
