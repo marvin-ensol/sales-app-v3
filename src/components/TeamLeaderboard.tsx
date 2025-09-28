@@ -193,26 +193,19 @@ export const TeamLeaderboard = ({
   const topPerformers = sortedTeamStats.slice(0, Math.min(sortedTeamStats.length, 8));
   
   // Implement proper ranking algorithm that handles ties correctly
+  // Rank based ONLY on completedTodayCount (overdueCount is just for visual sorting)
   const rankedPerformers = [];
   let currentRank = 1;
+  let lastCompletedCount = topPerformers[0]?.completedTodayCount ?? 0;
   
   for (let i = 0; i < topPerformers.length; i++) {
     const currentStats = topPerformers[i];
     
-    // Check if this performer has different metrics than the first performer of current rank
-    if (i > 0) {
-      // Find the first performer with the current rank to compare metrics
-      const firstWithCurrentRank = rankedPerformers.find(p => p.rank === currentRank);
-      if (firstWithCurrentRank) {
-        const isDifferentPerformance = 
-          currentStats.completedTodayCount !== firstWithCurrentRank.completedTodayCount || 
-          currentStats.overdueCount !== firstWithCurrentRank.overdueCount;
-        
-        if (isDifferentPerformance) {
-          // Performance is different, so assign next available rank
-          currentRank = i + 1;
-        }
-      }
+    // If this performer has fewer completed tasks than the last rank group
+    if (i > 0 && currentStats.completedTodayCount !== lastCompletedCount) {
+      // Move to next available rank (skipping ranks for ties)
+      currentRank = i + 1;
+      lastCompletedCount = currentStats.completedTodayCount;
     }
     
     rankedPerformers.push({ ...currentStats, rank: currentRank });
