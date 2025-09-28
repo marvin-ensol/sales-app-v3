@@ -56,16 +56,22 @@ export function isTaskCompletedTodayParis(task: Task, now = new Date()): boolean
  */
 export function computeOwnerStats(
   tasks: Task[], 
+  ownerHubspotId: string,
   ownerFullName: string,
   now = new Date()
 ): { overdueCount: number; completedTodayCount: number } {
   const normalizedOwnerName = normalizeName(ownerFullName);
   const nowMs = now.getTime();
   
-  // Filter tasks for this owner using normalized name matching
-  const ownerTasks = tasks.filter(task => 
-    normalizeName(task.owner) === normalizedOwnerName
-  );
+  // Filter tasks for this owner using both ID and name matching for robustness
+  const ownerTasks = tasks.filter(task => {
+    // Primary match by HubSpot owner ID (most reliable)
+    if (task.hubspotOwnerId && ownerHubspotId) {
+      return task.hubspotOwnerId === ownerHubspotId;
+    }
+    // Fallback to normalized name matching
+    return normalizeName(task.owner) === normalizedOwnerName;
+  });
   
   // Calculate overdue tasks
   const overdueCount = ownerTasks.filter(task => 

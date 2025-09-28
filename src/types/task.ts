@@ -21,4 +21,5 @@ export interface Task {
   hsTimestamp?: Date | null;
   numberInSequence?: number | null;
   createdByAutomationId?: string | null;
+  hubspotOwnerId?: string | null;
 }

@@ -623,6 +623,7 @@ export type Database = {
           due_date: string
           hs_timestamp: string
           hubspot_id: string
+          hubspot_owner_id: string
           id: string
           is_unassigned: boolean
           number_in_sequence: number

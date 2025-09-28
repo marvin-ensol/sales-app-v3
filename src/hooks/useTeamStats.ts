@@ -27,16 +27,20 @@ export const useTeamStats = ({ teamMembers, allTasks }: UseTeamStatsProps) => {
     const stats = teamMembers.map((owner, index) => {
       const { overdueCount, completedTodayCount } = computeOwnerStats(
         allTasks, 
-        owner.fullName || '', 
+        owner.id, // Use HubSpot owner ID for primary matching
+        owner.fullName || '', // Fallback to name matching
         now
       );
       
       // Debug log for first 3 team members to validate counts
       if (index < 3) {
-        console.log(`🔍 Team stats for ${owner.fullName}:`, {
+        console.log(`🔍 Team stats for ${owner.fullName} (ID: ${owner.id}):`, {
           overdueCount,
           completedTodayCount,
-          totalTasksForOwner: allTasks.filter(t => t.owner === owner.fullName).length
+          totalTasksForOwner: allTasks.filter(t => 
+            (t.hubspotOwnerId && owner.id && t.hubspotOwnerId === owner.id) || 
+            t.owner === owner.fullName
+          ).length
         });
       }
 
