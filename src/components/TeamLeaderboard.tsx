@@ -23,33 +23,19 @@ const TeamMemberCard = ({
   stats, 
   rank, 
   isSelected, 
-  onClick 
+  onClick,
+  showCompletedBadge,
+  onBadgeClick
 }: { 
   stats: TeamMemberStats; 
   rank: number; 
   isSelected: boolean;
   onClick: () => void;
+  showCompletedBadge: boolean;
+  onBadgeClick: (e: React.MouseEvent) => void;
 }) => {
   const isTopPerformer = rank === 1 && stats.completedTodayCount > 0;
   const initials = `${stats.owner.firstName.charAt(0)}${stats.owner.lastName.charAt(0)}`.toUpperCase();
-  
-  // Badge rotation state
-  const [showCompletedBadge, setShowCompletedBadge] = useState(true);
-  
-  // 7-second rotation timer
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setShowCompletedBadge(prev => !prev);
-    }, 7000);
-    
-    return () => clearInterval(interval);
-  }, []);
-  
-  // Click handler to switch badge and reset timer
-  const handleBadgeClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-    setShowCompletedBadge(prev => !prev);
-  }, []);
 
   return (
     <div 
@@ -105,7 +91,7 @@ const TeamMemberCard = ({
       </div>
 
       {/* Single rotating badge */}
-      <div className="flex justify-center" onClick={handleBadgeClick}>
+      <div className="flex justify-center" onClick={onBadgeClick}>
         {showCompletedBadge ? (
           <Badge 
             variant="secondary" 
@@ -123,7 +109,7 @@ const TeamMemberCard = ({
             variant="secondary" 
             className={`flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium min-w-0 transition-opacity duration-300 cursor-pointer ${
               stats.overdueCount > 0 
-                ? 'bg-red-100 text-red-800 hover:bg-red-200 animate-pulse' 
+                ? 'bg-red-100 text-red-800 hover:bg-red-200' 
                 : 'bg-secondary text-secondary-foreground'
             }`}
           >
@@ -149,10 +135,17 @@ export const TeamLeaderboard = ({
   onMemberClick,
   selectedOwnerId 
 }: TeamLeaderboardProps) => {
+  const [showCompletedBadge, setShowCompletedBadge] = useState(true);
+  
   const { data: summaryData, loading } = useTeamSummary({ 
     teamId: teamId || '',
     ownerId: selectedOwnerId 
   });
+
+  const handleBadgeClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowCompletedBadge(prev => !prev);
+  }, []);
 
   if (!teamMembers.length || !teamId) {
     return null;
@@ -196,19 +189,33 @@ export const TeamLeaderboard = ({
     return a.overdueCount - b.overdueCount;
   });
 
+  // Calculate proper ranks with ties
   const topPerformers = sortedTeamStats.slice(0, Math.min(sortedTeamStats.length, 8));
+  const rankedPerformers = topPerformers.map((stats, index) => {
+    let rank = 1;
+    for (let i = 0; i < index; i++) {
+      const prev = topPerformers[i];
+      if (prev.completedTodayCount !== stats.completedTodayCount || prev.overdueCount !== stats.overdueCount) {
+        rank = i + 2;
+        break;
+      }
+    }
+    return { ...stats, rank };
+  });
 
   return (
     <div className="border-t border-border bg-gradient-to-r from-card to-accent/20 shadow-lg">
       <div className="p-2">
         <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-          {topPerformers.map((stats, index) => (
+          {rankedPerformers.map((stats) => (
             <div key={stats.owner.id} className="min-w-0 flex-shrink-0">
               <TeamMemberCard
                 stats={stats}
-                rank={index + 1}
+                rank={stats.rank}
                 isSelected={selectedOwnerId === stats.owner.id}
                 onClick={() => onMemberClick?.(stats.owner.id)}
+                showCompletedBadge={showCompletedBadge}
+                onBadgeClick={handleBadgeClick}
               />
             </div>
           ))}
