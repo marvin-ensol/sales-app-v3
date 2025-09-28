@@ -61,7 +61,10 @@ const KanbanHeader = ({
   // Use passed overdue/future counts if available, otherwise calculate from tasks
   const nowMs = Date.now();
   const tasksOverdue = overdueCount !== undefined ? overdueCount : tasks.filter(task => isTaskOverdueUtc(task, nowMs)).length;
-  const tasksFuture = futureCount !== undefined ? futureCount : tasks.filter(task => task.hsTimestamp && !isTaskOverdueUtc(task, nowMs)).length;
+  const tasksFuture = futureCount !== undefined ? futureCount : tasks.filter(task => 
+    (task.status === 'not_started' || task.status === 'waiting') && 
+    (!task.hsTimestamp || !isTaskOverdueUtc(task, nowMs))
+  ).length;
 
   const handleClearSearch = () => {
     onSearchChange("");

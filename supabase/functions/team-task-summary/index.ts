@@ -36,6 +36,7 @@ interface TaskSummaryResponse {
   owner_header_summary?: {
     completed_today_count: number;
     overdue_count: number;
+    future_tasks_count: number;
   };
   category_counts?: {
     overdue_by_category: Record<string, number>;
@@ -287,6 +288,7 @@ Deno.serve(async (req) => {
       const ownerTasks = tasks?.filter(t => t.hubspot_owner_id === owner_id) || [];
       let completedTodayCount = 0;
       let overdueCount = 0;
+      let futureTasksCount = 0;
 
       for (const task of ownerTasks) {
         // Check completed today
@@ -300,18 +302,26 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Check overdue (NOT_STARTED or WAITING with past due date)
-        if ((task.hs_task_status === 'NOT_STARTED' || task.hs_task_status === 'WAITING') && task.hs_timestamp) {
-          const dueDate = new Date(task.hs_timestamp);
-          if (dueDate < now) {
-            overdueCount++;
+        // Check overdue and future tasks (NOT_STARTED or WAITING only)
+        if (task.hs_task_status === 'NOT_STARTED' || task.hs_task_status === 'WAITING') {
+          if (task.hs_timestamp) {
+            const dueDate = new Date(task.hs_timestamp);
+            if (dueDate < now) {
+              overdueCount++;
+            } else {
+              futureTasksCount++;
+            }
+          } else {
+            // Tasks without due date are considered future tasks
+            futureTasksCount++;
           }
         }
       }
 
       response.owner_header_summary = {
         completed_today_count: completedTodayCount,
-        overdue_count: overdueCount
+        overdue_count: overdueCount,
+        future_tasks_count: futureTasksCount
       };
 
       // Add category counts for the requested owner

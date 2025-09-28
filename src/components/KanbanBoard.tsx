@@ -186,10 +186,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onUpperBoundChange={setUpperBound}
         onDateRangeClear={handleDateRangeClear}
         overdueCount={teamSummary?.owner_header_summary?.overdue_count}
-        futureCount={teamSummary?.owner_header_summary ? 
-          teamSummary.task_summary.grand_totals.total_all_tasks - teamSummary.owner_header_summary.overdue_count - teamSummary.owner_header_summary.completed_today_count : 
-          undefined
-        }
+        futureCount={teamSummary?.owner_header_summary?.future_tasks_count}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
