@@ -557,9 +557,9 @@ const Settings = () => {
                                  {/* Sequence Priority Toggle */}
                                  <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
                                    <div className="flex-1">
-                                     <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
-                                       [Séquence de tâches] Prioriser les tâches selon leur position dans une séquence
-                                     </Label>
+                                      <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
+                                        Prioriser les tâches selon leur position dans une séquence
+                                      </Label>
                                      <div className="text-xs text-gray-500 mt-1">
                                        Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelle quelles que soient les échéances
                                      </div>
@@ -579,20 +579,15 @@ const Settings = () => {
                                       onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
                                       className="mt-2"
                                     >
-                                      <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
-                                        <Label htmlFor={`newest-${category.id}`} className="text-sm">Échéance plus récente</Label>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
-                                        <Label htmlFor={`oldest-${category.id}`} className="text-sm">Échéance plus ancienne</Label>
-                                      </div>
-                                    </RadioGroup>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {editForm.task_display_order === 'newest_tasks_first' 
-                                        ? "Les tâches dont l'échéance est la moins lointaine apparaissent en haut / en premier"
-                                        : "Les tâches dont l'échéance est la plus lointaine apparaissent en haut / en premier"}
-                                    </div>
+                                       <div className="flex items-center space-x-2">
+                                         <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
+                                         <Label htmlFor={`newest-${category.id}`} className="text-sm">Échéance plus récente → Échéance plus ancienne</Label>
+                                       </div>
+                                       <div className="flex items-center space-x-2">
+                                         <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
+                                         <Label htmlFor={`oldest-${category.id}`} className="text-sm">Échéance plus ancienne → Échéance plus récente</Label>
+                                       </div>
+                                     </RadioGroup>
                                   </div>
                                   {/* Hide locking feature for "Autres" category */}
                                   {category.hs_queue_id !== null && (

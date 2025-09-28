@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
@@ -117,8 +117,15 @@ export const TeamSelector: React.FC<TeamSelectorProps> = ({
       {selectedTeams.length > 0 && selectedTeams.length < teams.length && (
         <div className="flex flex-wrap gap-1 mt-2">
           {selectedTeams.map((team) => (
-            <Badge key={team.id} variant="secondary" className="text-xs">
+            <Badge key={team.id} variant="secondary" className="text-sm px-3 py-1 flex items-center gap-1">
               {team.name}
+              <X 
+                className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTeamToggle(team.id);
+                }}
+              />
             </Badge>
           ))}
         </div>
