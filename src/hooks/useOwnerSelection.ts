@@ -8,46 +8,62 @@ export const useOwnerSelection = (owners: HubSpotOwner[], userEmail?: string | n
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [ownerSelectionInitialized, setOwnerSelectionInitialized] = useState(false);
 
-  // Consolidated owner selection logic - runs only once when owners are loaded
+  // Owner selection logic - prioritizes email matching over localStorage
   useEffect(() => {
-    if (owners.length > 0 && !ownerSelectionInitialized) {
-      console.log('Initializing owner selection with', owners.length, 'owners');
-      console.log('Authenticated user email:', userEmail);
+    if (owners.length > 0) {
+      console.log('=== OWNER SELECTION LOGIC ===');
+      console.log('Owners loaded:', owners.length);
+      console.log('User email:', userEmail);
+      console.log('Already initialized:', ownerSelectionInitialized);
       
       let selectedOwner: HubSpotOwner | null = null;
+      let selectionReason = '';
       
-      // Priority 1: Try to match authenticated user's email
+      // Priority 1: Try to match authenticated user's email (always check this first)
       if (userEmail) {
-        selectedOwner = owners.find(owner => owner.email?.toLowerCase() === userEmail.toLowerCase()) || null;
+        selectedOwner = owners.find(owner => 
+          owner.email?.toLowerCase() === userEmail.toLowerCase()
+        ) || null;
         if (selectedOwner) {
-          console.log('Found owner matching authenticated email:', selectedOwner.fullName, selectedOwner.email);
+          selectionReason = 'email match';
+          console.log('✅ Found owner matching authenticated email:', selectedOwner.fullName, selectedOwner.email);
+        } else {
+          console.log('❌ No owner found matching email:', userEmail);
         }
       }
       
-      // Priority 2: Use saved owner if no email match
-      if (!selectedOwner) {
+      // Priority 2: Use saved owner if no email match AND not already initialized
+      if (!selectedOwner && !ownerSelectionInitialized) {
         const savedOwnerId = localStorage.getItem(STORAGE_KEY);
-        console.log('Saved owner ID from localStorage:', savedOwnerId);
+        console.log('Checking localStorage saved owner:', savedOwnerId);
         
         if (savedOwnerId) {
           selectedOwner = owners.find(owner => owner.id === savedOwnerId) || null;
           if (selectedOwner) {
-            console.log('Using saved owner:', selectedOwner.fullName);
+            selectionReason = 'localStorage';
+            console.log('✅ Using saved owner from localStorage:', selectedOwner.fullName);
           }
         }
       }
       
-      // Priority 3: Fallback to first owner
-      if (!selectedOwner) {
+      // Priority 3: Fallback to first owner if not initialized
+      if (!selectedOwner && !ownerSelectionInitialized) {
         selectedOwner = owners[0];
-        console.log('Using first owner as fallback:', selectedOwner.fullName);
+        selectionReason = 'first owner fallback';
+        console.log('✅ Using first owner as fallback:', selectedOwner.fullName);
       }
       
-      setSelectedOwnerId(selectedOwner.id);
-      localStorage.setItem(STORAGE_KEY, selectedOwner.id);
-      setOwnerSelectionInitialized(true);
+      // Update selection if we found an owner
+      if (selectedOwner) {
+        console.log(`🎯 Setting owner: ${selectedOwner.fullName} (reason: ${selectionReason})`);
+        setSelectedOwnerId(selectedOwner.id);
+        localStorage.setItem(STORAGE_KEY, selectedOwner.id);
+        setOwnerSelectionInitialized(true);
+      }
+      
+      console.log('=== END OWNER SELECTION ===');
     }
-  }, [owners, ownerSelectionInitialized, userEmail]);
+  }, [owners, userEmail, ownerSelectionInitialized]);
 
   // Handle manual owner selection changes
   const handleOwnerChange = (ownerId: string) => {
