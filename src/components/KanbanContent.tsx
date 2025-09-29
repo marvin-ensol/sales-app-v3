@@ -30,6 +30,7 @@ interface KanbanContentProps {
   selectedUserTeamId?: string | null; // New prop for team-based category filtering
   tasks?: Task[]; // For mobile task count display
   teamSummary?: TaskSummaryData | null;
+  onLeaderboardVisibilityChange?: (isHidden: boolean) => void;
 }
 
 const KanbanContent = ({
@@ -48,7 +49,8 @@ const KanbanContent = ({
   lockedExpandableColumns = [],
   selectedUserTeamId,
   tasks = [],
-  teamSummary
+  teamSummary,
+  onLeaderboardVisibilityChange
 }: KanbanContentProps) => {
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
   const isMobile = useIsMobile();
@@ -253,6 +255,7 @@ const KanbanContent = ({
                     onTaskAssigned={onTaskAssigned}
                     onTaskDeleted={onTaskDeleted}
                     categoryColor={column.color}
+                    onLeaderboardVisibilityChange={onLeaderboardVisibilityChange}
                   />
                 ))}
               </div>
