@@ -11,17 +11,19 @@ interface CompletionRequest {
 }
 
 // Background function to refresh team statistics
-async function refreshTeamStats() {
+async function refreshTeamStats(teamId: string) {
   try {
-    console.log('🔄 Triggering background team stats refresh...');
+    console.log(`🔄 Triggering background team stats refresh for team: ${teamId}...`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Call team-task-summary function for all teams to refresh stats
+    // Call team-task-summary function with proper team_id
     const { error } = await supabase.functions.invoke('team-task-summary', {
-      body: {}
+      body: {
+        team_id: teamId
+      }
     });
     
     if (error) {
@@ -85,6 +87,17 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // First fetch the task to get the team ID
+    const { data: taskData, error: fetchError } = await supabase
+      .from('hs_tasks')
+      .select('hubspot_team_id')
+      .eq('hs_object_id', hubspot_id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching task for team ID:', fetchError);
+    }
+
     const { error: dbError } = await supabase
       .from('hs_tasks')
       .update({
@@ -101,10 +114,14 @@ Deno.serve(async (req) => {
       console.log('✅ Task status updated in database');
     }
 
-    // Trigger background refresh of team statistics (fire and forget)
-    refreshTeamStats().catch(error => 
-      console.error('Background team stats refresh failed:', error)
-    );
+    // Trigger background refresh of team statistics with proper team ID (fire and forget)
+    if (taskData?.hubspot_team_id) {
+      refreshTeamStats(taskData.hubspot_team_id).catch(error => 
+        console.error('Background team stats refresh failed:', error)
+      );
+    } else {
+      console.log('⚠️ No team ID found for task, skipping team stats refresh');
+    }
 
     return new Response(
       JSON.stringify({ 

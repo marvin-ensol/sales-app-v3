@@ -45,52 +45,82 @@ export const useTeamSummary = ({ teamId, ownerId }: UseTeamSummaryProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchTeamSummary = async () => {
+    if (!teamId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log(`🔍 Fetching team summary for team: ${teamId}, owner: ${ownerId || 'all'}`);
+
+      const { data: result, error: functionError } = await supabase.functions.invoke('team-task-summary', {
+        body: {
+          team_id: teamId,
+          owner_id: ownerId
+        }
+      });
+
+      if (functionError) {
+        throw new Error(`Function error: ${functionError.message}`);
+      }
+
+      if (!result) {
+        throw new Error('No data returned from function');
+      }
+
+      console.log(`✅ Team summary fetched:`, {
+        owners_count: result.task_summary?.owners?.length || 0,
+        total_tasks: result.task_summary?.grand_totals?.total_all_tasks || 0,
+        owner_header_summary: result.owner_header_summary
+      });
+
+      setData(result);
+    } catch (err) {
+      console.error('Error fetching team summary:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch team summary');
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTeamSummary = async () => {
-      if (!teamId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        console.log(`🔍 Fetching team summary for team: ${teamId}, owner: ${ownerId || 'all'}`);
-
-        const { data: result, error: functionError } = await supabase.functions.invoke('team-task-summary', {
-          body: {
-            team_id: teamId,
-            owner_id: ownerId
-          }
-        });
-
-        if (functionError) {
-          throw new Error(`Function error: ${functionError.message}`);
-        }
-
-        if (!result) {
-          throw new Error('No data returned from function');
-        }
-
-        console.log(`✅ Team summary fetched:`, {
-          owners_count: result.task_summary?.owners?.length || 0,
-          total_tasks: result.task_summary?.grand_totals?.total_all_tasks || 0,
-          owner_header_summary: result.owner_header_summary
-        });
-
-        setData(result);
-      } catch (err) {
-        console.error('Error fetching team summary:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch team summary');
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTeamSummary();
   }, [teamId, ownerId]);
+
+  // Set up real-time subscription to automatically refresh when tasks change
+  useEffect(() => {
+    if (!teamId) return;
+
+    console.log(`🔄 Setting up real-time subscription for team ${teamId}`);
+    
+    const channel = supabase
+      .channel(`team-${teamId}-tasks`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hs_tasks',
+          filter: `hubspot_team_id=eq.${teamId}`,
+        },
+        (payload) => {
+          console.log('🔄 Task changed, refreshing team summary:', payload.eventType);
+          // Refetch team summary when tasks change
+          fetchTeamSummary();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log(`🔄 Cleaning up real-time subscription for team ${teamId}`);
+      supabase.removeChannel(channel);
+    };
+  }, [teamId]);
 
   return {
     data,
