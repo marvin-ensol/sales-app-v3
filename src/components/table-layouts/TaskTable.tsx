@@ -9,7 +9,7 @@ interface TaskTableProps {
   onFrameUrlChange: (url: string) => void;
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
-  onTaskDeleted?: () => void;
+  onTaskSkipped?: () => void;
   categoryColor?: string;
 }
 
@@ -23,7 +23,7 @@ const TaskTable = ({
   onFrameUrlChange, 
   onTaskAssigned, 
   selectedOwnerId, 
-  onTaskDeleted, 
+  onTaskSkipped, 
   categoryColor 
 }: TaskTableProps) => {
   
@@ -74,7 +74,7 @@ const TaskTable = ({
                   onFrameUrlChange={onFrameUrlChange}
                   onTaskAssigned={onTaskAssigned}
                   selectedOwnerId={selectedOwnerId}
-                  onTaskDeleted={onTaskDeleted}
+                  onTaskSkipped={onTaskSkipped}
                   categoryColor={categoryColor}
                   showDateColumns={task.isFirstOfDate}
                 />

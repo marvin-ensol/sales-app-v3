@@ -7,7 +7,7 @@ interface TableTaskDisplayProps {
   onFrameUrlChange: (url: string) => void;
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
-  onTaskDeleted?: () => void;
+  onTaskSkipped?: () => void;
   categoryColor?: string;
 }
 

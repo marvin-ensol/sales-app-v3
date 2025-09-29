@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
-import { useTaskDeletion } from "@/hooks/useTaskDeletion";
+import { useTaskSkipping } from "@/hooks/useTaskSkipping";
 import { useTaskCompletion } from "@/hooks/useTaskCompletion";
 import { getFrenchWeekday } from "@/lib/dateUtils";
 
@@ -16,17 +16,18 @@ interface TaskCardProps {
   showOwner?: boolean;
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
-  onTaskDeleted?: () => void;
+  onTaskSkipped?: () => void;
   onTaskCompleted?: () => void;
   categoryColor?: string; // New prop for category color
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, onTaskCompleted, categoryColor }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskSkipped, onTaskCompleted, categoryColor }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.hsTimestamp);
   const [showDescription, setShowDescription] = useState(false);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
+  const [isConfirmingSkip, setIsConfirmingSkip] = useState(false);
   const { isAssigning, assignTask } = useTaskAssignment();
-  const { isDeleting, deleteTask } = useTaskDeletion();
+  const { isSkipping, skipTask } = useTaskSkipping();
   const { completeTask, isCompleting, isTaskOptimisticallyCompleted } = useTaskCompletion();
 
   const getLeftBorderColor = () => {
@@ -104,13 +105,22 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
     );
   };
 
-  const handleDeleteTask = async (e: React.MouseEvent) => {
+  const handleSkipTask = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    await deleteTask(
-      task.hubspotId,
-      onTaskDeleted
-    );
+    if (!isConfirmingSkip) {
+      // First click - show confirmation
+      setIsConfirmingSkip(true);
+    } else {
+      // Second click - confirm skip
+      try {
+        await skipTask(task.hubspotId, task.id, task.title, onTaskSkipped);
+        setIsConfirmingSkip(false);
+      } catch (error) {
+        console.error('Failed to skip task:', error);
+        setIsConfirmingSkip(false);
+      }
+    }
   };
 
   const handleCompleteClick = async (e: React.MouseEvent) => {
@@ -151,21 +161,50 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
       {!task.isUnassigned && (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex items-center gap-2 bg-white rounded-md shadow-sm border p-2">
-            <button
-              type="button"
-              onClick={handleCompleteClick}
-              disabled={isCompleting}
-              className="p-1.5 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
-              title="Marquer comme terminé"
-            >
-              <Check className={`h-5 w-5 transition-colors ${isCompleting ? 'text-muted-foreground' : 'text-green-600 hover:text-green-700'}`} />
-            </button>
-            {isConfirmingComplete && (
-              <span className="text-xs text-gray-600 font-medium">
-                Confirmer ?
-              </span>
+            {!isConfirmingComplete && !isConfirmingSkip && (
+              <button
+                type="button"
+                onClick={handleCompleteClick}
+                disabled={isCompleting}
+                className="p-1.5 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                title="Marquer comme terminé"
+              >
+                <Check className={`h-5 w-5 transition-colors ${isCompleting ? 'text-muted-foreground' : 'text-green-600 hover:text-green-700'}`} />
+              </button>
             )}
-            {!isConfirmingComplete && (
+            {isConfirmingComplete && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCompleteClick}
+                  disabled={isCompleting}
+                  className="p-1.5 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                  title="Marquer comme terminé"
+                >
+                  <Check className={`h-5 w-5 transition-colors ${isCompleting ? 'text-muted-foreground' : 'text-green-600 hover:text-green-700'}`} />
+                </button>
+                <span className="text-xs text-gray-600 font-medium">
+                  Confirmer ?
+                </span>
+              </>
+            )}
+            {isConfirmingSkip && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSkipTask}
+                  disabled={isSkipping}
+                  className="p-1.5 hover:bg-orange-50 rounded transition-colors disabled:opacity-50"
+                  title="Sauter la tâche"
+                >
+                  <Trash2 className={`h-5 w-5 transition-colors ${isSkipping ? 'text-muted-foreground' : 'text-orange-600 hover:text-orange-700'}`} />
+                </button>
+                <span className="text-xs text-gray-600 font-medium">
+                  Confirmer ?
+                </span>
+              </>
+            )}
+            {!isConfirmingComplete && !isConfirmingSkip && (
               <>
                 <button
                   type="button"
@@ -177,12 +216,12 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
                 </button>
                 <button
                   type="button"
-                  onClick={handleDeleteTask}
-                  disabled={isDeleting}
-                  className="p-1.5 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
-                  title="Supprimer la tâche"
+                  onClick={handleSkipTask}
+                  disabled={isSkipping}
+                  className="p-1.5 hover:bg-orange-50 rounded transition-colors disabled:opacity-50"
+                  title="Sauter la tâche"
                 >
-                  <Trash2 className={`h-5 w-5 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
+                  <Trash2 className={`h-5 w-5 transition-colors ${isSkipping ? 'text-muted-foreground' : 'text-orange-600 hover:text-orange-700'}`} />
                 </button>
               </>
             )}

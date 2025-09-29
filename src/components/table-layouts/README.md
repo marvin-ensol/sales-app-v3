@@ -44,7 +44,7 @@ import TableTaskDisplay from "./table-layouts/TableTaskDisplay";
   onFrameUrlChange={onFrameUrlChange}
   onTaskAssigned={onTaskAssigned}
   selectedOwnerId={selectedOwnerId}
-  onTaskDeleted={onTaskDeleted}
+  onTaskSkipped={onTaskSkipped}
   categoryColor={category?.color}
 />
 ```

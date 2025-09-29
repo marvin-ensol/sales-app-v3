@@ -8,7 +8,7 @@ interface SequenceGroupProps {
   onMove: (taskId: string, newQueue: string) => void;
   onFrameUrlChange: (url: string) => void;
   onTaskAssigned?: () => void;
-  onTaskDeleted?: () => void;
+  onTaskSkipped?: () => void;
 }
 
 const SequenceGroup = ({
@@ -18,7 +18,7 @@ const SequenceGroup = ({
   onMove,
   onFrameUrlChange,
   onTaskAssigned,
-  onTaskDeleted
+  onTaskSkipped
 }: SequenceGroupProps) => {
   if (tasks.length === 0) return null;
 
@@ -37,7 +37,7 @@ const SequenceGroup = ({
             onMove={(taskId, newStatus) => onMove(taskId, newStatus)}
             onFrameUrlChange={onFrameUrlChange}
             onTaskAssigned={onTaskAssigned}
-            onTaskDeleted={onTaskDeleted}
+            onTaskSkipped={onTaskSkipped}
             categoryColor={categoryColor}
           />
         ))}

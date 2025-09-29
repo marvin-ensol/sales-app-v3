@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
-import { useTaskDeletion } from "@/hooks/useTaskDeletion";
+import { useTaskSkipping } from "@/hooks/useTaskSkipping";
 import { getFrenchMonthAbbreviation, extractDay, extractTime, getFrenchDayOfWeek } from "@/lib/dateUtils";
 import { generateCategoryColors } from "@/lib/colorUtils";
 
@@ -14,7 +14,7 @@ interface TaskRowProps {
   onFrameUrlChange: (url: string) => void;
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
-  onTaskDeleted?: () => void;
+  onTaskSkipped?: () => void;
   categoryColor?: string;
   showDateColumns?: boolean; // If false, don't show month/day columns (for grouped display)
 }
@@ -25,14 +25,14 @@ const TaskRow = ({
   onFrameUrlChange, 
   onTaskAssigned, 
   selectedOwnerId, 
-  onTaskDeleted, 
+  onTaskSkipped, 
   categoryColor,
   showDateColumns = true 
 }: TaskRowProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const { counter, isOverdue } = useOverdueCounter(task.hsTimestamp);
   const { isAssigning, assignTask } = useTaskAssignment();
-  const { isDeleting, deleteTask } = useTaskDeletion();
+  const { isSkipping, skipTask } = useTaskSkipping();
 
   const monthAbbr = getFrenchMonthAbbreviation(task.dueDate);
   const day = extractDay(task.dueDate);
@@ -69,9 +69,9 @@ const TaskRow = ({
     }
   };
 
-  const handleDeleteTask = async (e: React.MouseEvent) => {
+  const handleSkipTask = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await deleteTask(task.hubspotId, onTaskDeleted);
+    await skipTask(task.hubspotId, task.id, task.title, onTaskSkipped);
   };
 
   const handleUnassignedContactClick = async (e: React.MouseEvent) => {
@@ -207,12 +207,12 @@ const TaskRow = ({
               <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
             </button>
             <button
-              onClick={handleDeleteTask}
-              disabled={isDeleting}
-              className="p-1 hover:bg-red-100 rounded transition-colors disabled:opacity-50"
-              title="Supprimer la tâche"
+              onClick={handleSkipTask}
+              disabled={isSkipping}
+              className="p-1 hover:bg-orange-100 rounded transition-colors disabled:opacity-50"
+              title="Sauter la tâche"
             >
-              <Trash2 className={`h-3 w-3 transition-colors ${isDeleting ? 'text-gray-400' : 'text-red-600 hover:text-red-800'}`} />
+              <Trash2 className={`h-3 w-3 transition-colors ${isSkipping ? 'text-gray-400' : 'text-orange-600 hover:text-orange-800'}`} />
             </button>
           </div>
         )}
