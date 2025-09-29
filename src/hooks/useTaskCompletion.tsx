@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
+import { ToastAction } from '@/components/ui/toast';
 
 export const useTaskCompletion = () => {
   const [isCompleting, setIsCompleting] = useState<string | null>(null);
@@ -53,6 +53,11 @@ export const useTaskCompletion = () => {
       title: "Tâche terminée",
       description: `${contactName} - ${taskTitle}`,
       duration: 6000,
+      action: (
+        <ToastAction altText="Annuler" onClick={undoAction}>
+          Annuler
+        </ToastAction>
+      ),
     });
 
     toastRef.current = toastResult;
