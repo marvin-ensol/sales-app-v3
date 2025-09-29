@@ -63,7 +63,11 @@ export function computeOwnerStats(
   const nowMs = now.getTime();
   
   // Filter tasks for this owner using ID (preferred) or normalized name matching
+  // Also exclude skipped tasks
   const ownerTasks = tasks.filter(task => {
+    // Skip if task is marked as skipped
+    if (task.isSkipped) return false;
+    
     // Primary: Match by hubspot_owner_id if available
     if (owner.id && task.hubspotOwnerId) {
       return task.hubspotOwnerId === owner.id;

@@ -293,6 +293,9 @@ Deno.serve(async (req) => {
       let futureTasksCount = 0;
 
       for (const task of ownerTasks) {
+        // Skip this task if it's marked as skipped
+        if (task.is_skipped) continue;
+        
         // Check completed today
         if (task.hs_task_status === 'COMPLETED' && task.hs_task_completion_date) {
           const completionDate = new Date(task.hs_task_completion_date);
