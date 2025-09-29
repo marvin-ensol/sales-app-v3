@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get all tasks for team owners
+    // Get all tasks for team owners (excluding skipped tasks)
     const { data: tasks, error: tasksError } = await supabase
       .from('hs_tasks')
       .select(`
@@ -128,9 +128,11 @@ Deno.serve(async (req) => {
         hs_task_status,
         hs_timestamp,
         hs_task_completion_date,
-        hs_queue_membership_ids
+        hs_queue_membership_ids,
+        is_skipped
       `)
       .eq('archived', false)
+      .eq('is_skipped', false)  // Exclude skipped tasks
       .in('hubspot_owner_id', ownerIds);
 
     if (tasksError) {
@@ -174,7 +176,7 @@ Deno.serve(async (req) => {
       let ownerOverdueCount = 0;
       let ownerCompletedTodayCount = 0;
 
-      // Process each task for this owner
+      // Process each task for this owner (skipped tasks already filtered out)
       for (const task of ownerTasks) {
         ownerTotalTasks++;
         const queueId = task.hs_queue_membership_ids || 'null';
