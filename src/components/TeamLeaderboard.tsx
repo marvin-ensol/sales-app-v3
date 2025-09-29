@@ -1,10 +1,12 @@
-import { Clock, Check, Trophy, Star } from "lucide-react";
+import { Clock, Check, Trophy, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTeamSummary, OwnerSummary } from "@/hooks/useTeamSummary";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useCallback } from "react";
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
+import { useResponsiveCardDisplay } from "@/hooks/useResponsiveCardDisplay";
 
 interface TeamLeaderboardProps {
   teamMembers: HubSpotOwner[];
@@ -164,30 +166,8 @@ export const TeamLeaderboard = ({
     return null;
   }
 
-  if (loading || !summaryData) {
-    return (
-      <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
-        <div className="mx-auto max-w-7xl px-2 pointer-events-auto">
-          <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
-            <div className="p-2">
-              <div className="flex gap-3 overflow-x-auto pb-1">
-                {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
-                  <div key={i} className="flex flex-col items-center min-w-0">
-                    <Skeleton className="w-8 h-8 rounded-full mb-1" />
-                    <Skeleton className="w-16 h-3 mb-1" />
-                    <Skeleton className="w-12 h-3" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Convert summary data to team stats format
-  const teamStats: TeamMemberStats[] = summaryData.task_summary.owners.map(ownerSummary => {
+  // Convert summary data to team stats format first
+  const teamStats: TeamMemberStats[] = summaryData?.task_summary?.owners?.map(ownerSummary => {
     const owner = teamMembers.find(m => m.id === ownerSummary.owner_id);
     if (!owner) return null;
 
@@ -196,7 +176,7 @@ export const TeamLeaderboard = ({
       completedTodayCount: ownerSummary.completed_today_count,
       overdueCount: ownerSummary.overdue_count
     };
-  }).filter(Boolean) as TeamMemberStats[];
+  }).filter(Boolean) as TeamMemberStats[] || [];
 
   // Sort by completed today (descending), then by overdue (ascending)
   const sortedTeamStats = teamStats.sort((a, b) => {
@@ -206,17 +186,13 @@ export const TeamLeaderboard = ({
     return a.overdueCount - b.overdueCount;
   });
 
-  // Calculate proper ranks with ties
-  const topPerformers = sortedTeamStats.slice(0, Math.min(sortedTeamStats.length, 8));
-  
   // Implement proper ranking algorithm that handles ties correctly
-  // Rank based ONLY on completedTodayCount (overdueCount is just for visual sorting)
   const rankedPerformers = [];
   let currentRank = 1;
-  let lastCompletedCount = topPerformers[0]?.completedTodayCount ?? 0;
+  let lastCompletedCount = sortedTeamStats[0]?.completedTodayCount ?? 0;
   
-  for (let i = 0; i < topPerformers.length; i++) {
-    const currentStats = topPerformers[i];
+  for (let i = 0; i < sortedTeamStats.length; i++) {
+    const currentStats = sortedTeamStats[i];
     
     // If this performer has fewer completed tasks than the last rank group
     if (i > 0 && currentStats.completedTodayCount !== lastCompletedCount) {
@@ -225,20 +201,70 @@ export const TeamLeaderboard = ({
       lastCompletedCount = currentStats.completedTodayCount;
     }
     
-  rankedPerformers.push({ ...currentStats, rank: currentRank });
+    rankedPerformers.push({ ...currentStats, rank: currentRank });
   }
 
   // Check if all team members have the same completedTodayCount
   const allSamePerformance = rankedPerformers.length > 1 && 
     rankedPerformers.every(p => p.completedTodayCount === rankedPerformers[0].completedTodayCount);
 
+  const { containerRef, finalWidth, needsScrolling, actualVisibleCards } = useResponsiveCardDisplay({ 
+    totalCards: rankedPerformers.length 
+  });
+
+  if (loading || !summaryData) {
+    return (
+      <div ref={containerRef} className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+        <div className="flex justify-center">
+          <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30 p-2 mx-4 pointer-events-auto">
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center min-w-0">
+                  <Skeleton className="w-8 h-8 rounded-full mb-1" />
+                  <Skeleton className="w-16 h-3 mb-1" />
+                  <Skeleton className="w-12 h-3" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const displayedStats = rankedPerformers.slice(0, actualVisibleCards);
+  const remainingCount = Math.max(0, rankedPerformers.length - actualVisibleCards);
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
-      <div className="mx-auto max-w-7xl px-2 pointer-events-auto">
-        <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30">
-          <div className="p-2">
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-              {rankedPerformers.map((stats) => (
+    <div ref={containerRef} className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+      <div className="flex justify-center">
+        <div 
+          className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30 p-2 mx-4 pointer-events-auto relative"
+          style={{ width: `${finalWidth}px` }}
+        >
+          {needsScrolling ? (
+            <Carousel className="w-full">
+              <CarouselContent className="flex items-center gap-3">
+                {rankedPerformers.map((stats) => (
+                  <CarouselItem key={stats.owner.id} className="basis-auto">
+                    <TeamMemberCard
+                      stats={stats}
+                      rank={stats.rank}
+                      isSelected={selectedOwnerId === stats.owner.id}
+                      onClick={() => onMemberClick?.(stats.owner.id)}
+                      showCompletedBadge={showCompletedBadge}
+                      onBadgeClick={handleBadgeClick}
+                      hideRankBadge={allSamePerformance}
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="absolute -left-8 top-1/2 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-border/50 hover:bg-white/80 dark:hover:bg-gray-900/80" />
+              <CarouselNext className="absolute -right-8 top-1/2 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-border/50 hover:bg-white/80 dark:hover:bg-gray-900/80" />
+            </Carousel>
+          ) : (
+            <div className={`flex gap-3 pb-1 ${rankedPerformers.length <= actualVisibleCards ? 'justify-center' : 'justify-start'}`}>
+              {displayedStats.map((stats) => (
                 <div key={stats.owner.id} className="min-w-0 flex-shrink-0">
                   <TeamMemberCard
                     stats={stats}
@@ -251,15 +277,17 @@ export const TeamLeaderboard = ({
                   />
                 </div>
               ))}
+              
+              {remainingCount > 0 && (
+                <div className="flex flex-col items-center min-w-0 flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center mb-1">
+                    <span className="text-xs font-medium text-muted-foreground">+{remainingCount}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">More</p>
+                </div>
+              )}
             </div>
-            {sortedTeamStats.length > 8 && (
-              <div className="text-center mt-1">
-                <Badge variant="secondary" className="text-xs">
-                  +{sortedTeamStats.length - 8} more team members
-                </Badge>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
