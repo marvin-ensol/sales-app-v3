@@ -5,7 +5,7 @@ import { ToastAction } from '@/components/ui/toast';
 
 export const useTaskCompletion = () => {
   const [isCompleting, setIsCompleting] = useState<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastRef = useRef<{ dismiss: () => void } | null>(null);
 
   const completeTask = async (
@@ -35,6 +35,12 @@ export const useTaskCompletion = () => {
       }
       
       if (!actionExecuted) {
+        // Dismiss the original toast first
+        if (toastRef.current) {
+          toastRef.current.dismiss();
+          toastRef.current = null;
+        }
+        
         // Revert optimistic update by forcing a refetch
         if (onSuccess) {
           onSuccess();
@@ -49,18 +55,28 @@ export const useTaskCompletion = () => {
     };
 
     // Show confirmation toast with undo option
-    const toastResult = toast({
-      title: "Tâche terminée",
-      description: `${contactName} - ${taskTitle}`,
-      duration: 6000,
-      action: (
-        <ToastAction altText="Annuler" onClick={undoAction}>
-          Annuler
-        </ToastAction>
-      ),
-    });
+    try {
+      const toastResult = toast({
+        title: "Tâche terminée",
+        description: `${contactName} - ${taskTitle}`,
+        duration: 6000,
+        action: (
+          <ToastAction altText="Annuler" onClick={undoAction}>
+            Annuler
+          </ToastAction>
+        ),
+      });
+      toastRef.current = toastResult;
+    } catch (error) {
+      console.error('Error creating toast:', error);
+      // Fallback: revert optimistic update if toast creation fails
+      if (onSuccess) {
+        onSuccess();
+      }
+      setIsCompleting(null);
+      return;
+    }
 
-    toastRef.current = toastResult;
 
     // Execute the actual completion after 6 seconds
     timeoutRef.current = setTimeout(async () => {

@@ -223,6 +223,11 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
             isHidden={isLeaderboardHidden}
           />
         )}
+        
+        {/* Fixed spacer to maintain bottom space when leaderboard is hidden */}
+        {teamMembers.length > 1 && isLeaderboardHidden && (
+          <div className="h-20"></div>
+        )}
       </div>
     </div>
   );
