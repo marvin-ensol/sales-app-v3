@@ -4,7 +4,7 @@ import KanbanHeader from "./KanbanHeader";
 import KanbanContent from "./KanbanContent";
 import { TeamLeaderboard } from "./TeamLeaderboard";
 import { useUsers } from "@/hooks/useUsers";
-import { useConsolidatedLocalTasks } from "@/hooks/useConsolidatedLocalTasks";
+import { useLocalTasks } from "@/hooks/useLocalTasks";
 import { useAllTasks } from "@/hooks/useAllTasks";
 import { useOwnerSelection } from "@/hooks/useOwnerSelection";
 import { useTaskFiltering } from "@/hooks/useTaskFiltering";
@@ -41,14 +41,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   console.log('Owner selection hook result:', { selectedOwnerId, ownerSelectionInitialized });
   
   // Task management
-  const { 
-    tasks, 
-    loading: tasksLoading, 
-    error: tasksError, 
-    refetch,
-    isRealtimeConnected,
-    isRealtimeUpdating
-  } = useConsolidatedLocalTasks(selectedOwnerId);
+  const { tasks, loading: tasksLoading, error: tasksError, refetch } = useLocalTasks(selectedOwnerId);
   console.log('Tasks hook result:', { tasks: tasks?.length, tasksLoading, tasksError });
   
   // All tasks for team leaderboard
@@ -194,8 +187,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
         onDateRangeClear={handleDateRangeClear}
         overdueCount={teamSummary?.owner_header_summary?.overdue_count}
         futureCount={teamSummary?.owner_header_summary?.future_tasks_count}
-        isRealtimeConnected={isRealtimeConnected}
-        isRealtimeUpdating={isRealtimeUpdating}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">

@@ -1,8 +1,7 @@
 import { Clock, Check, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useConsolidatedTeamSummary } from "@/hooks/useConsolidatedTeamSummary";
-import { OwnerSummary } from "@/hooks/useTeamSummary";
+import { useTeamSummary, OwnerSummary } from "@/hooks/useTeamSummary";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useCallback } from "react";
@@ -138,11 +137,7 @@ export const TeamLeaderboard = ({
 }: TeamLeaderboardProps) => {
   const [showCompletedBadge, setShowCompletedBadge] = useState(true);
   
-  const { 
-    data: summaryData, 
-    loading,
-    isRealtimeUpdating
-  } = useConsolidatedTeamSummary({ 
+  const { data: summaryData, loading } = useTeamSummary({ 
     teamId: teamId || ''
     // Remove ownerId to prevent re-fetching when switching team members
   });
@@ -211,20 +206,25 @@ export const TeamLeaderboard = ({
     totalCards: rankedPerformers.length 
   });
 
-      {/* Loading state */}
-      {(loading || isRealtimeUpdating) && (
-        <div ref={containerRef} className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
-          <div className="flex justify-center">
-            <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30 p-2 mx-4 pointer-events-auto">
-              <div className="flex gap-3 overflow-x-auto pb-1">
-                <div className="text-center py-8 text-muted-foreground">
-                  {isRealtimeUpdating ? 'Updating team stats...' : 'Loading team stats...'}
+  if (loading || !summaryData) {
+    return (
+      <div ref={containerRef} className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+        <div className="flex justify-center">
+          <div className="rounded-t-xl border-t bg-white/30 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110 shadow-lg ring-1 ring-white/20 dark:ring-white/10 supports-[backdrop-filter]:bg-white/20 supports-[backdrop-filter]:dark:bg-gray-900/30 p-2 mx-4 pointer-events-auto">
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {Array.from({ length: Math.min(teamMembers.length, 6) }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center min-w-0">
+                  <Skeleton className="w-8 h-8 rounded-full mb-1" />
+                  <Skeleton className="w-16 h-3 mb-1" />
+                  <Skeleton className="w-12 h-3" />
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
   const displayedStats = rankedPerformers.slice(0, actualVisibleCards);
   const remainingCount = Math.max(0, rankedPerformers.length - actualVisibleCards);
