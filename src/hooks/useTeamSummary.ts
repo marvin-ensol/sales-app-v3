@@ -96,31 +96,36 @@ export const useTeamSummary = ({ teamId, ownerId }: UseTeamSummaryProps) => {
   useEffect(() => {
     if (!teamId) return;
 
-    console.log(`🔄 Setting up real-time subscription for team ${teamId}`);
+    const channelName = `team-${teamId}-${ownerId || 'all'}-tasks`;
+    console.log(`🔄 Setting up real-time subscription for ${channelName}`);
     
-    const channel = supabase
-      .channel(`team-${teamId}-tasks`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'hs_tasks',
-          filter: `hubspot_team_id=eq.${teamId}`,
-        },
-        (payload) => {
-          console.log('🔄 Task changed, refreshing team summary:', payload.eventType);
-          // Refetch team summary when tasks change
-          fetchTeamSummary();
-        }
-      )
-      .subscribe();
+    try {
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hs_tasks',
+            filter: `hubspot_team_id=eq.${teamId}`,
+          },
+          (payload) => {
+            console.log('🔄 Task changed, refreshing team summary:', payload.eventType);
+            // Refetch team summary when tasks change
+            fetchTeamSummary();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      console.log(`🔄 Cleaning up real-time subscription for team ${teamId}`);
-      supabase.removeChannel(channel);
-    };
-  }, [teamId]);
+      return () => {
+        console.log(`🔄 Cleaning up real-time subscription for ${channelName}`);
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error(`Failed to set up real-time subscription for ${channelName}:`, error);
+    }
+  }, [teamId, ownerId]);
 
   return {
     data,
