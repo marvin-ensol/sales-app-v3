@@ -48,7 +48,7 @@ export const useConsolidatedLocalTasks = (selectedOwnerId: string) => {
         completionDate: task.completion_date ? new Date(task.completion_date) : null,
         hsTimestamp: task.hs_timestamp ? new Date(task.hs_timestamp) : null,
         numberInSequence: task.number_in_sequence ? Number(task.number_in_sequence) : null,
-        hubspotOwnerId: task.hubspot_owner_id || null
+        hubspotOwnerId: (task as any).hubspot_owner_id || null
       }));
       
       setTasks(transformedTasks);
