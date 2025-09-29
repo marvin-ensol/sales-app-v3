@@ -42,8 +42,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         properties: {
-          hs_task_status: 'COMPLETED',
-          hs_task_completion_date: new Date().getTime() // HubSpot expects timestamp in milliseconds
+          hs_task_status: 'COMPLETED'
         }
       })
     });
