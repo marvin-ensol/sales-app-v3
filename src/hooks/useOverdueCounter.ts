@@ -22,11 +22,21 @@ export const useOverdueCounter = (hsTimestamp: Date | null) => {
           setIsOverdue(true);
           
           const totalSeconds = Math.floor(diff / 1000);
-          const hours = Math.floor(totalSeconds / 3600);
+          const days = Math.floor(totalSeconds / 86400);
+          const hours = Math.floor((totalSeconds % 86400) / 3600);
           const minutes = Math.floor((totalSeconds % 3600) / 60);
           const seconds = totalSeconds % 60;
           
-          const counterText = `+${hours}h ${minutes}m ${seconds}s`;
+          // Format based on duration
+          let counterText;
+          if (days > 0) {
+            // Over 24 hours: show days and hours only
+            counterText = `+${days}d ${hours}h`;
+          } else {
+            // Under 24 hours: show hours, minutes, seconds
+            counterText = `+${hours}h ${minutes}m ${seconds}s`;
+          }
+          
           setCounter(counterText);
         } else {
           setIsOverdue(false);

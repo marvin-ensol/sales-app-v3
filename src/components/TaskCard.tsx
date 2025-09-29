@@ -1,6 +1,7 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus, Trash2 } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
@@ -203,14 +204,17 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
           <div className="flex items-start text-xs">
             <Clock className="h-3 w-3 mr-1 flex-shrink-0 text-gray-600 mt-0.5" />
             <div className="min-w-0 flex-1">
-              <div className={`font-medium break-words ${isOverdue ? "text-red-700" : "text-gray-900"}`}>
-                {weekday && `${weekday} `}{task.dueDate}
-              </div>
-              {isOverdue && counter && (
-                <div className="text-red-600 font-semibold text-xs mt-1">
-                  En retard: {counter}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="font-medium break-words text-gray-900">
+                  {weekday && `${weekday} `}{task.dueDate}
                 </div>
-              )}
+                {isOverdue && counter && (
+                  <Badge variant="destructive" className="text-xs px-2 py-0 h-5 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {counter}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         )}

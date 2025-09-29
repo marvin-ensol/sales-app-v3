@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Phone, Edit, Trash2, Plus } from "lucide-react";
+import { Phone, Edit, Trash2, Plus, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
@@ -132,7 +133,15 @@ const TaskRow = ({
         
         {/* Time Column */}
         <div className="text-xs text-gray-600">
-          {time}
+          <div className="flex items-center gap-2">
+            {time}
+            {isOverdue && counter && (
+              <Badge variant="destructive" className="text-xs px-1 py-0 h-4 flex items-center gap-1">
+                <AlertCircle className="h-2 w-2" />
+                {counter}
+              </Badge>
+            )}
+          </div>
         </div>
         
         {/* Contact Column */}
