@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus, Trash2, AlertCircle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
@@ -114,36 +114,42 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
 
   return (
     <div
-      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 p-3 m-2 hover:shadow-md transition-shadow ${cursorStyle} relative max-w-full`}
+      className={`${cardBackgroundClass} rounded-lg shadow-sm border border-gray-200 border-l-4 p-3 m-2 hover:shadow-md transition-shadow ${cursorStyle} relative max-w-full group`}
       style={{
         borderLeftColor: getLeftBorderColor()
       }}
       onClick={handleCardClick}
     >
-      {/* Edit icon in top right corner - hidden for unassigned tasks */}
+      {/* Action bar - appears on card hover */}
       {!task.isUnassigned && (
-        <div className="absolute top-2 right-2 z-0">
-          <button
-            onClick={handleEditClick}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
-            title="Modifier la tâche"
-          >
-            <Edit className="h-3 w-3 text-gray-600 hover:text-gray-800" />
-          </button>
-        </div>
-      )}
-
-      {/* Delete icon in bottom right corner - hidden for unassigned tasks */}
-      {!task.isUnassigned && (
-        <div className="absolute bottom-2 right-2 z-0">
-          <button
-            onClick={handleDeleteTask}
-            disabled={isDeleting}
-            className="p-1 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
-            title="Supprimer la tâche"
-          >
-            <Trash2 className={`h-3 w-3 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
-          </button>
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="flex items-center gap-1 bg-white rounded-md shadow-sm border p-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // TODO: Handle checkmark action
+              }}
+              className="p-1 hover:bg-green-50 rounded transition-colors"
+              title="Marquer comme terminé"
+            >
+              <CheckCircle className="h-4 w-4 text-green-600 hover:text-green-700" />
+            </button>
+            <button
+              onClick={handleDeleteTask}
+              disabled={isDeleting}
+              className="p-1 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
+              title="Supprimer la tâche"
+            >
+              <Trash2 className={`h-4 w-4 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
+            </button>
+            <button
+              onClick={handleEditClick}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Modifier la tâche"
+            >
+              <Edit className="h-4 w-4 text-gray-600 hover:text-gray-800" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -160,7 +166,7 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
         )}
         
         {/* Contact name in bold with hover effects */}
-        <div className="relative group">
+        <div className="relative">
           {task.isUnassigned && task.queue === 'new' ? (
             <div 
               className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
@@ -169,10 +175,10 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
               onClick={handleUnassignedContactClick}
             >
               <span className="inline-flex items-center gap-1">
-                <span className="inline-block group-hover:bg-green-100 group-hover:text-green-800 group-hover:rounded px-1 py-0.5 group-hover:cursor-pointer">
+                <span className="inline-block hover:bg-green-100 hover:text-green-800 hover:rounded px-1 py-0.5 hover:cursor-pointer">
                   {task.contact}
                 </span>
-                <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <Plus className="h-3 w-3 opacity-0 hover:opacity-100 transition-opacity duration-200" />
               </span>
             </div>
           ) : (
@@ -183,13 +189,13 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
               <span className="inline-flex items-center gap-1">
                 <span className={`inline-block px-1 py-0.5 ${
                   task.contactPhone && !task.isUnassigned
-                    ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:rounded group-hover:cursor-pointer' 
+                    ? 'hover:bg-blue-100 hover:text-blue-800 hover:rounded hover:cursor-pointer' 
                     : ''
                 }`}>
                   {task.contact}
                 </span>
                 {task.contactPhone && !task.isUnassigned && (
-                  <Phone className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                  <Phone className="h-3 w-3 opacity-0 hover:opacity-100 transition-opacity duration-200" />
                 )}
               </span>
             </div>
