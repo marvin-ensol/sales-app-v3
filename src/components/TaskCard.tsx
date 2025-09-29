@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Edit, User, Phone, Plus, Trash2, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, User, Phone, Plus, Trash2, AlertCircle, Check, PenTool } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
@@ -123,31 +123,31 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
       {/* Action bar - appears on card hover */}
       {!task.isUnassigned && (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex items-center gap-1 bg-white rounded-md shadow-sm border p-1">
+          <div className="flex items-center gap-2 bg-white rounded-md shadow-sm border p-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 // TODO: Handle checkmark action
               }}
-              className="p-1 hover:bg-green-50 rounded transition-colors"
+              className="p-1.5 hover:bg-green-50 rounded transition-colors"
               title="Marquer comme terminé"
             >
-              <CheckCircle className="h-4 w-4 text-green-600 hover:text-green-700" />
+              <Check className="h-5 w-5 text-green-600 hover:text-green-700" />
             </button>
             <button
               onClick={handleDeleteTask}
               disabled={isDeleting}
-              className="p-1 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
+              className="p-1.5 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
               title="Supprimer la tâche"
             >
-              <Trash2 className={`h-4 w-4 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
+              <Trash2 className={`h-5 w-5 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
             </button>
             <button
               onClick={handleEditClick}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
               title="Modifier la tâche"
             >
-              <Edit className="h-4 w-4 text-gray-600 hover:text-gray-800" />
+              <PenTool className="h-5 w-5 text-gray-600 hover:text-gray-800" />
             </button>
           </div>
         </div>
