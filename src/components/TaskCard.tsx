@@ -6,7 +6,6 @@ import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
 import { useTaskDeletion } from "@/hooks/useTaskDeletion";
-import { useTaskCompletion } from "@/hooks/useTaskCompletion";
 import { getFrenchWeekday } from "@/lib/dateUtils";
 
 interface TaskCardProps {
@@ -17,16 +16,14 @@ interface TaskCardProps {
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
   onTaskDeleted?: () => void;
-  categoryColor?: string;
-  onLeaderboardVisibilityChange?: (isHidden: boolean) => void;
+  categoryColor?: string; // New prop for category color
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, categoryColor, onLeaderboardVisibilityChange }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, categoryColor }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.hsTimestamp);
   const [showDescription, setShowDescription] = useState(false);
   const { isAssigning, assignTask } = useTaskAssignment();
   const { isDeleting, deleteTask } = useTaskDeletion();
-  const { isCompleting, completeTask } = useTaskCompletion();
 
   const getLeftBorderColor = () => {
     if (categoryColor) {
@@ -112,36 +109,6 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
     );
   };
 
-  const handleCompleteTask = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    // Hide leaderboard during completion process
-    if (onLeaderboardVisibilityChange) {
-      onLeaderboardVisibilityChange(true);
-    }
-    
-    await completeTask(
-      task.hubspotId,
-      task.contact,
-      task.title,
-      () => {
-        // Restore leaderboard and refresh data
-        if (onLeaderboardVisibilityChange) {
-          onLeaderboardVisibilityChange(false);
-        }
-        if (onTaskDeleted) {
-          onTaskDeleted();
-        }
-      },
-      () => {
-        // Optimistic update - immediately hide the card
-        if (onTaskDeleted) {
-          onTaskDeleted();
-        }
-      }
-    );
-  };
-
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
   const cursorStyle = task.isUnassigned ? "cursor-default" : "cursor-pointer";
 
@@ -158,12 +125,14 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex items-center gap-2 bg-white rounded-md shadow-sm border p-2">
             <button
-              onClick={handleCompleteTask}
-              disabled={isCompleting === task.hubspotId}
-              className="p-1.5 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                // TODO: Handle checkmark action
+              }}
+              className="p-1.5 hover:bg-green-50 rounded transition-colors"
               title="Marquer comme terminé"
             >
-              <Check className={`h-5 w-5 transition-colors ${isCompleting === task.hubspotId ? 'text-green-400' : 'text-green-600 hover:text-green-700'}`} />
+              <Check className="h-5 w-5 text-green-600 hover:text-green-700" />
             </button>
             <button
               onClick={handleEditClick}

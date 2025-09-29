@@ -26,7 +26,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
   const [lockedColumns, setLockedColumns] = useState<string[]>([]);
   const [lowerBound, setLowerBound] = useState("tout");
   const [upperBound, setUpperBound] = useState("aujourd_hui");
-  const [isLeaderboardHidden, setIsLeaderboardHidden] = useState(false);
 
   console.log('Initializing hooks...');
   
@@ -210,7 +209,6 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
           selectedUserTeamId={selectedUserTeamId}
           tasks={tasks}
           teamSummary={teamSummary}
-          onLeaderboardVisibilityChange={setIsLeaderboardHidden}
         />
         
         {/* Team Leaderboard - only show when a team member is selected */}
@@ -220,13 +218,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
             teamId={teamMembers[0]?.teamId}
             onMemberClick={handleMemberClick}
             selectedOwnerId={selectedOwnerId}
-            isHidden={isLeaderboardHidden}
           />
-        )}
-        
-        {/* Fixed spacer to maintain bottom space when leaderboard is hidden */}
-        {teamMembers.length > 1 && isLeaderboardHidden && (
-          <div className="h-20"></div>
         )}
       </div>
     </div>

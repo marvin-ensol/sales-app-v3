@@ -13,7 +13,6 @@ interface TeamLeaderboardProps {
   teamId?: string;
   onMemberClick?: (ownerId: string) => void;
   selectedOwnerId?: string;
-  isHidden?: boolean;
 }
 
 interface TeamMemberStats {
@@ -140,8 +139,7 @@ export const TeamLeaderboard = ({
   teamMembers, 
   teamId, 
   onMemberClick,
-  selectedOwnerId,
-  isHidden = false
+  selectedOwnerId 
 }: TeamLeaderboardProps) => {
   const [showCompletedBadge, setShowCompletedBadge] = useState(true);
   
@@ -164,7 +162,7 @@ export const TeamLeaderboard = ({
     setShowCompletedBadge(prev => !prev);
   }, []);
 
-  if (!teamMembers.length || !teamId || isHidden) {
+  if (!teamMembers.length || !teamId) {
     return null;
   }
 
