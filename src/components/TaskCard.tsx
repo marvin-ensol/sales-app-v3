@@ -163,27 +163,31 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
         <div className="relative group">
           {task.isUnassigned && task.queue === 'new' ? (
             <div 
-              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 group-hover:bg-green-100 group-hover:text-green-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer ${
+              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
                 isAssigning ? 'opacity-50 cursor-not-allowed' : ''
               }`}
               onClick={handleUnassignedContactClick}
             >
               <span className="inline-flex items-center gap-1">
-                {task.contact}
+                <span className="inline-block group-hover:bg-green-100 group-hover:text-green-800 group-hover:rounded px-1 py-0.5 group-hover:cursor-pointer">
+                  {task.contact}
+                </span>
                 <Plus className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
               </span>
             </div>
           ) : (
             <div 
-              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200 ${
-                task.contactPhone && !task.isUnassigned
-                  ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:px-2 group-hover:py-1 group-hover:rounded-md group-hover:cursor-pointer' 
-                  : ''
-              }`}
+              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200`}
               onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
             >
               <span className="inline-flex items-center gap-1">
-                {task.contact}
+                <span className={`inline-block px-1 py-0.5 ${
+                  task.contactPhone && !task.isUnassigned
+                    ? 'group-hover:bg-blue-100 group-hover:text-blue-800 group-hover:rounded group-hover:cursor-pointer' 
+                    : ''
+                }`}>
+                  {task.contact}
+                </span>
                 {task.contactPhone && !task.isUnassigned && (
                   <Phone className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                 )}
