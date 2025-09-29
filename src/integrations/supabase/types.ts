@@ -138,6 +138,7 @@ export type Database = {
           hubspot_owner_assigneddate: string | null
           hubspot_owner_id: string | null
           hubspot_team_id: string | null
+          is_skipped: boolean | null
           number_in_sequence: number | null
           updated_at: string
         }
@@ -172,6 +173,7 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
+          is_skipped?: boolean | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -206,6 +208,7 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
+          is_skipped?: boolean | null
           number_in_sequence?: number | null
           updated_at?: string
         }
