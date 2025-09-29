@@ -160,7 +160,19 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
       {/* Action bar - appears on card hover */}
       {!task.isUnassigned && (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex items-center gap-2 bg-white rounded-md shadow-sm border p-2">
+          <div 
+            className={`flex items-center gap-2 bg-white rounded-md shadow-sm border p-2 ${
+              isConfirmingComplete || isConfirmingSkip ? 'cursor-pointer' : ''
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isConfirmingComplete) {
+                handleCompleteClick(e);
+              } else if (isConfirmingSkip) {
+                handleSkipTask(e);
+              }
+            }}
+          >
             {!isConfirmingComplete && !isConfirmingSkip && (
               <button
                 type="button"

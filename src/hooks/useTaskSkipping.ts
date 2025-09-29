@@ -48,10 +48,6 @@ export const useTaskSkipping = () => {
       
       // Success - task skipped
       console.log('Task skipped successfully');
-      toast({
-        title: "Succès",
-        description: "Succès. La tâche a bien été sautée",
-      });
       
       if (onSuccess) {
         onSuccess();
