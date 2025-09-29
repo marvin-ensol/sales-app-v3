@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, User, Phone, Plus, Trash2, AlertCircle, Check, PenTool } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, User, Phone, Plus, Trash2, AlertCircle, Check, Pen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
@@ -135,19 +135,19 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
               <Check className="h-5 w-5 text-green-600 hover:text-green-700" />
             </button>
             <button
+              onClick={handleEditClick}
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+              title="Modifier la tâche"
+            >
+              <Pen className="h-5 w-5 text-gray-600 hover:text-gray-800" />
+            </button>
+            <button
               onClick={handleDeleteTask}
               disabled={isDeleting}
               className="p-1.5 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
               title="Supprimer la tâche"
             >
               <Trash2 className={`h-5 w-5 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
-            </button>
-            <button
-              onClick={handleEditClick}
-              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
-              title="Modifier la tâche"
-            >
-              <PenTool className="h-5 w-5 text-gray-600 hover:text-gray-800" />
             </button>
           </div>
         </div>
