@@ -6,6 +6,7 @@ import { Task, TaskStatus } from "@/types/task";
 import { useOverdueCounter } from "@/hooks/useOverdueCounter";
 import { useTaskAssignment } from "@/hooks/useTaskAssignment";
 import { useTaskDeletion } from "@/hooks/useTaskDeletion";
+import { useTaskCompletion } from "@/hooks/useTaskCompletion";
 import { getFrenchWeekday } from "@/lib/dateUtils";
 
 interface TaskCardProps {
@@ -16,14 +17,17 @@ interface TaskCardProps {
   onTaskAssigned?: () => void;
   selectedOwnerId?: string;
   onTaskDeleted?: () => void;
+  onTaskCompleted?: () => void;
   categoryColor?: string; // New prop for category color
 }
 
-const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, categoryColor }: TaskCardProps) => {
+const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, selectedOwnerId, onTaskDeleted, onTaskCompleted, categoryColor }: TaskCardProps) => {
   const { counter, isOverdue } = useOverdueCounter(task.hsTimestamp);
   const [showDescription, setShowDescription] = useState(false);
+  const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const { isAssigning, assignTask } = useTaskAssignment();
   const { isDeleting, deleteTask } = useTaskDeletion();
+  const { completeTask, isCompleting, isTaskOptimisticallyCompleted } = useTaskCompletion();
 
   const getLeftBorderColor = () => {
     if (categoryColor) {
@@ -109,8 +113,31 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
     );
   };
 
+  const handleCompleteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!isConfirmingComplete) {
+      // First click - show confirmation
+      setIsConfirmingComplete(true);
+    } else {
+      // Second click - confirm completion
+      try {
+        await completeTask(task.hubspotId, task.id, onTaskCompleted);
+        setIsConfirmingComplete(false);
+      } catch (error) {
+        console.error('Failed to complete task:', error);
+        setIsConfirmingComplete(false);
+      }
+    }
+  };
+
   const cardBackgroundClass = isOverdue ? "bg-red-50" : "bg-white";
   const cursorStyle = task.isUnassigned ? "cursor-default" : "cursor-pointer";
+  
+  // Hide card if optimistically completed
+  if (isTaskOptimisticallyCompleted(task.id)) {
+    return null;
+  }
 
   return (
     <div
@@ -125,30 +152,40 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="flex items-center gap-2 bg-white rounded-md shadow-sm border p-2">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                // TODO: Handle checkmark action
-              }}
-              className="p-1.5 hover:bg-green-50 rounded transition-colors"
+              type="button"
+              onClick={handleCompleteClick}
+              disabled={isCompleting}
+              className="p-1.5 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
               title="Marquer comme terminé"
             >
-              <Check className="h-5 w-5 text-green-600 hover:text-green-700" />
+              <Check className={`h-5 w-5 transition-colors ${isCompleting ? 'text-muted-foreground' : 'text-green-600 hover:text-green-700'}`} />
             </button>
-            <button
-              onClick={handleEditClick}
-              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
-              title="Modifier la tâche"
-            >
-              <Pen className="h-5 w-5 text-gray-600 hover:text-gray-800" />
-            </button>
-            <button
-              onClick={handleDeleteTask}
-              disabled={isDeleting}
-              className="p-1.5 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
-              title="Supprimer la tâche"
-            >
-              <Trash2 className={`h-5 w-5 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
-            </button>
+            {isConfirmingComplete && (
+              <span className="text-xs text-gray-600 font-medium">
+                Confirmer ?
+              </span>
+            )}
+            {!isConfirmingComplete && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleEditClick}
+                  className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                  title="Modifier la tâche"
+                >
+                  <Pen className="h-5 w-5 text-gray-600 hover:text-gray-800" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteTask}
+                  disabled={isDeleting}
+                  className="p-1.5 hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
+                  title="Supprimer la tâche"
+                >
+                  <Trash2 className={`h-5 w-5 transition-colors ${isDeleting ? 'text-muted-foreground' : 'text-destructive hover:text-destructive/80'}`} />
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

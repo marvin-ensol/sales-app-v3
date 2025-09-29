@@ -59,6 +59,9 @@ verify_jwt = false
 [functions.team-task-summary]
 verify_jwt = false
 
+[functions.complete-hubspot-task]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324
