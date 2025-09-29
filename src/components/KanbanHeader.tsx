@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { Search, RefreshCw, X, Settings, Calendar, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RealtimeStatusIndicator } from "@/components/RealtimeStatusIndicator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { HubSpotOwner } from "@/hooks/useUsers";
@@ -31,6 +31,8 @@ interface KanbanHeaderProps {
   onDateRangeClear: () => void;
   overdueCount?: number;
   futureCount?: number;
+  isRealtimeConnected?: boolean;
+  isRealtimeUpdating?: boolean;
 }
 
 const KanbanHeader = ({
@@ -50,7 +52,9 @@ const KanbanHeader = ({
   onUpperBoundChange,
   onDateRangeClear,
   overdueCount,
-  futureCount
+  futureCount,
+  isRealtimeConnected = false,
+  isRealtimeUpdating = false
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
@@ -113,14 +117,21 @@ const KanbanHeader = ({
             <Settings className="h-4 w-4" />
           </Button>
 
+          <RealtimeStatusIndicator
+            isConnected={isRealtimeConnected}
+            isUpdating={isRealtimeUpdating || isLoading}
+            onForceRefresh={onRefresh}
+            showDetails={false}
+          />
+          
           <Button 
             variant="outline" 
             size="icon"
             onClick={onRefresh} 
-            disabled={isLoading}
+            disabled={isLoading || isRealtimeUpdating}
             title="Actualiser"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${(isLoading || isRealtimeUpdating) ? 'animate-spin' : ''}`} />
           </Button>
 
           <Button 
