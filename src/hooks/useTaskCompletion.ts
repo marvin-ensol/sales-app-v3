@@ -39,6 +39,9 @@ export const useTaskCompletion = () => {
       if (onComplete) {
         onComplete();
       }
+      
+      // Trigger background refresh of team statistics via useTeamSummary refetch
+      // This will be handled by the parent component that calls this hook
 
       // The real-time subscription will handle the actual UI update
       // Keep optimistic state until then

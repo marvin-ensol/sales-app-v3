@@ -10,6 +10,30 @@ interface CompletionRequest {
   task_id: string;
 }
 
+// Background function to refresh team statistics
+async function refreshTeamStats() {
+  try {
+    console.log('🔄 Triggering background team stats refresh...');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Call team-task-summary function for all teams to refresh stats
+    const { error } = await supabase.functions.invoke('team-task-summary', {
+      body: {}
+    });
+    
+    if (error) {
+      console.error('Error refreshing team stats:', error);
+    } else {
+      console.log('✅ Team stats refresh triggered successfully');
+    }
+  } catch (error) {
+    console.error('Background team stats refresh failed:', error);
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -76,6 +100,11 @@ Deno.serve(async (req) => {
     } else {
       console.log('✅ Task status updated in database');
     }
+
+    // Trigger background refresh of team statistics (fire and forget)
+    refreshTeamStats().catch(error => 
+      console.error('Background team stats refresh failed:', error)
+    );
 
     return new Response(
       JSON.stringify({ 
