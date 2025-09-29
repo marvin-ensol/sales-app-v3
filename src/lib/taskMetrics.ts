@@ -14,8 +14,8 @@ export function normalizeName(name: string | null | undefined): string {
  * Uses current UTC time for consistent comparison
  */
 export function isTaskOverdueUtc(task: Task, nowMs = Date.now()): boolean {
-  // Only consider non-completed, non-skipped tasks
-  if (task.status === 'completed' || task.isSkipped) return false;
+  // Only consider non-completed tasks
+  if (task.status === 'completed') return false;
   
   // Must have a valid hsTimestamp
   if (!task.hsTimestamp) return false;
@@ -29,8 +29,8 @@ export function isTaskOverdueUtc(task: Task, nowMs = Date.now()): boolean {
  * Uses calendar date comparison for consistent results
  */
 export function isTaskCompletedTodayParis(task: Task, now = new Date()): boolean {
-  // Must be completed with a completion date and not skipped
-  if (task.status !== 'completed' || !task.completionDate || task.isSkipped) return false;
+  // Must be completed with a completion date
+  if (task.status !== 'completed' || !task.completionDate) return false;
   
   // Get today's date in Paris timezone as a string (YYYY-MM-DD)
   const todayParis = new Intl.DateTimeFormat('en-CA', {
@@ -63,11 +63,7 @@ export function computeOwnerStats(
   const nowMs = now.getTime();
   
   // Filter tasks for this owner using ID (preferred) or normalized name matching
-  // Also exclude skipped tasks
   const ownerTasks = tasks.filter(task => {
-    // Skip if task is marked as skipped
-    if (task.isSkipped) return false;
-    
     // Primary: Match by hubspot_owner_id if available
     if (owner.id && task.hubspotOwnerId) {
       return task.hubspotOwnerId === owner.id;

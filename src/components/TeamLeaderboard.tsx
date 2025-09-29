@@ -1,4 +1,4 @@
-import { Clock, Check, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Check, Trophy, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTeamSummary, OwnerSummary } from "@/hooks/useTeamSummary";
@@ -125,6 +125,12 @@ const TeamMemberCard = ({
         )}
       </div>
 
+      {/* Performance indicator */}
+      {stats.completedTodayCount > 3 && (
+        <div className="absolute top-0.5 left-0.5">
+          <Star className="w-2.5 h-2.5 text-yellow-500 fill-yellow-500" />
+        </div>
+      )}
     </div>
   );
 };

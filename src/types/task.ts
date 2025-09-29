@@ -22,5 +22,4 @@ export interface Task {
   numberInSequence?: number | null;
   createdByAutomationId?: string | null;
   hubspotOwnerId?: string | null;
-  isSkipped?: boolean;
 }
