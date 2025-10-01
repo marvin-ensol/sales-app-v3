@@ -35,6 +35,7 @@ interface AutomationTriggerRequest {
   task_id?: string;
   current_position?: number;
   associated_contact_id?: string;
+  completion_date?: string;
   // Common fields
   automation_id: string;
   hs_object_id: string;
@@ -131,7 +132,106 @@ function findNextWorkingDateTime(
 }
 
 /**
- * Calculate planned execution timestamp based on schedule configuration
+ * Calculate delay in milliseconds from delay configuration
+ */
+function calculateDelayMs(delayConfig: any): number {
+  if (!delayConfig || typeof delayConfig.amount !== 'number' || !delayConfig.unit) {
+    console.warn('Invalid delay configuration, applying no delay');
+    return 0;
+  }
+
+  const amount = delayConfig.amount;
+  
+  switch (delayConfig.unit) {
+    case 'minutes':
+      return amount * 60 * 1000;
+    case 'hours':
+      return amount * 60 * 60 * 1000;
+    case 'days':
+      return amount * 24 * 60 * 60 * 1000;
+    default:
+      console.warn(`Unknown delay unit: ${delayConfig.unit}, applying no delay`);
+      return 0;
+  }
+}
+
+/**
+ * Calculate planned execution timestamp for sequence tasks based on completion date and delay
+ */
+function calculateSequenceExecutionTimestamp(
+  completionDate: string | null | undefined,
+  delayConfig: any,
+  scheduleEnabled: boolean,
+  scheduleConfig: ScheduleConfiguration | null,
+  timezone: string | null
+): Date | null {
+  // Risk 1: Missing completion date - use current timestamp
+  const baseDate = completionDate ? new Date(completionDate) : new Date();
+  console.log(`Base completion date: ${baseDate.toISOString()}`);
+  
+  // Risk 2: Invalid delay configuration - apply no delay
+  const delayMs = calculateDelayMs(delayConfig);
+  console.log(`Delay: ${delayMs}ms (${delayConfig?.amount} ${delayConfig?.unit})`);
+  
+  // Calculate base execution time (completion + delay)
+  const calculatedTime = new Date(baseDate.getTime() + delayMs);
+  console.log(`Calculated time (completion + delay): ${calculatedTime.toISOString()}`);
+  
+  // Risk 5: Past completion dates - stop/do nothing
+  const now = new Date();
+  if (calculatedTime < now) {
+    console.warn('Calculated execution time is in the past, stopping automation');
+    return null;
+  }
+  
+  // If schedule not enabled, use the calculated time directly
+  if (!scheduleEnabled || !scheduleConfig || !timezone) {
+    console.log('Schedule not enabled, using calculated time directly');
+    return calculatedTime;
+  }
+  
+  // Risk 3: Timezone consistency - rely on task_automations.timezone
+  try {
+    // Convert calculated time to the specified timezone
+    const zonedCalculatedTime = toZonedTime(calculatedTime, timezone);
+    console.log(`Calculated time in ${timezone}: ${format(zonedCalculatedTime, 'yyyy-MM-dd HH:mm:ss', { timeZone: timezone })}`);
+    
+    const dayName = DAY_NAMES[zonedCalculatedTime.getDay()];
+    const dayConfig = scheduleConfig.working_hours[dayName];
+    
+    // Check if calculated time is within working hours
+    if (
+      dayConfig.enabled &&
+      !isNonWorkingDate(zonedCalculatedTime, scheduleConfig.non_working_dates) &&
+      isWithinWorkingHours(zonedCalculatedTime, dayConfig)
+    ) {
+      console.log('Calculated time is within working hours, using it directly');
+      return calculatedTime;
+    }
+    
+    // Find next available working time after the calculated time
+    console.log('Calculated time is outside working hours, finding next available slot');
+    const nextWorkingTime = findNextWorkingDateTime(
+      zonedCalculatedTime,
+      scheduleConfig,
+      timezone
+    );
+    
+    // Convert back to UTC
+    const nextWorkingTimeUTC = fromZonedTime(nextWorkingTime, timezone);
+    console.log(`Next working time in ${timezone}: ${format(nextWorkingTime, 'yyyy-MM-dd HH:mm:ss', { timeZone: timezone })}`);
+    console.log(`Next working time in UTC: ${nextWorkingTimeUTC.toISOString()}`);
+    
+    return nextWorkingTimeUTC;
+  } catch (error) {
+    console.error('Error calculating sequence execution timestamp:', error);
+    // Fallback to calculated time
+    return calculatedTime;
+  }
+}
+
+/**
+ * Calculate planned execution timestamp based on schedule configuration (for list_entry triggers)
  * Returns a Date object representing the time in the specified timezone
  */
 function calculatePlannedExecutionTimestamp(
@@ -215,6 +315,7 @@ serve(async (req) => {
       current_position,
       hs_object_id,
       hs_queue_id,
+      completion_date,
       schedule_enabled,
       schedule_configuration,
       timezone
@@ -273,12 +374,48 @@ serve(async (req) => {
     console.log('Position in sequence:', positionInSequence);
     console.log('Queue ID:', hsQueueId);
 
-    // Calculate planned execution timestamp
-    const plannedExecutionTimestamp = calculatePlannedExecutionTimestamp(
-      schedule_enabled,
-      schedule_configuration,
-      timezone
-    );
+    // Calculate planned execution timestamp based on trigger type
+    let plannedExecutionTimestamp: Date | null;
+    
+    if (trigger_type === 'list_entry') {
+      // For list entry, execute based on current time and schedule
+      plannedExecutionTimestamp = calculatePlannedExecutionTimestamp(
+        schedule_enabled,
+        schedule_configuration,
+        timezone
+      );
+    } else {
+      // For task completion, execute based on completion date + delay
+      const sequenceTaskIndex = (positionInSequence || 2) - 2;
+      const delayConfig = tasksConfig?.sequence_tasks?.[sequenceTaskIndex]?.delay;
+      
+      console.log('Delay configuration:', JSON.stringify(delayConfig));
+      console.log('Completion date:', completion_date);
+      
+      plannedExecutionTimestamp = calculateSequenceExecutionTimestamp(
+        completion_date,
+        delayConfig,
+        schedule_enabled,
+        schedule_configuration,
+        timezone
+      );
+      
+      // If calculated time is in the past, stop processing
+      if (!plannedExecutionTimestamp) {
+        console.warn('Cannot create automation run: calculated execution time is in the past');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Calculated execution time is in the past',
+            message: 'Cannot schedule task in the past'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400
+          }
+        );
+      }
+    }
 
     // Format timestamp with timezone offset for storage
     // Default to Europe/Paris (+02) if no timezone specified
