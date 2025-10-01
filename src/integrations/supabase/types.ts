@@ -365,8 +365,10 @@ export type Database = {
           automation_id: string
           created_at: string
           created_task: boolean | null
+          exit_contact_list_block: boolean | null
           failure_description: string | null
           hs_actioned_task_ids: Json | null
+          hs_contact_id: string | null
           hs_owner_id_contact: string | null
           hs_owner_id_previous_task: string | null
           hs_queue_id: string | null
@@ -387,8 +389,10 @@ export type Database = {
           automation_id: string
           created_at?: string
           created_task?: boolean | null
+          exit_contact_list_block?: boolean | null
           failure_description?: string | null
           hs_actioned_task_ids?: Json | null
+          hs_contact_id?: string | null
           hs_owner_id_contact?: string | null
           hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null
@@ -409,8 +413,10 @@ export type Database = {
           automation_id?: string
           created_at?: string
           created_task?: boolean | null
+          exit_contact_list_block?: boolean | null
           failure_description?: string | null
           hs_actioned_task_ids?: Json | null
+          hs_contact_id?: string | null
           hs_owner_id_contact?: string | null
           hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null

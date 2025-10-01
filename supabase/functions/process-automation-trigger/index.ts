@@ -318,6 +318,7 @@ serve(async (req) => {
       hs_queue_id,
       completion_date,
       hubspot_owner_id,
+      associated_contact_id,
       schedule_enabled,
       schedule_configuration,
       timezone
@@ -454,7 +455,8 @@ serve(async (req) => {
       hs_queue_id: hsQueueId,
       created_task: false,
       position_in_sequence: positionInSequence,
-      hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null
+      hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null,
+      hs_contact_id: trigger_type === 'list_entry' ? hs_object_id : associated_contact_id
     };
     
     const { data: automationRun, error: insertError } = await supabase
