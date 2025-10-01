@@ -212,7 +212,7 @@ serve(async (req) => {
       .from('task_automations')
       .select(`
         tasks_configuration,
-        task_categories (
+        task_categories!fk_task_automations_category (
           hs_queue_id
         )
       `)
