@@ -207,6 +207,30 @@ serve(async (req) => {
       timezone
     } = requestData;
 
+    // Fetch automation and category details
+    const { data: automationData, error: automationError } = await supabase
+      .from('task_automations')
+      .select(`
+        tasks_configuration,
+        task_categories (
+          hs_queue_id
+        )
+      `)
+      .eq('id', automation_id)
+      .single();
+
+    if (automationError || !automationData) {
+      console.error('Error fetching automation details:', automationError);
+      throw new Error(`Failed to fetch automation details: ${automationError?.message}`);
+    }
+
+    const tasksConfig = automationData.tasks_configuration as any;
+    const taskName = tasksConfig?.initial_task?.name || 'Untitled Task';
+    const hsQueueId = (automationData.task_categories as any)?.hs_queue_id || null;
+
+    console.log('Task name:', taskName);
+    console.log('Queue ID:', hsQueueId);
+
     // Calculate planned execution timestamp
     const plannedExecutionTimestamp = calculatePlannedExecutionTimestamp(
       schedule_enabled,
@@ -235,6 +259,8 @@ serve(async (req) => {
         hs_trigger_object_id: hs_list_id,
         planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
         planned_execution_timestamp_display: displayTimestamp,
+        task_name: taskName,
+        hs_queue_id: hsQueueId,
         created_task: false
       })
       .select()
