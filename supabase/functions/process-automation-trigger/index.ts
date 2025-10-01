@@ -340,13 +340,15 @@ serve(async (req) => {
 
     const tasksConfig = automationData.tasks_configuration as any;
     
-    // Determine task name and position based on trigger type
+    // Determine task name, owner setting, and position based on trigger type
     let taskName: string;
+    let taskOwnerSetting: 'no_owner' | 'contact_owner' | 'previous_task_owner' | null = null;
     let positionInSequence: number | null = null;
     
     if (trigger_type === 'list_entry') {
       // For list entry, use the initial task
       taskName = tasksConfig?.initial_task?.name || 'Untitled Task';
+      taskOwnerSetting = tasksConfig?.initial_task?.owner || null;
       positionInSequence = 1;
     } else if (trigger_type === 'task_completion') {
       // For task completion, use the next task in sequence
@@ -358,8 +360,10 @@ serve(async (req) => {
       if (sequenceTaskIndex < 0) {
         // This shouldn't happen, but fallback to initial task
         taskName = tasksConfig?.initial_task?.name || 'Untitled Task';
+        taskOwnerSetting = tasksConfig?.initial_task?.owner || null;
       } else if (tasksConfig?.sequence_tasks?.[sequenceTaskIndex]) {
         taskName = tasksConfig.sequence_tasks[sequenceTaskIndex].name || `Task ${positionInSequence}`;
+        taskOwnerSetting = tasksConfig.sequence_tasks[sequenceTaskIndex].owner || null;
       } else {
         console.error(`No task found at sequence position ${positionInSequence}`);
         throw new Error(`Invalid sequence position: ${positionInSequence}`);
@@ -368,9 +372,16 @@ serve(async (req) => {
       throw new Error(`Unknown trigger type: ${trigger_type}`);
     }
     
+    // Validate task owner setting
+    if (taskOwnerSetting && !['no_owner', 'contact_owner', 'previous_task_owner'].includes(taskOwnerSetting)) {
+      console.warn(`Invalid task owner setting: ${taskOwnerSetting}, defaulting to null`);
+      taskOwnerSetting = null;
+    }
+    
     const hsQueueId = hs_queue_id || (automationData.task_categories as any)?.hs_queue_id || null;
 
     console.log('Task name:', taskName);
+    console.log('Task owner setting:', taskOwnerSetting);
     console.log('Position in sequence:', positionInSequence);
     console.log('Queue ID:', hsQueueId);
 
@@ -437,6 +448,7 @@ serve(async (req) => {
       planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
       planned_execution_timestamp_display: displayTimestamp,
       task_name: taskName,
+      task_owner_setting: taskOwnerSetting,
       hs_queue_id: hsQueueId,
       created_task: false,
       position_in_sequence: positionInSequence
