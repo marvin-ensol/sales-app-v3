@@ -15,6 +15,7 @@ export interface TaskAutomation {
   schedule_enabled?: boolean;
   schedule_configuration?: any;
   tasks_configuration?: any;
+  total_tasks?: number;
   created_at?: string;
   updated_at?: string;
   task_categories?: {
@@ -38,6 +39,7 @@ export interface AutomationFormData {
   schedule_enabled?: boolean;
   schedule_configuration?: any;
   tasks_configuration?: any;
+  total_tasks?: number;
 }
 
 export const useTaskAutomationsManagement = () => {
@@ -139,6 +141,7 @@ export const useTaskAutomationsManagement = () => {
       if (automationData.schedule_enabled !== undefined) updatePayload.schedule_enabled = automationData.schedule_enabled;
       if (automationData.schedule_configuration !== undefined) updatePayload.schedule_configuration = automationData.schedule_configuration;
       if (automationData.tasks_configuration !== undefined) updatePayload.tasks_configuration = automationData.tasks_configuration;
+      if (automationData.total_tasks !== undefined) updatePayload.total_tasks = automationData.total_tasks;
 
       // Optimistically update local state first
       setAutomations(prev => prev.map(automation => 

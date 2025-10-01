@@ -381,7 +381,8 @@ const Settings = () => {
           schedule_enabled: config.schedule_enabled,
           auto_complete_on_exit_enabled: config.auto_complete_on_exit_enabled,
           tasks_configuration: config.tasks_configuration,
-          schedule_configuration: config.schedule_configuration
+          schedule_configuration: config.schedule_configuration,
+          total_tasks: config.total_tasks
         })
       });
 

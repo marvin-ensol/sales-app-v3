@@ -88,6 +88,7 @@ interface SequenceConfig {
   auto_complete_on_exit_enabled?: boolean;
   tasks_configuration?: any;
   schedule_configuration?: any;
+  total_tasks?: number;
 }
 
 export const SequenceConfig = ({ 
@@ -412,6 +413,15 @@ export const SequenceConfig = ({
       const tasksConfiguration = buildTasksConfiguration();
       const scheduleConfiguration = buildScheduleConfiguration();
 
+      // Calculate total_tasks: initial task (if enabled) + sequence tasks
+      // Minimum value is 1 to prevent trigger logic issues
+      let totalTasks = 0;
+      if (createInitialTask) {
+        totalTasks += 1;
+      }
+      totalTasks += sequenceTasks.length;
+      totalTasks = Math.max(1, totalTasks); // Ensure minimum of 1
+
       // Log the properly ordered schedule for debugging
       if (scheduleConfiguration) {
         const orderedSchedule = orderScheduleForDisplay(scheduleConfiguration);
@@ -423,7 +433,8 @@ export const SequenceConfig = ({
         booleanFlags,
         selectedListId,
         tasksConfiguration,
-        scheduleConfiguration
+        scheduleConfiguration,
+        totalTasks
       });
 
       await onSave({
@@ -439,7 +450,8 @@ export const SequenceConfig = ({
         // New database format
         ...booleanFlags, // Note: auto_complete_on_exit_enabled is already included in booleanFlags
         tasks_configuration: tasksConfiguration,
-        schedule_configuration: scheduleConfiguration
+        schedule_configuration: scheduleConfiguration,
+        total_tasks: totalTasks
       });
     } catch (error) {
       console.error('Error saving sequence config:', error);
