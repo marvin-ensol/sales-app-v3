@@ -37,9 +37,11 @@ Deno.serve(async (req) => {
         hs_owner_id_contact,
         hs_owner_id_previous_task,
         hs_queue_id,
-        created_task
+        created_task,
+        exit_contact_list_block
       `)
       .eq('created_task', false)
+      .neq('exit_contact_list_block', true)
       .gte('planned_execution_timestamp', new Date().toISOString())
       .lte('planned_execution_timestamp', new Date(Date.now() + 60000).toISOString())
       .order('planned_execution_timestamp', { ascending: true });
@@ -64,6 +66,7 @@ Deno.serve(async (req) => {
           trigger_id: run.hs_trigger_object_id,
           position: run.position_in_sequence,
           task_name: run.task_name,
+          exit_contact_list_block: run.exit_contact_list_block,
         });
       });
 
