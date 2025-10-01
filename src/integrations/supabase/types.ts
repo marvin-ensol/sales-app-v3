@@ -60,6 +60,7 @@ export type Database = {
         Row: {
           automation_id: string | null
           created_at: string
+          hs_contact_owner: string | null
           hs_list_entry_date: string | null
           hs_list_id: string | null
           hs_list_object: string | null
@@ -73,6 +74,7 @@ export type Database = {
         Insert: {
           automation_id?: string | null
           created_at?: string
+          hs_contact_owner?: string | null
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
           hs_list_object?: string | null
@@ -86,6 +88,7 @@ export type Database = {
         Update: {
           automation_id?: string | null
           created_at?: string
+          hs_contact_owner?: string | null
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
           hs_list_object?: string | null
@@ -372,6 +375,9 @@ export type Database = {
           planned_execution_timestamp_display: string | null
           position_in_sequence: number | null
           task_name: string | null
+          task_owner_setting:
+            | Database["public"]["Enums"]["task_owner_setting"]
+            | null
           type: Database["public"]["Enums"]["automation_run_type"]
           updated_at: string
         }
@@ -389,6 +395,9 @@ export type Database = {
           planned_execution_timestamp_display?: string | null
           position_in_sequence?: number | null
           task_name?: string | null
+          task_owner_setting?:
+            | Database["public"]["Enums"]["task_owner_setting"]
+            | null
           type: Database["public"]["Enums"]["automation_run_type"]
           updated_at?: string
         }
@@ -406,6 +415,9 @@ export type Database = {
           planned_execution_timestamp_display?: string | null
           position_in_sequence?: number | null
           task_name?: string | null
+          task_owner_setting?:
+            | Database["public"]["Enums"]["task_owner_setting"]
+            | null
           type?: Database["public"]["Enums"]["automation_run_type"]
           updated_at?: string
         }
@@ -757,6 +769,7 @@ export type Database = {
         | "create_on_entry"
         | "create_from_sequence"
         | "complete_on_exit"
+      task_owner_setting: "no_owner" | "contact_owner" | "previous_task_owner"
       trigger_object_type: "list" | "task"
     }
     CompositeTypes: {
@@ -890,6 +903,7 @@ export const Constants = {
         "create_from_sequence",
         "complete_on_exit",
       ],
+      task_owner_setting: ["no_owner", "contact_owner", "previous_task_owner"],
       trigger_object_type: ["list", "task"],
     },
   },
