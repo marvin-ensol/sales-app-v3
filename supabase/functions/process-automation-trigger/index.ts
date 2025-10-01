@@ -36,6 +36,7 @@ interface AutomationTriggerRequest {
   current_position?: number;
   associated_contact_id?: string;
   completion_date?: string;
+  hubspot_owner_id?: string;
   // Common fields
   automation_id: string;
   hs_object_id: string;
@@ -316,6 +317,7 @@ serve(async (req) => {
       hs_object_id,
       hs_queue_id,
       completion_date,
+      hubspot_owner_id,
       schedule_enabled,
       schedule_configuration,
       timezone
@@ -451,7 +453,8 @@ serve(async (req) => {
       task_owner_setting: taskOwnerSetting,
       hs_queue_id: hsQueueId,
       created_task: false,
-      position_in_sequence: positionInSequence
+      position_in_sequence: positionInSequence,
+      hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null
     };
     
     const { data: automationRun, error: insertError } = await supabase

@@ -367,6 +367,8 @@ export type Database = {
           created_task: boolean | null
           failure_description: string | null
           hs_actioned_task_ids: Json | null
+          hs_owner_id_contact: string | null
+          hs_owner_id_previous_task: string | null
           hs_queue_id: string | null
           hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id: string
@@ -387,6 +389,8 @@ export type Database = {
           created_task?: boolean | null
           failure_description?: string | null
           hs_actioned_task_ids?: Json | null
+          hs_owner_id_contact?: string | null
+          hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null
           hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id: string
@@ -407,6 +411,8 @@ export type Database = {
           created_task?: boolean | null
           failure_description?: string | null
           hs_actioned_task_ids?: Json | null
+          hs_owner_id_contact?: string | null
+          hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null
           hs_trigger_object?: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id?: string
