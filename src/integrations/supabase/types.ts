@@ -138,6 +138,7 @@ export type Database = {
           hubspot_owner_assigneddate: string | null
           hubspot_owner_id: string | null
           hubspot_team_id: string | null
+          is_skipped: boolean | null
           number_in_sequence: number | null
           updated_at: string
         }
@@ -172,6 +173,7 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
+          is_skipped?: boolean | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -206,6 +208,7 @@ export type Database = {
           hubspot_owner_assigneddate?: string | null
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
+          is_skipped?: boolean | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -353,6 +356,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      task_automation_runs: {
+        Row: {
+          automation_id: string
+          created_at: string
+          created_task: boolean | null
+          failure_description: string | null
+          hs_created_task_id: string | null
+          hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
+          hs_trigger_object_id: string
+          id: string
+          planned_execution_timestamp: string | null
+          type: Database["public"]["Enums"]["automation_run_type"]
+          updated_at: string
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          created_task?: boolean | null
+          failure_description?: string | null
+          hs_created_task_id?: string | null
+          hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
+          hs_trigger_object_id: string
+          id?: string
+          planned_execution_timestamp?: string | null
+          type: Database["public"]["Enums"]["automation_run_type"]
+          updated_at?: string
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          created_task?: boolean | null
+          failure_description?: string | null
+          hs_created_task_id?: string | null
+          hs_trigger_object?: Database["public"]["Enums"]["trigger_object_type"]
+          hs_trigger_object_id?: string
+          id?: string
+          planned_execution_timestamp?: string | null
+          type?: Database["public"]["Enums"]["automation_run_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "task_automations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_automations: {
         Row: {
@@ -647,6 +700,7 @@ export type Database = {
           due_date: string
           hs_timestamp: string
           hubspot_id: string
+          hubspot_owner_id: string
           id: string
           is_unassigned: boolean
           number_in_sequence: number
@@ -681,7 +735,11 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      automation_run_type:
+        | "create_on_entry"
+        | "create_from_sequence"
+        | "complete_on_exit"
+      trigger_object_type: "list" | "task"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -808,6 +866,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      automation_run_type: [
+        "create_on_entry",
+        "create_from_sequence",
+        "complete_on_exit",
+      ],
+      trigger_object_type: ["list", "task"],
+    },
   },
 } as const
