@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+import { toZonedTime, fromZonedTime, format } from "https://esm.sh/date-fns-tz@3.2.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -123,6 +124,7 @@ function findNextWorkingDateTime(
 
 /**
  * Calculate planned execution timestamp based on schedule configuration
+ * Returns a Date object representing the time in the specified timezone
  */
 function calculatePlannedExecutionTimestamp(
   scheduleEnabled: boolean,
@@ -136,12 +138,14 @@ function calculatePlannedExecutionTimestamp(
   }
 
   try {
-    // Get current time in the specified timezone
-    const currentTime = new Date(
-      new Date().toLocaleString('en-US', { timeZone: timezone })
-    );
-
-    console.log(`Current time in ${timezone}: ${currentTime.toISOString()}`);
+    // Get current UTC time
+    const nowUTC = new Date();
+    
+    // Convert to the specified timezone
+    const currentTime = toZonedTime(nowUTC, timezone);
+    
+    console.log(`Current UTC time: ${nowUTC.toISOString()}`);
+    console.log(`Current time in ${timezone}: ${format(currentTime, 'yyyy-MM-dd HH:mm:ss', { timeZone: timezone })}`);
 
     const dayName = DAY_NAMES[currentTime.getDay()];
     const todayConfig = scheduleConfig.working_hours[dayName];
@@ -153,10 +157,10 @@ function calculatePlannedExecutionTimestamp(
       isWithinWorkingHours(currentTime, todayConfig)
     ) {
       console.log('Current time is within working hours, executing immediately');
-      return new Date(); // Execute immediately (in UTC)
+      return nowUTC; // Execute immediately (return current UTC time)
     }
 
-    // Find next available working time
+    // Find next available working time (in the local timezone)
     console.log('Current time is outside working hours, finding next available slot');
     const nextWorkingTime = findNextWorkingDateTime(
       currentTime,
@@ -164,11 +168,12 @@ function calculatePlannedExecutionTimestamp(
       timezone
     );
 
-    // Convert back to UTC for storage
-    const utcTime = new Date(nextWorkingTime.toISOString());
-    console.log(`Next working time: ${utcTime.toISOString()}`);
+    // Convert the zoned time back to UTC for storage
+    const nextWorkingTimeUTC = fromZonedTime(nextWorkingTime, timezone);
+    console.log(`Next working time in ${timezone}: ${format(nextWorkingTime, 'yyyy-MM-dd HH:mm:ss', { timeZone: timezone })}`);
+    console.log(`Next working time in UTC: ${nextWorkingTimeUTC.toISOString()}`);
 
-    return utcTime;
+    return nextWorkingTimeUTC;
   } catch (error) {
     console.error('Error calculating planned execution timestamp:', error);
     // Fallback to immediate execution on error
@@ -209,7 +214,17 @@ serve(async (req) => {
       timezone
     );
 
-    console.log(`Planned execution timestamp: ${plannedExecutionTimestamp.toISOString()}`);
+    // Format timestamp with timezone offset for storage
+    // Default to Europe/Paris (+02) if no timezone specified
+    const storageTimezone = timezone || 'Europe/Paris';
+    const formattedTimestamp = format(
+      toZonedTime(plannedExecutionTimestamp, storageTimezone),
+      "yyyy-MM-dd'T'HH:mm:ssXXX",
+      { timeZone: storageTimezone }
+    );
+
+    console.log(`Planned execution timestamp (UTC): ${plannedExecutionTimestamp.toISOString()}`);
+    console.log(`Planned execution timestamp (with timezone offset): ${formattedTimestamp}`);
 
     // Create automation run entry
     const { data: automationRun, error: insertError } = await supabase
@@ -219,7 +234,7 @@ serve(async (req) => {
         type: 'create_on_entry',
         hs_trigger_object: 'list',
         hs_trigger_object_id: hs_list_id,
-        planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
+        planned_execution_timestamp: formattedTimestamp,
         created_task: false
       })
       .select()
@@ -237,7 +252,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         automation_run_id: automationRun.id,
-        planned_execution_timestamp: plannedExecutionTimestamp.toISOString()
+        planned_execution_timestamp: formattedTimestamp
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
