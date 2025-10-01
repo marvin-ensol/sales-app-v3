@@ -363,11 +363,12 @@ export type Database = {
           created_at: string
           created_task: boolean | null
           failure_description: string | null
-          hs_created_task_id: string | null
+          hs_actioned_task_ids: Json | null
           hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id: string
           id: string
           planned_execution_timestamp: string | null
+          planned_execution_timestamp_display: string | null
           type: Database["public"]["Enums"]["automation_run_type"]
           updated_at: string
         }
@@ -376,11 +377,12 @@ export type Database = {
           created_at?: string
           created_task?: boolean | null
           failure_description?: string | null
-          hs_created_task_id?: string | null
+          hs_actioned_task_ids?: Json | null
           hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id: string
           id?: string
           planned_execution_timestamp?: string | null
+          planned_execution_timestamp_display?: string | null
           type: Database["public"]["Enums"]["automation_run_type"]
           updated_at?: string
         }
@@ -389,11 +391,12 @@ export type Database = {
           created_at?: string
           created_task?: boolean | null
           failure_description?: string | null
-          hs_created_task_id?: string | null
+          hs_actioned_task_ids?: Json | null
           hs_trigger_object?: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id?: string
           id?: string
           planned_execution_timestamp?: string | null
+          planned_execution_timestamp_display?: string | null
           type?: Database["public"]["Enums"]["automation_run_type"]
           updated_at?: string
         }

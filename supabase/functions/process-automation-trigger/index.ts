@@ -219,11 +219,11 @@ serve(async (req) => {
     const storageTimezone = timezone || 'Europe/Paris';
     const zonedTime = toZonedTime(plannedExecutionTimestamp, storageTimezone);
     
-    // Format with explicit timezone offset - use 'xxx' pattern for +02:00 format
-    const formattedTimestamp = format(zonedTime, "yyyy-MM-dd HH:mm:ssxxx", { timeZone: storageTimezone });
+    // Format for display: "YYYY-MM-DD HH:mm [timezone]"
+    const displayTimestamp = `${format(zonedTime, "yyyy-MM-dd HH:mm", { timeZone: storageTimezone })} ${storageTimezone}`;
 
     console.log(`Planned execution timestamp (UTC): ${plannedExecutionTimestamp.toISOString()}`);
-    console.log(`Planned execution timestamp (with timezone offset): ${formattedTimestamp}`);
+    console.log(`Planned execution timestamp (display): ${displayTimestamp}`);
 
     // Create automation run entry
     const { data: automationRun, error: insertError } = await supabase
@@ -233,7 +233,8 @@ serve(async (req) => {
         type: 'create_on_entry',
         hs_trigger_object: 'list',
         hs_trigger_object_id: hs_list_id,
-        planned_execution_timestamp: formattedTimestamp,
+        planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
+        planned_execution_timestamp_display: displayTimestamp,
         created_task: false
       })
       .select()
@@ -251,7 +252,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         automation_run_id: automationRun.id,
-        planned_execution_timestamp: formattedTimestamp
+        planned_execution_timestamp: displayTimestamp
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
