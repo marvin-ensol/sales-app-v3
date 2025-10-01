@@ -27,10 +27,18 @@ interface ScheduleConfiguration {
 }
 
 interface AutomationTriggerRequest {
-  membership_id: string;
+  trigger_type: 'list_entry' | 'task_completion';
+  // For list_entry triggers
+  membership_id?: string;
+  hs_list_id?: string;
+  // For task_completion triggers
+  task_id?: string;
+  current_position?: number;
+  associated_contact_id?: string;
+  // Common fields
   automation_id: string;
-  hs_list_id: string;
   hs_object_id: string;
+  hs_queue_id?: string;
   schedule_enabled: boolean;
   schedule_configuration: ScheduleConfiguration | null;
   timezone: string | null;
@@ -196,12 +204,17 @@ serve(async (req) => {
     const requestData: AutomationTriggerRequest = await req.json();
     
     console.log('=== PROCESS AUTOMATION TRIGGER START ===');
+    console.log('Trigger type:', requestData.trigger_type);
     console.log('Request data:', JSON.stringify(requestData, null, 2));
 
     const {
+      trigger_type,
       automation_id,
       hs_list_id,
+      task_id,
+      current_position,
       hs_object_id,
+      hs_queue_id,
       schedule_enabled,
       schedule_configuration,
       timezone
@@ -225,10 +238,39 @@ serve(async (req) => {
     }
 
     const tasksConfig = automationData.tasks_configuration as any;
-    const taskName = tasksConfig?.initial_task?.name || 'Untitled Task';
-    const hsQueueId = (automationData.task_categories as any)?.hs_queue_id || null;
+    
+    // Determine task name and position based on trigger type
+    let taskName: string;
+    let positionInSequence: number | null = null;
+    
+    if (trigger_type === 'list_entry') {
+      // For list entry, use the initial task
+      taskName = tasksConfig?.initial_task?.name || 'Untitled Task';
+      positionInSequence = 1;
+    } else if (trigger_type === 'task_completion') {
+      // For task completion, use the next task in sequence
+      positionInSequence = (current_position || 0) + 1;
+      
+      // Initial task is position 1, sequence_tasks[0] is position 2
+      const sequenceTaskIndex = positionInSequence - 2;
+      
+      if (sequenceTaskIndex < 0) {
+        // This shouldn't happen, but fallback to initial task
+        taskName = tasksConfig?.initial_task?.name || 'Untitled Task';
+      } else if (tasksConfig?.sequence_tasks?.[sequenceTaskIndex]) {
+        taskName = tasksConfig.sequence_tasks[sequenceTaskIndex].name || `Task ${positionInSequence}`;
+      } else {
+        console.error(`No task found at sequence position ${positionInSequence}`);
+        throw new Error(`Invalid sequence position: ${positionInSequence}`);
+      }
+    } else {
+      throw new Error(`Unknown trigger type: ${trigger_type}`);
+    }
+    
+    const hsQueueId = hs_queue_id || (automationData.task_categories as any)?.hs_queue_id || null;
 
     console.log('Task name:', taskName);
+    console.log('Position in sequence:', positionInSequence);
     console.log('Queue ID:', hsQueueId);
 
     // Calculate planned execution timestamp
@@ -250,19 +292,22 @@ serve(async (req) => {
     console.log(`Planned execution timestamp (display): ${displayTimestamp}`);
 
     // Create automation run entry
+    const runData: any = {
+      automation_id,
+      type: trigger_type === 'list_entry' ? 'create_on_entry' : 'create_from_sequence',
+      hs_trigger_object: trigger_type === 'list_entry' ? 'list' : 'task',
+      hs_trigger_object_id: trigger_type === 'list_entry' ? hs_list_id : task_id,
+      planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
+      planned_execution_timestamp_display: displayTimestamp,
+      task_name: taskName,
+      hs_queue_id: hsQueueId,
+      created_task: false,
+      position_in_sequence: positionInSequence
+    };
+    
     const { data: automationRun, error: insertError } = await supabase
       .from('task_automation_runs')
-      .insert({
-        automation_id,
-        type: 'create_on_entry',
-        hs_trigger_object: 'list',
-        hs_trigger_object_id: hs_list_id,
-        planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
-        planned_execution_timestamp_display: displayTimestamp,
-        task_name: taskName,
-        hs_queue_id: hsQueueId,
-        created_task: false
-      })
+      .insert(runData)
       .select()
       .single();
 

@@ -364,11 +364,14 @@ export type Database = {
           created_task: boolean | null
           failure_description: string | null
           hs_actioned_task_ids: Json | null
+          hs_queue_id: string | null
           hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id: string
           id: string
           planned_execution_timestamp: string | null
           planned_execution_timestamp_display: string | null
+          position_in_sequence: number | null
+          task_name: string | null
           type: Database["public"]["Enums"]["automation_run_type"]
           updated_at: string
         }
@@ -378,11 +381,14 @@ export type Database = {
           created_task?: boolean | null
           failure_description?: string | null
           hs_actioned_task_ids?: Json | null
+          hs_queue_id?: string | null
           hs_trigger_object: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id: string
           id?: string
           planned_execution_timestamp?: string | null
           planned_execution_timestamp_display?: string | null
+          position_in_sequence?: number | null
+          task_name?: string | null
           type: Database["public"]["Enums"]["automation_run_type"]
           updated_at?: string
         }
@@ -392,11 +398,14 @@ export type Database = {
           created_task?: boolean | null
           failure_description?: string | null
           hs_actioned_task_ids?: Json | null
+          hs_queue_id?: string | null
           hs_trigger_object?: Database["public"]["Enums"]["trigger_object_type"]
           hs_trigger_object_id?: string
           id?: string
           planned_execution_timestamp?: string | null
           planned_execution_timestamp_display?: string | null
+          position_in_sequence?: number | null
+          task_name?: string | null
           type?: Database["public"]["Enums"]["automation_run_type"]
           updated_at?: string
         }
@@ -427,6 +436,7 @@ export type Database = {
           task_category_id: number
           tasks_configuration: Json | null
           timezone: string | null
+          total_tasks: number | null
           updated_at: string
         }
         Insert: {
@@ -445,6 +455,7 @@ export type Database = {
           task_category_id: number
           tasks_configuration?: Json | null
           timezone?: string | null
+          total_tasks?: number | null
           updated_at?: string
         }
         Update: {
@@ -463,6 +474,7 @@ export type Database = {
           task_category_id?: number
           tasks_configuration?: Json | null
           timezone?: string | null
+          total_tasks?: number | null
           updated_at?: string
         }
         Relationships: [
