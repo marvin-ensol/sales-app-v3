@@ -423,6 +423,7 @@ export type Database = {
           sequence_exit_enabled: boolean | null
           task_category_id: number
           tasks_configuration: Json | null
+          timezone: string | null
           updated_at: string
         }
         Insert: {
@@ -440,6 +441,7 @@ export type Database = {
           sequence_exit_enabled?: boolean | null
           task_category_id: number
           tasks_configuration?: Json | null
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
@@ -457,6 +459,7 @@ export type Database = {
           sequence_exit_enabled?: boolean | null
           task_category_id?: number
           tasks_configuration?: Json | null
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: [

@@ -1,0 +1,261 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface WorkingHours {
+  enabled: boolean;
+  start_time?: string;
+  end_time?: string;
+}
+
+interface ScheduleConfiguration {
+  working_hours: {
+    mon: WorkingHours;
+    tue: WorkingHours;
+    wed: WorkingHours;
+    thu: WorkingHours;
+    fri: WorkingHours;
+    sat: WorkingHours;
+    sun: WorkingHours;
+  };
+  non_working_dates: string[];
+}
+
+interface AutomationTriggerRequest {
+  membership_id: string;
+  automation_id: string;
+  hs_list_id: string;
+  hs_object_id: string;
+  schedule_enabled: boolean;
+  schedule_configuration: ScheduleConfiguration | null;
+  timezone: string | null;
+}
+
+const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+/**
+ * Parse time string (HH:MM) and return hours and minutes
+ */
+function parseTime(timeStr: string): { hours: number; minutes: number } {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return { hours, minutes };
+}
+
+/**
+ * Check if a given date is in the non-working dates list
+ */
+function isNonWorkingDate(date: Date, nonWorkingDates: string[]): boolean {
+  const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+  return nonWorkingDates.includes(dateStr);
+}
+
+/**
+ * Check if current time is within working hours for a given day
+ */
+function isWithinWorkingHours(
+  date: Date,
+  dayConfig: WorkingHours
+): boolean {
+  if (!dayConfig.enabled) return false;
+  if (!dayConfig.start_time || !dayConfig.end_time) return false;
+
+  const currentMinutes = date.getHours() * 60 + date.getMinutes();
+  const start = parseTime(dayConfig.start_time);
+  const end = parseTime(dayConfig.end_time);
+  const startMinutes = start.hours * 60 + start.minutes;
+  const endMinutes = end.hours * 60 + end.minutes;
+
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+}
+
+/**
+ * Find the next available working datetime based on schedule configuration
+ */
+function findNextWorkingDateTime(
+  currentDate: Date,
+  scheduleConfig: ScheduleConfiguration,
+  timezone: string
+): Date {
+  const maxDaysToCheck = 14; // Look ahead up to 2 weeks
+  let checkDate = new Date(currentDate);
+
+  for (let i = 0; i < maxDaysToCheck; i++) {
+    const dayName = DAY_NAMES[checkDate.getDay()];
+    const dayConfig = scheduleConfig.working_hours[dayName];
+
+    // Check if this is a working day and not in non-working dates
+    if (
+      dayConfig.enabled &&
+      dayConfig.start_time &&
+      !isNonWorkingDate(checkDate, scheduleConfig.non_working_dates)
+    ) {
+      // If it's today and we're still within working hours, return now
+      if (i === 0 && isWithinWorkingHours(checkDate, dayConfig)) {
+        return checkDate;
+      }
+
+      // Otherwise, set to start of working hours for this day
+      const start = parseTime(dayConfig.start_time);
+      const resultDate = new Date(checkDate);
+      resultDate.setHours(start.hours, start.minutes, 0, 0);
+
+      // If it's today but after working hours, move to next day
+      if (i === 0 && resultDate <= currentDate) {
+        checkDate.setDate(checkDate.getDate() + 1);
+        continue;
+      }
+
+      return resultDate;
+    }
+
+    // Move to next day
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+
+  // Fallback: if no working time found in 2 weeks, return current time
+  console.warn('No working time found in next 2 weeks, using current time');
+  return currentDate;
+}
+
+/**
+ * Calculate planned execution timestamp based on schedule configuration
+ */
+function calculatePlannedExecutionTimestamp(
+  scheduleEnabled: boolean,
+  scheduleConfig: ScheduleConfiguration | null,
+  timezone: string | null
+): Date {
+  // If schedule not enabled or no config, execute immediately
+  if (!scheduleEnabled || !scheduleConfig || !timezone) {
+    console.log('Schedule not enabled or missing config, executing immediately');
+    return new Date();
+  }
+
+  try {
+    // Get current time in the specified timezone
+    const currentTime = new Date(
+      new Date().toLocaleString('en-US', { timeZone: timezone })
+    );
+
+    console.log(`Current time in ${timezone}: ${currentTime.toISOString()}`);
+
+    const dayName = DAY_NAMES[currentTime.getDay()];
+    const todayConfig = scheduleConfig.working_hours[dayName];
+
+    // Check if current time is within working hours
+    if (
+      todayConfig.enabled &&
+      !isNonWorkingDate(currentTime, scheduleConfig.non_working_dates) &&
+      isWithinWorkingHours(currentTime, todayConfig)
+    ) {
+      console.log('Current time is within working hours, executing immediately');
+      return new Date(); // Execute immediately (in UTC)
+    }
+
+    // Find next available working time
+    console.log('Current time is outside working hours, finding next available slot');
+    const nextWorkingTime = findNextWorkingDateTime(
+      currentTime,
+      scheduleConfig,
+      timezone
+    );
+
+    // Convert back to UTC for storage
+    const utcTime = new Date(nextWorkingTime.toISOString());
+    console.log(`Next working time: ${utcTime.toISOString()}`);
+
+    return utcTime;
+  } catch (error) {
+    console.error('Error calculating planned execution timestamp:', error);
+    // Fallback to immediate execution on error
+    return new Date();
+  }
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const requestData: AutomationTriggerRequest = await req.json();
+    
+    console.log('=== PROCESS AUTOMATION TRIGGER START ===');
+    console.log('Request data:', JSON.stringify(requestData, null, 2));
+
+    const {
+      automation_id,
+      hs_list_id,
+      hs_object_id,
+      schedule_enabled,
+      schedule_configuration,
+      timezone
+    } = requestData;
+
+    // Calculate planned execution timestamp
+    const plannedExecutionTimestamp = calculatePlannedExecutionTimestamp(
+      schedule_enabled,
+      schedule_configuration,
+      timezone
+    );
+
+    console.log(`Planned execution timestamp: ${plannedExecutionTimestamp.toISOString()}`);
+
+    // Create automation run entry
+    const { data: automationRun, error: insertError } = await supabase
+      .from('task_automation_runs')
+      .insert({
+        automation_id,
+        type: 'create_on_entry',
+        hs_trigger_object: 'list',
+        hs_trigger_object_id: hs_list_id,
+        planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
+        created_task: false
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating automation run:', insertError);
+      throw insertError;
+    }
+
+    console.log('✅ Created automation run:', automationRun.id);
+    console.log('=== PROCESS AUTOMATION TRIGGER END ===');
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        automation_run_id: automationRun.id,
+        planned_execution_timestamp: plannedExecutionTimestamp.toISOString()
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
+    );
+
+  } catch (error) {
+    console.error('Error in process-automation-trigger:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        details: error
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      }
+    );
+  }
+});
