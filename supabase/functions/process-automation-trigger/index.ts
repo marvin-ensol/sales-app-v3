@@ -217,11 +217,10 @@ serve(async (req) => {
     // Format timestamp with timezone offset for storage
     // Default to Europe/Paris (+02) if no timezone specified
     const storageTimezone = timezone || 'Europe/Paris';
-    const formattedTimestamp = format(
-      toZonedTime(plannedExecutionTimestamp, storageTimezone),
-      "yyyy-MM-dd'T'HH:mm:ssXXX",
-      { timeZone: storageTimezone }
-    );
+    const zonedTime = toZonedTime(plannedExecutionTimestamp, storageTimezone);
+    
+    // Format with explicit timezone offset - use 'xxx' pattern for +02:00 format
+    const formattedTimestamp = format(zonedTime, "yyyy-MM-dd HH:mm:ssxxx", { timeZone: storageTimezone });
 
     console.log(`Planned execution timestamp (UTC): ${plannedExecutionTimestamp.toISOString()}`);
     console.log(`Planned execution timestamp (with timezone offset): ${formattedTimestamp}`);
