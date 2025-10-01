@@ -56,6 +56,9 @@ verify_jwt = false
 [functions.populate-task-sequence-numbers]
 verify_jwt = false
 
+[functions.process-automation-trigger]
+verify_jwt = false
+
 [functions.team-task-summary]
 verify_jwt = false
 
