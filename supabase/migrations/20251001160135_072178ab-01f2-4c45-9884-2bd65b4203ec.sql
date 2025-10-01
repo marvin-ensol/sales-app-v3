@@ -1,0 +1,78 @@
+-- Fix the trigger function to properly call the edge function without request headers
+DROP FUNCTION IF EXISTS public.handle_list_membership_automation() CASCADE;
+
+CREATE OR REPLACE FUNCTION public.handle_list_membership_automation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  automation_record RECORD;
+  supabase_url TEXT;
+  function_url TEXT;
+  http_request_id BIGINT;
+BEGIN
+  -- Get Supabase configuration
+  supabase_url := 'https://zenlavaixlvabzsnvzro.supabase.co';
+  
+  -- Find matching automation for this list
+  SELECT 
+    ta.id,
+    ta.automation_enabled,
+    ta.first_task_creation,
+    ta.schedule_enabled,
+    ta.schedule_configuration,
+    ta.timezone,
+    ta.hs_list_id
+  INTO automation_record
+  FROM task_automations ta
+  WHERE ta.hs_list_id = NEW.hs_list_id
+    AND ta.automation_enabled = true
+    AND ta.first_task_creation = true
+  LIMIT 1;
+
+  -- If no matching automation found, exit early
+  IF NOT FOUND THEN
+    RAISE NOTICE 'No enabled automation found for list %', NEW.hs_list_id;
+    RETURN NEW;
+  END IF;
+
+  RAISE NOTICE 'Triggering automation % for list membership %', automation_record.id, NEW.id;
+
+  -- Call the edge function asynchronously using pg_net
+  function_url := supabase_url || '/functions/v1/process-automation-trigger';
+  
+  SELECT net.http_post(
+    url := function_url,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json'
+    ),
+    body := jsonb_build_object(
+      'membership_id', NEW.id,
+      'automation_id', automation_record.id,
+      'hs_list_id', NEW.hs_list_id,
+      'hs_object_id', NEW.hs_object_id,
+      'schedule_enabled', automation_record.schedule_enabled,
+      'schedule_configuration', automation_record.schedule_configuration,
+      'timezone', automation_record.timezone
+    )
+  ) INTO http_request_id;
+
+  RAISE NOTICE 'Edge function called with request ID: %', http_request_id;
+
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE WARNING 'Error in handle_list_membership_automation: %', SQLERRM;
+    RETURN NEW; -- Don't fail the insert even if automation fails
+END;
+$$;
+
+-- Recreate the trigger
+DROP TRIGGER IF EXISTS trigger_list_membership_automation ON public.hs_list_memberships;
+
+CREATE TRIGGER trigger_list_membership_automation
+  AFTER INSERT ON public.hs_list_memberships
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_list_membership_automation();
