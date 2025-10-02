@@ -18,9 +18,31 @@ Deno.serve(async (req) => {
 
     const executionId = `exec_${new Date().toISOString().replace(/[:.]/g, '-')}`;
     console.log(`[${executionId}] === SCHEDULED AUTOMATION RUNS EXECUTION START ===`);
-    console.log(`[${executionId}] Checking for automation runs due between now and +1 minute`);
+    
+    // Calculate the current minute range (e.g., 06:38:00 to 06:38:59.999)
+    const now = new Date();
+    const startOfMinute = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      0,
+      0
+    );
+    const endOfMinute = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      59,
+      999
+    );
+    
+    console.log(`[${executionId}] Checking for automation runs due within current minute: ${startOfMinute.toISOString()} to ${endOfMinute.toISOString()}`);
 
-    // Query for automation runs that are due within the next minute
+    // Query for automation runs that are due within the current minute
     const { data: dueRuns, error: queryError } = await supabase
       .from('task_automation_runs')
       .select(`
@@ -43,8 +65,8 @@ Deno.serve(async (req) => {
       `)
       .eq('created_task', false)
       .neq('exit_contact_list_block', true)
-      .gte('planned_execution_timestamp', new Date().toISOString())
-      .lte('planned_execution_timestamp', new Date(Date.now() + 60000).toISOString())
+      .gte('planned_execution_timestamp', startOfMinute.toISOString())
+      .lte('planned_execution_timestamp', endOfMinute.toISOString())
       .order('planned_execution_timestamp', { ascending: true });
 
     if (queryError) {
