@@ -297,6 +297,22 @@ serve(async (req) => {
     const duration = Date.now() - new Date(syncStartTime).getTime();
     console.log(`[${executionId}] 🎉 Sync completed: ${totalProcessed}/${automations.length} automations processed, ${totalErrors} errors, duration: ${duration}ms`);
 
+    // Trigger auto-complete exited tasks job after successful sync
+    console.log(`[${executionId}] 🚀 Triggering auto-complete exited tasks job...`);
+    try {
+      const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('auto-complete-exited-tasks', {
+        body: {}
+      });
+      
+      if (cleanupError) {
+        console.warn(`[${executionId}] ⚠️ Auto-complete job returned error:`, cleanupError);
+      } else {
+        console.log(`[${executionId}] ✅ Auto-complete job triggered successfully:`, cleanupResult);
+      }
+    } catch (cleanupErr) {
+      console.warn(`[${executionId}] ⚠️ Failed to trigger auto-complete job:`, cleanupErr);
+    }
+
     return new Response(JSON.stringify({
       success: true,
       executionId,
