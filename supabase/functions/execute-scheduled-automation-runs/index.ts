@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
     console.log(`[${executionId}] Checking for automation runs due within current minute: ${startOfMinute.toISOString()} to ${endOfMinute.toISOString()}`);
 
     // Query for automation runs that are due within the current minute
+    // Only process creation types (create_on_entry, create_from_sequence)
     let { data: dueRuns, error: queryError } = await supabase
       .from('task_automation_runs')
       .select(`
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
       `)
       .eq('created_task', false)
       .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
+      .in('type', ['create_on_entry', 'create_from_sequence'])
       .gte('planned_execution_timestamp', startOfMinute.toISOString())
       .lte('planned_execution_timestamp', endOfMinute.toISOString())
       .order('planned_execution_timestamp', { ascending: true });
@@ -103,6 +105,7 @@ Deno.serve(async (req) => {
         `)
         .eq('created_task', false)
         .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
+        .in('type', ['create_on_entry', 'create_from_sequence'])
         .gte('planned_execution_timestamp', fallbackStart.toISOString())
         .lte('planned_execution_timestamp', endOfMinute.toISOString())
         .order('planned_execution_timestamp', { ascending: true });
@@ -116,17 +119,25 @@ Deno.serve(async (req) => {
     }
 
     if (dueRuns && dueRuns.length > 0) {
-      console.log(`[${executionId}] Found ${dueRuns.length} due runs - processing with batch API...`);
-      
-      const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
-      if (!hubspotToken) {
-        console.error(`[${executionId}] ❌ HUBSPOT_ACCESS_TOKEN not configured`);
-        throw new Error('HUBSPOT_ACCESS_TOKEN not configured');
-      }
+      // Filter out any non-creation types as a safety check
+      dueRuns = dueRuns.filter(run => 
+        run.type === 'create_on_entry' || run.type === 'create_from_sequence'
+      );
 
-      // Phase 1: Build batch payload
-      const batchInputs = [];
-      const runMetadata = []; // Track run details for later processing
+      if (dueRuns.length === 0) {
+        console.log(`[${executionId}] No creation-type runs to process after filtering`);
+      } else {
+        console.log(`[${executionId}] Processing ${dueRuns.length} runs (types: create_on_entry, create_from_sequence)`);
+        
+        const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
+        if (!hubspotToken) {
+          console.error(`[${executionId}] ❌ HUBSPOT_ACCESS_TOKEN not configured`);
+          throw new Error('HUBSPOT_ACCESS_TOKEN not configured');
+        }
+
+        // Phase 1: Build batch payload
+        const batchInputs = [];
+        const runMetadata = []; // Track run details for later processing
 
       for (const run of dueRuns) {
         // Determine owner ID based on task_owner_setting
@@ -246,9 +257,13 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[${executionId}] 🎉 Batch complete: ${successCount} succeeded, ${failureCount} failed`);
+      }
     } else {
       console.log(`[${executionId}] No automation runs due at this time`);
     }
+
+    // TODO: Future implementation for complete_on_exit type
+    // Query for type = 'complete_on_exit' runs and process them with HubSpot update API
 
     console.log(`[${executionId}] === SCHEDULED AUTOMATION RUNS EXECUTION COMPLETE ===`);
 
