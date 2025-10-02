@@ -453,7 +453,7 @@ serve(async (req) => {
       task_name: taskName,
       task_owner_setting: taskOwnerSetting,
       hs_queue_id: hsQueueId,
-      created_task: false,
+      hs_action_successful: false,
       position_in_sequence: positionInSequence,
       hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null,
       hs_contact_id: trigger_type === 'list_entry' ? hs_object_id : associated_contact_id

@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
         created_task,
         exit_contact_list_block
       `)
-      .eq('created_task', false)
+      .eq('hs_action_successful', false)
       .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
       .in('type', ['create_on_entry', 'create_from_sequence'])
       .gte('planned_execution_timestamp', startOfMinute.toISOString())
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
           created_task,
           exit_contact_list_block
         `)
-        .eq('created_task', false)
+        .eq('hs_action_successful', false)
         .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
         .in('type', ['create_on_entry', 'create_from_sequence'])
         .gte('planned_execution_timestamp', fallbackStart.toISOString())
@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
         supabase
           .from('task_automation_runs')
           .update({ 
-            created_task: true,
+            hs_action_successful: true,
             hs_actioned_task_ids: [task.id],
           })
           .eq('id', runMetadata[index].run_id)

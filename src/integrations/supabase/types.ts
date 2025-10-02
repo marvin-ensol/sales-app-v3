@@ -60,7 +60,6 @@ export type Database = {
         Row: {
           automation_id: string | null
           created_at: string
-          hs_contact_owner: string | null
           hs_list_entry_date: string | null
           hs_list_id: string | null
           hs_list_object: string | null
@@ -74,7 +73,6 @@ export type Database = {
         Insert: {
           automation_id?: string | null
           created_at?: string
-          hs_contact_owner?: string | null
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
           hs_list_object?: string | null
@@ -88,7 +86,6 @@ export type Database = {
         Update: {
           automation_id?: string | null
           created_at?: string
-          hs_contact_owner?: string | null
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
           hs_list_object?: string | null
@@ -364,9 +361,9 @@ export type Database = {
         Row: {
           automation_id: string
           created_at: string
-          created_task: boolean | null
           exit_contact_list_block: boolean | null
           failure_description: string | null
+          hs_action_successful: boolean | null
           hs_actioned_task_ids: Json | null
           hs_contact_id: string | null
           hs_owner_id_contact: string | null
@@ -388,9 +385,9 @@ export type Database = {
         Insert: {
           automation_id: string
           created_at?: string
-          created_task?: boolean | null
           exit_contact_list_block?: boolean | null
           failure_description?: string | null
+          hs_action_successful?: boolean | null
           hs_actioned_task_ids?: Json | null
           hs_contact_id?: string | null
           hs_owner_id_contact?: string | null
@@ -412,9 +409,9 @@ export type Database = {
         Update: {
           automation_id?: string
           created_at?: string
-          created_task?: boolean | null
           exit_contact_list_block?: boolean | null
           failure_description?: string | null
+          hs_action_successful?: boolean | null
           hs_actioned_task_ids?: Json | null
           hs_contact_id?: string | null
           hs_owner_id_contact?: string | null

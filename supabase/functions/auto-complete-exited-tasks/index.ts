@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
           .from('task_automation_runs')
           .select('id')
           .eq('type', 'create_from_sequence')
-          .eq('created_task', false)
+          .eq('hs_action_successful', false)
           .eq('hs_contact_id', task.associated_contact_id)
           .eq('hs_queue_id', task.task_queue_id)
           .gt('planned_execution_timestamp', new Date().toISOString());
