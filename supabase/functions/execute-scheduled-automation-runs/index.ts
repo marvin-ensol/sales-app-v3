@@ -161,10 +161,13 @@ Deno.serve(async (req) => {
 
           console.log(`[${executionId}] ✅ Local hs_tasks record created`);
 
-          // Mark automation run as completed
+          // Mark automation run as completed and add task ID to actioned tasks
           const { error: updateError } = await supabase
             .from('task_automation_runs')
-            .update({ created_task: true })
+            .update({ 
+              created_task: true,
+              hs_actioned_task_ids: [newTaskId],
+            })
             .eq('id', run.id);
 
           if (updateError) {
