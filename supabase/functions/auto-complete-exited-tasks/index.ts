@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
     const automationRunsToCreate = [];
     let tasksChecked = 0;
     let contactsExited = 0;
+    let sequenceTasksBlocked = 0;
 
     for (const task of tasksToProcess) {
       tasksChecked++;
@@ -161,6 +162,36 @@ Deno.serve(async (req) => {
           })
         });
       }
+
+      // Block future sequence tasks if sequence_exit_enabled is true
+      if (task.sequence_exit_enabled) {
+        const { data: pendingRuns, error: queryError } = await supabase
+          .from('task_automation_runs')
+          .select('id')
+          .eq('type', 'create_from_sequence')
+          .eq('created_task', false)
+          .eq('hs_contact_id', task.associated_contact_id)
+          .eq('hs_queue_id', task.task_queue_id)
+          .gt('planned_execution_timestamp', new Date().toISOString());
+
+        if (queryError) {
+          console.warn(`[${runId}] ⚠️ Error querying pending sequence tasks for contact ${task.associated_contact_id}:`, queryError.message);
+        } else if (pendingRuns && pendingRuns.length > 0) {
+          const runIds = pendingRuns.map(r => r.id);
+          
+          const { error: updateError } = await supabase
+            .from('task_automation_runs')
+            .update({ exit_contact_list_block: true })
+            .in('id', runIds);
+            
+          if (updateError) {
+            console.warn(`[${runId}] ⚠️ Failed to block ${runIds.length} pending sequence tasks for contact ${task.associated_contact_id}:`, updateError.message);
+          } else {
+            console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending sequence tasks for contact ${task.associated_contact_id}`);
+            sequenceTasksBlocked += runIds.length;
+          }
+        }
+      }
     }
 
     console.log(`[${runId}] 📝 Creating ${automationRunsToCreate.length} automation runs`);
@@ -183,6 +214,7 @@ Deno.serve(async (req) => {
     console.log(`[${runId}] 📊 Tasks checked: ${tasksChecked}`);
     console.log(`[${runId}] 🚪 Contacts exited: ${contactsExited}`);
     console.log(`[${runId}] 📝 Automation runs created: ${automationRunsToCreate.length}`);
+    console.log(`[${runId}] 🚫 Sequence tasks blocked: ${sequenceTasksBlocked}`);
 
     return new Response(
       JSON.stringify({
@@ -190,7 +222,8 @@ Deno.serve(async (req) => {
         message: 'Auto-complete exited tasks completed',
         tasksChecked,
         contactsExited,
-        actionsCreated: automationRunsToCreate.length
+        actionsCreated: automationRunsToCreate.length,
+        sequenceTasksBlocked
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
