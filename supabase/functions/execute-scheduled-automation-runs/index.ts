@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     console.log(`[${executionId}] Checking for automation runs due within current minute: ${startOfMinute.toISOString()} to ${endOfMinute.toISOString()}`);
 
     // Query for automation runs that are due within the current minute
-    const { data: dueRuns, error: queryError } = await supabase
+    let { data: dueRuns, error: queryError } = await supabase
       .from('task_automation_runs')
       .select(`
         id,
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
         exit_contact_list_block
       `)
       .eq('created_task', false)
-      .neq('exit_contact_list_block', true)
+      .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
       .gte('planned_execution_timestamp', startOfMinute.toISOString())
       .lte('planned_execution_timestamp', endOfMinute.toISOString())
       .order('planned_execution_timestamp', { ascending: true });
@@ -74,7 +74,46 @@ Deno.serve(async (req) => {
       throw queryError;
     }
 
-    console.log(`[${executionId}] Found ${dueRuns?.length || 0} automation runs due for execution`);
+    console.log(`[${executionId}] Primary query found ${dueRuns?.length || 0} automation runs due for execution`);
+
+    // If no runs found in current minute, check for missed runs in the last 2 minutes (catch-up fallback)
+    if (!dueRuns || dueRuns.length === 0) {
+      const fallbackStart = new Date(startOfMinute.getTime() - 2 * 60 * 1000); // 2 minutes before current minute
+      console.log(`[${executionId}] No runs found in current minute - checking fallback window: ${fallbackStart.toISOString()} to ${endOfMinute.toISOString()}`);
+      
+      const { data: fallbackRuns, error: fallbackError } = await supabase
+        .from('task_automation_runs')
+        .select(`
+          id,
+          automation_id,
+          planned_execution_timestamp,
+          planned_execution_timestamp_display,
+          hs_trigger_object_id,
+          hs_trigger_object,
+          type,
+          position_in_sequence,
+          task_name,
+          task_owner_setting,
+          hs_owner_id_contact,
+          hs_owner_id_previous_task,
+          hs_queue_id,
+          hs_contact_id,
+          created_task,
+          exit_contact_list_block
+        `)
+        .eq('created_task', false)
+        .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
+        .gte('planned_execution_timestamp', fallbackStart.toISOString())
+        .lte('planned_execution_timestamp', endOfMinute.toISOString())
+        .order('planned_execution_timestamp', { ascending: true });
+
+      if (fallbackError) {
+        console.error(`[${executionId}] Error in fallback query:`, fallbackError);
+      } else {
+        dueRuns = fallbackRuns;
+        console.log(`[${executionId}] Fallback query found ${dueRuns?.length || 0} automation runs`);
+      }
+    }
 
     if (dueRuns && dueRuns.length > 0) {
       console.log(`[${executionId}] Found ${dueRuns.length} due runs - processing...`);
