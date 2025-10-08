@@ -297,20 +297,38 @@ serve(async (req) => {
     const duration = Date.now() - new Date(syncStartTime).getTime();
     console.log(`[${executionId}] 🎉 Sync completed: ${totalProcessed}/${automations.length} automations processed, ${totalErrors} errors, duration: ${duration}ms`);
 
-    // Trigger auto-complete exited tasks job after successful sync
-    console.log(`[${executionId}] 🚀 Triggering auto-complete exited tasks job...`);
-    try {
-      const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('auto-complete-exited-tasks', {
-        body: {}
-      });
+    // Query for newly exited memberships that haven't been processed yet
+    console.log(`[${executionId}] 🔍 Checking for newly exited memberships...`);
+    const { data: newlyExitedMemberships, error: exitedError } = await supabase
+      .from('hs_list_memberships')
+      .select('id, hs_object_id, hs_list_id, hs_queue_id, automation_id')
+      .not('list_exit_date', 'is', null)
+      .is('exit_processed_at', null);
+
+    if (exitedError) {
+      console.warn(`[${executionId}] ⚠️ Error querying newly exited memberships:`, exitedError.message);
+    } else if (newlyExitedMemberships && newlyExitedMemberships.length > 0) {
+      console.log(`[${executionId}] 🚪 Found ${newlyExitedMemberships.length} newly exited memberships to process`);
       
-      if (cleanupError) {
-        console.warn(`[${executionId}] ⚠️ Auto-complete job returned error:`, cleanupError);
-      } else {
-        console.log(`[${executionId}] ✅ Auto-complete job triggered successfully:`, cleanupResult);
+      // Trigger auto-complete exited tasks job with specific membership IDs
+      console.log(`[${executionId}] 🚀 Triggering auto-complete exited tasks job...`);
+      try {
+        const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('auto-complete-exited-tasks', {
+          body: {
+            membership_ids: newlyExitedMemberships.map(m => m.id)
+          }
+        });
+        
+        if (cleanupError) {
+          console.warn(`[${executionId}] ⚠️ Auto-complete job returned error:`, cleanupError);
+        } else {
+          console.log(`[${executionId}] ✅ Auto-complete job triggered successfully:`, cleanupResult);
+        }
+      } catch (cleanupErr) {
+        console.warn(`[${executionId}] ⚠️ Failed to trigger auto-complete job:`, cleanupErr);
       }
-    } catch (cleanupErr) {
-      console.warn(`[${executionId}] ⚠️ Failed to trigger auto-complete job:`, cleanupErr);
+    } else {
+      console.log(`[${executionId}] ℹ️ No newly exited memberships to process`);
     }
 
     return new Response(JSON.stringify({

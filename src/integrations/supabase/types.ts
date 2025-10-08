@@ -60,6 +60,7 @@ export type Database = {
         Row: {
           automation_id: string | null
           created_at: string
+          exit_processed_at: string | null
           hs_list_entry_date: string | null
           hs_list_id: string | null
           hs_list_object: string | null
@@ -73,6 +74,7 @@ export type Database = {
         Insert: {
           automation_id?: string | null
           created_at?: string
+          exit_processed_at?: string | null
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
           hs_list_object?: string | null
@@ -86,6 +88,7 @@ export type Database = {
         Update: {
           automation_id?: string | null
           created_at?: string
+          exit_processed_at?: string | null
           hs_list_entry_date?: string | null
           hs_list_id?: string | null
           hs_list_object?: string | null

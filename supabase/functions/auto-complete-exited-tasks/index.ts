@@ -29,8 +29,55 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Step 1: Query eligible tasks
-    console.log(`[${runId}] 🔍 Querying eligible tasks...`);
+    // Parse request body to get membership_ids
+    const { membership_ids } = await req.json();
+    
+    if (!membership_ids || !Array.isArray(membership_ids) || membership_ids.length === 0) {
+      console.log(`[${runId}] ℹ️ No membership_ids provided - nothing to process`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'No membership IDs provided',
+          tasksProcessed: 0,
+          actionsCreated: 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    console.log(`[${runId}] 📋 Processing ${membership_ids.length} newly exited memberships`);
+
+    // Get details of the memberships to process
+    const { data: memberships, error: membershipsError } = await supabase
+      .from('hs_list_memberships')
+      .select('id, hs_object_id, hs_queue_id, automation_id, hs_list_id')
+      .in('id', membership_ids);
+
+    if (membershipsError) {
+      throw new Error(`Failed to fetch memberships: ${membershipsError.message}`);
+    }
+
+    if (!memberships || memberships.length === 0) {
+      console.log(`[${runId}] ⚠️ No valid memberships found for provided IDs`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'No valid memberships found',
+          tasksProcessed: 0,
+          actionsCreated: 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // Extract contact IDs and queue IDs from memberships
+    const contactIds = [...new Set(memberships.map(m => m.hs_object_id))];
+    const queueIds = [...new Set(memberships.map(m => m.hs_queue_id).filter(Boolean))];
+
+    console.log(`[${runId}] 🎯 Processing ${contactIds.length} contacts across ${queueIds.length} queues`);
+
+    // Step 1: Query eligible tasks for these specific contact-queue combinations
+    console.log(`[${runId}] 🔍 Querying eligible tasks for specific contact-queue combinations...`);
     
     const { data: eligibleTasks, error: tasksError } = await supabase
       .from('hs_tasks')
@@ -51,8 +98,8 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('hs_task_completion_count', 0)
-      .not('hs_queue_membership_ids', 'is', null)
-      .not('associated_contact_id', 'is', null);
+      .in('associated_contact_id', contactIds)
+      .in('hs_queue_membership_ids', queueIds);
 
     if (tasksError) {
       throw new Error(`Failed to query eligible tasks: ${tasksError.message}`);
@@ -159,33 +206,16 @@ Deno.serve(async (req) => {
     for (const [automationId, { automation, tasks }] of tasksByAutomation) {
       console.log(`[${runId}] 🔄 Processing automation ${automationId} with ${tasks.length} tasks`);
 
-      // Get unique contact IDs for this automation
+      // Get unique contact IDs for this automation's tasks
       const uniqueContactIds = [...new Set(tasks.map(t => t.associated_contact_id))];
       
-      // Batch check membership status for all contacts
-      const { data: memberships, error: membershipError } = await supabase
-        .from('hs_list_memberships')
-        .select('hs_object_id, list_exit_date')
-        .eq('hs_list_id', automation.hs_list_id)
-        .in('hs_object_id', uniqueContactIds);
-
-      if (membershipError) {
-        console.warn(`[${runId}] ⚠️ Error checking memberships for automation ${automationId}:`, membershipError.message);
-        continue;
-      }
-
-      // Build a map of contact exit statuses
-      const contactExitMap = new Map<string, boolean>();
-      const membershipMap = new Map(memberships?.map(m => [m.hs_object_id, m]) || []);
+      // Filter tasks to only those belonging to the contacts in our membership list
+      // (since we're only processing specific newly exited memberships)
+      const relevantContactIds = memberships
+        .filter(m => m.automation_id === automationId)
+        .map(m => m.hs_object_id);
       
-      for (const contactId of uniqueContactIds) {
-        const membership = membershipMap.get(contactId);
-        const hasExited = !membership || membership.list_exit_date !== null;
-        contactExitMap.set(contactId, hasExited);
-      }
-
-      // Filter to tasks where contact has exited
-      const exitedTasks = tasks.filter(task => contactExitMap.get(task.associated_contact_id));
+      const exitedTasks = tasks.filter(task => relevantContactIds.includes(task.associated_contact_id));
       
       if (exitedTasks.length === 0) {
         console.log(`[${runId}] ℹ️ No exited contacts for automation ${automationId}`);
@@ -360,6 +390,19 @@ Deno.serve(async (req) => {
       console.log(`[${runId}] ✅ Successfully created ${automationRunsToCreate.length} automation run record(s)`);
     }
 
+    // Mark these memberships as processed
+    console.log(`[${runId}] ✅ Marking ${membership_ids.length} memberships as processed`);
+    const { error: markProcessedError } = await supabase
+      .from('hs_list_memberships')
+      .update({ exit_processed_at: new Date().toISOString() })
+      .in('id', membership_ids);
+
+    if (markProcessedError) {
+      console.error(`[${runId}] ⚠️ Failed to mark memberships as processed:`, markProcessedError.message);
+    } else {
+      console.log(`[${runId}] ✅ Successfully marked memberships as processed`);
+    }
+
     // Final summary
     console.log(`[${runId}] === AUTO-COMPLETE EXITED TASKS COMPLETE ===`);
     console.log(`[${runId}] 🚪 Contacts exited: ${totalContactsExited}`);
@@ -374,7 +417,8 @@ Deno.serve(async (req) => {
         contactsExited: totalContactsExited,
         tasksCompleted: totalTasksCompleted,
         automationRunsCreated: automationRunsToCreate.length,
-        sequenceTasksBlocked: totalSequenceTasksBlocked
+        sequenceTasksBlocked: totalSequenceTasksBlocked,
+        membershipsProcessed: membership_ids.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
