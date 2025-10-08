@@ -38,10 +38,10 @@ Deno.serve(async (req) => {
         hs_object_id,
         hs_queue_membership_ids,
         associated_contact_id,
-        task_categories!inner(
+        task_categories!hs_tasks_hs_queue_membership_ids_fkey!inner(
           id,
           hs_queue_id,
-          task_automations!inner(
+          task_automations!fk_task_automations_category!inner(
             id,
             automation_enabled,
             auto_complete_on_exit_enabled,
@@ -59,6 +59,17 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${runId}] 📊 Found ${eligibleTasks?.length || 0} potentially eligible tasks`);
+    
+    // Debug: Log category/automation counts per task for troubleshooting
+    if (eligibleTasks && eligibleTasks.length > 0) {
+      const sample = eligibleTasks[0];
+      const categories = Array.isArray(sample.task_categories) ? sample.task_categories : [sample.task_categories];
+      console.log(`[${runId}] 🔍 Sample task has ${categories.length} category relationship(s)`);
+      if (categories.length > 0) {
+        const automations = Array.isArray(categories[0].task_automations) ? categories[0].task_automations : [categories[0].task_automations];
+        console.log(`[${runId}] 🔍 Sample category has ${automations.length} automation relationship(s)`);
+      }
+    }
 
     if (!eligibleTasks || eligibleTasks.length === 0) {
       console.log(`[${runId}] ✅ No eligible tasks to process`);

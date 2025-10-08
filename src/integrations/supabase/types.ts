@@ -465,13 +465,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_automation_runs_automation"
-            columns: ["automation_id"]
-            isOneToOne: false
-            referencedRelation: "task_automations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_automation_runs_contact"
             columns: ["hs_contact_id"]
             isOneToOne: false
@@ -548,13 +541,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fk_task_automations_category"
-            columns: ["task_category_id"]
-            isOneToOne: false
-            referencedRelation: "task_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_task_category"
             columns: ["task_category_id"]
             isOneToOne: false
             referencedRelation: "task_categories"
