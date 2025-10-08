@@ -262,8 +262,8 @@ Deno.serve(async (req) => {
       console.log(`[${executionId}] No automation runs due at this time`);
     }
 
-    // TODO: Future implementation for complete_on_exit type
-    // Query for type = 'complete_on_exit' runs and process them with HubSpot update API
+    // Note: complete_on_exit type is now handled immediately in auto-complete-exited-tasks
+    // No scheduled execution needed for this type
 
     console.log(`[${executionId}] === SCHEDULED AUTOMATION RUNS EXECUTION COMPLETE ===`);
 
