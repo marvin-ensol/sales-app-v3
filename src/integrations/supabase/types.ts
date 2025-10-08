@@ -226,6 +226,13 @@ export type Database = {
             referencedRelation: "hs_contacts"
             referencedColumns: ["hs_object_id"]
           },
+          {
+            foreignKeyName: "fk_hs_tasks_category"
+            columns: ["hs_queue_membership_ids"]
+            isOneToOne: false
+            referencedRelation: "task_categories"
+            referencedColumns: ["hs_queue_id"]
+          },
         ]
       }
       hs_users: {
@@ -663,6 +670,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hs_contacts"
             referencedColumns: ["hs_object_id"]
+          },
+          {
+            foreignKeyName: "fk_hs_tasks_category"
+            columns: ["hs_queue_membership_ids"]
+            isOneToOne: false
+            referencedRelation: "task_categories"
+            referencedColumns: ["hs_queue_id"]
           },
         ]
       }
