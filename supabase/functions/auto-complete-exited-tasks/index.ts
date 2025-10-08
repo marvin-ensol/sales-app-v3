@@ -304,17 +304,19 @@ Deno.serve(async (req) => {
         } catch (error) {
           console.error(`[${runId}] ❌ Error completing tasks for automation ${automationId}:`, error.message);
           
-          // Create failed automation run record
-          automationRunsToCreate.push({
-            automation_id: automationId,
-            type: 'complete_on_exit',
-            hs_trigger_object: 'list',
-            hs_trigger_object_id: automation.hs_list_id,
-            hs_queue_id: automation.hs_queue_id,
-            hs_actioned_task_ids: [],
-            hs_action_successful: false,
-            failure_description: [{ message: error.message }]
-          });
+          // Only create failed automation run record if there were tasks to complete
+          if (taskIdsToComplete.length > 0) {
+            automationRunsToCreate.push({
+              automation_id: automationId,
+              type: 'complete_on_exit',
+              hs_trigger_object: 'list',
+              hs_trigger_object_id: automation.hs_list_id,
+              hs_queue_id: automation.hs_queue_id,
+              hs_actioned_task_ids: [],
+              hs_action_successful: false,
+              failure_description: [{ message: error.message }]
+            });
+          }
         }
       }
 
@@ -362,16 +364,18 @@ Deno.serve(async (req) => {
           cancelFailureDescription = [{ message: error.message }];
         }
 
-        // Create a single cancel_on_exit automation run record
-        automationRunsToCreate.push({
-          automation_id: automation.id,
-          type: 'cancel_on_exit',
-          hs_trigger_object: 'list',
-          hs_trigger_object_id: automation.hs_list_id,
-          hs_queue_id: automation.hs_queue_id,
-          actioned_run_ids: blockedRunIds,
-          failure_description: cancelFailureDescription
-        });
+        // Only create cancel_on_exit record if runs were blocked or an error occurred
+        if (blockedRunIds.length > 0 || cancelFailureDescription !== null) {
+          automationRunsToCreate.push({
+            automation_id: automation.id,
+            type: 'cancel_on_exit',
+            hs_trigger_object: 'list',
+            hs_trigger_object_id: automation.hs_list_id,
+            hs_queue_id: automation.hs_queue_id,
+            actioned_run_ids: blockedRunIds,
+            failure_description: cancelFailureDescription
+          });
+        }
       }
     }
 
