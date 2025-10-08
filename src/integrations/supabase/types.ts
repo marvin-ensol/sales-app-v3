@@ -233,6 +233,20 @@ export type Database = {
             referencedRelation: "task_categories"
             referencedColumns: ["hs_queue_id"]
           },
+          {
+            foreignKeyName: "fk_hs_tasks_contact"
+            columns: ["associated_contact_id"]
+            isOneToOne: false
+            referencedRelation: "hs_contacts"
+            referencedColumns: ["hs_object_id"]
+          },
+          {
+            foreignKeyName: "fk_hs_tasks_owner"
+            columns: ["hubspot_owner_id"]
+            isOneToOne: false
+            referencedRelation: "hs_users"
+            referencedColumns: ["owner_id"]
+          },
         ]
       }
       hs_users: {
@@ -450,6 +464,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_automation_runs_automation"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "task_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_automation_runs_contact"
+            columns: ["hs_contact_id"]
+            isOneToOne: false
+            referencedRelation: "hs_contacts"
+            referencedColumns: ["hs_object_id"]
+          },
           {
             foreignKeyName: "task_automation_runs_automation_id_fkey"
             columns: ["automation_id"]
@@ -677,6 +705,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "task_categories"
             referencedColumns: ["hs_queue_id"]
+          },
+          {
+            foreignKeyName: "fk_hs_tasks_contact"
+            columns: ["associated_contact_id"]
+            isOneToOne: false
+            referencedRelation: "hs_contacts"
+            referencedColumns: ["hs_object_id"]
+          },
+          {
+            foreignKeyName: "fk_hs_tasks_owner"
+            columns: ["hubspot_owner_id"]
+            isOneToOne: false
+            referencedRelation: "hs_users"
+            referencedColumns: ["owner_id"]
           },
         ]
       }
