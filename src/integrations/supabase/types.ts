@@ -139,6 +139,8 @@ export type Database = {
           hubspot_owner_id: string | null
           hubspot_team_id: string | null
           is_skipped: boolean | null
+          marked_completed_by_automation: boolean | null
+          marked_completed_by_automation_id: string | null
           number_in_sequence: number | null
           updated_at: string
         }
@@ -174,6 +176,8 @@ export type Database = {
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
           is_skipped?: boolean | null
+          marked_completed_by_automation?: boolean | null
+          marked_completed_by_automation_id?: string | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -209,6 +213,8 @@ export type Database = {
           hubspot_owner_id?: string | null
           hubspot_team_id?: string | null
           is_skipped?: boolean | null
+          marked_completed_by_automation?: boolean | null
+          marked_completed_by_automation_id?: string | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -359,6 +365,8 @@ export type Database = {
       }
       task_automation_runs: {
         Row: {
+          actioned_automation_ids: Json | null
+          actioned_run_ids: Json | null
           automation_id: string
           created_at: string
           exit_contact_list_block: boolean | null
@@ -383,6 +391,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actioned_automation_ids?: Json | null
+          actioned_run_ids?: Json | null
           automation_id: string
           created_at?: string
           exit_contact_list_block?: boolean | null
@@ -407,6 +417,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actioned_automation_ids?: Json | null
+          actioned_run_ids?: Json | null
           automation_id?: string
           created_at?: string
           exit_contact_list_block?: boolean | null
@@ -778,6 +790,7 @@ export type Database = {
         | "create_on_entry"
         | "create_from_sequence"
         | "complete_on_exit"
+        | "cancel_on_exit"
       task_owner_setting: "no_owner" | "contact_owner" | "previous_task_owner"
       trigger_object_type: "list" | "task"
     }
@@ -911,6 +924,7 @@ export const Constants = {
         "create_on_entry",
         "create_from_sequence",
         "complete_on_exit",
+        "cancel_on_exit",
       ],
       task_owner_setting: ["no_owner", "contact_owner", "previous_task_owner"],
       trigger_object_type: ["list", "task"],

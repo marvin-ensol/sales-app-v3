@@ -279,34 +279,58 @@ Deno.serve(async (req) => {
 
       // Sub-process 2.b: Block future sequence tasks if enabled
       if (automation.sequence_exit_enabled) {
-        for (const contactId of exitedContactIds) {
+        let blockedRunIds: string[] = [];
+        let cancelFailureDescription = null;
+
+        try {
+          // Query ALL pending create_from_sequence runs for ALL exited contacts
           const { data: pendingRuns, error: queryError } = await supabase
             .from('task_automation_runs')
             .select('id')
             .eq('type', 'create_from_sequence')
             .eq('hs_action_successful', false)
-            .eq('hs_contact_id', contactId)
+            .in('hs_contact_id', exitedContactIds)
             .eq('hs_queue_id', automation.hs_queue_id)
             .gt('planned_execution_timestamp', new Date().toISOString());
 
           if (queryError) {
-            console.warn(`[${runId}] ⚠️ Error querying pending sequence tasks for contact ${contactId}:`, queryError.message);
+            console.warn(`[${runId}] ⚠️ Error querying pending sequence tasks:`, queryError.message);
+            cancelFailureDescription = [{ message: `Query error: ${queryError.message}` }];
           } else if (pendingRuns && pendingRuns.length > 0) {
             const runIds = pendingRuns.map(r => r.id);
             
+            // Batch update ALL identified runs
             const { error: updateError } = await supabase
               .from('task_automation_runs')
               .update({ exit_contact_list_block: true })
               .in('id', runIds);
               
             if (updateError) {
-              console.warn(`[${runId}] ⚠️ Failed to block ${runIds.length} pending sequence tasks for contact ${contactId}:`, updateError.message);
+              console.warn(`[${runId}] ⚠️ Failed to block ${runIds.length} pending sequence tasks:`, updateError.message);
+              cancelFailureDescription = [{ message: `Update error: ${updateError.message}` }];
             } else {
-              console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending sequence tasks for contact ${contactId}`);
+              console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending sequence tasks`);
+              blockedRunIds = runIds;
               totalSequenceTasksBlocked += runIds.length;
             }
+          } else {
+            console.log(`[${runId}] ℹ️ No pending sequence tasks found to block`);
           }
+        } catch (error: any) {
+          console.error(`[${runId}] ❌ Error in sequence blocking:`, error.message);
+          cancelFailureDescription = [{ message: error.message }];
         }
+
+        // Create a single cancel_on_exit automation run record
+        automationRunsToCreate.push({
+          automation_id: automation.id,
+          type: 'cancel_on_exit',
+          hs_trigger_object: 'list',
+          hs_trigger_object_id: automation.hs_list_id,
+          hs_queue_id: automation.hs_queue_id,
+          actioned_run_ids: blockedRunIds,
+          failure_description: cancelFailureDescription
+        });
       }
     }
 
