@@ -619,40 +619,6 @@ export type Database = {
       }
     }
     Views: {
-      enriched_tasks: {
-        Row: {
-          associated_deal_id: string | null
-          completion_date: string | null
-          contact: string | null
-          contact_id: string | null
-          contact_phone: string | null
-          created_at: string | null
-          description: string | null
-          due_date: string | null
-          hs_task_completion_date: string | null
-          hubspot_id: string | null
-          hubspot_owner_id: string | null
-          id: string | null
-          is_unassigned: boolean | null
-          owner: string | null
-          priority: string | null
-          queue: string | null
-          queue_ids: string[] | null
-          raw_due_date: string | null
-          status: string | null
-          title: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_hs_tasks_associated_contact"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "hs_contacts"
-            referencedColumns: ["hs_object_id"]
-          },
-        ]
-      }
       hs_tasks_readable: {
         Row: {
           archived: boolean | null
