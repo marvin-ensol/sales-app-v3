@@ -61,7 +61,6 @@ Deno.serve(async (req) => {
         hs_owner_id_previous_task,
         hs_queue_id,
         hs_contact_id,
-        created_task,
         exit_contact_list_block
       `)
       .eq('hs_action_successful', false)
@@ -100,7 +99,6 @@ Deno.serve(async (req) => {
           hs_owner_id_previous_task,
           hs_queue_id,
           hs_contact_id,
-          created_task,
           exit_contact_list_block
         `)
         .eq('hs_action_successful', false)

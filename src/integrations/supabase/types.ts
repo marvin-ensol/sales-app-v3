@@ -405,6 +405,7 @@ export type Database = {
           hs_action_successful: boolean | null
           hs_actioned_task_ids: Json | null
           hs_contact_id: string | null
+          hs_membership_id: string | null
           hs_owner_id_contact: string | null
           hs_owner_id_previous_task: string | null
           hs_queue_id: string | null
@@ -431,6 +432,7 @@ export type Database = {
           hs_action_successful?: boolean | null
           hs_actioned_task_ids?: Json | null
           hs_contact_id?: string | null
+          hs_membership_id?: string | null
           hs_owner_id_contact?: string | null
           hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null
@@ -457,6 +459,7 @@ export type Database = {
           hs_action_successful?: boolean | null
           hs_actioned_task_ids?: Json | null
           hs_contact_id?: string | null
+          hs_membership_id?: string | null
           hs_owner_id_contact?: string | null
           hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null

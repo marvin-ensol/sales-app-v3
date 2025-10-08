@@ -27,7 +27,8 @@ interface ScheduleConfiguration {
 }
 
 interface AutomationTriggerRequest {
-  trigger_type: 'list_entry' | 'task_completion';
+  trigger_type: 'list_entry' | 'task_completion' | 'create_on_entry';
+  membership_id?: string;
   // For list_entry triggers
   membership_id?: string;
   hs_list_id?: string;
@@ -308,7 +309,7 @@ serve(async (req) => {
     console.log('Trigger type:', requestData.trigger_type);
     console.log('Request data:', JSON.stringify(requestData, null, 2));
 
-    const {
+    let {
       trigger_type,
       automation_id,
       hs_list_id,
@@ -321,8 +322,15 @@ serve(async (req) => {
       associated_contact_id,
       schedule_enabled,
       schedule_configuration,
-      timezone
+      timezone,
+      membership_id
     } = requestData;
+
+    // Normalize trigger_type: 'create_on_entry' -> 'list_entry' for robustness
+    if (trigger_type === 'create_on_entry') {
+      console.log(`⚠️ Normalizing trigger_type from 'create_on_entry' to 'list_entry'`);
+      trigger_type = 'list_entry';
+    }
 
     // Fetch automation and category details
     const { data: automationData, error: automationError } = await supabase
@@ -448,6 +456,7 @@ serve(async (req) => {
       type: trigger_type === 'list_entry' ? 'create_on_entry' : 'create_from_sequence',
       hs_trigger_object: trigger_type === 'list_entry' ? 'list' : 'task',
       hs_trigger_object_id: trigger_type === 'list_entry' ? hs_list_id : task_id,
+      hs_membership_id: membership_id || null,
       planned_execution_timestamp: plannedExecutionTimestamp.toISOString(),
       planned_execution_timestamp_display: displayTimestamp,
       task_name: taskName,
