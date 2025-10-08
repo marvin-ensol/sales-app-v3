@@ -212,17 +212,6 @@ export const SequenceConfig = ({
     }
   }, [initialAutomation]);
 
-  // Auto-clear contact list when all list-dependent features are disabled
-  useEffect(() => {
-    if (!createInitialTask && !canInterruptSequence && !autoCompleteOnExit) {
-      // All list-dependent features are disabled, clear the list selection
-      if (selectedListId) {
-        console.log('[SequenceConfig] All list features disabled, clearing list selection');
-        onListChange('');
-      }
-    }
-  }, [createInitialTask, canInterruptSequence, autoCompleteOnExit, selectedListId, onListChange]);
-
   const validateConfig = () => {
     const errors: Record<string, string> = {};
 
@@ -407,6 +396,12 @@ export const SequenceConfig = ({
   };
 
   const handleSave = async () => {
+    // Clear list selection if none of the list-dependent features is enabled
+    if (!createInitialTask && !canInterruptSequence && !autoCompleteOnExit && selectedListId) {
+      console.log('[SequenceConfig] No list features enabled, clearing list selection before save');
+      onListChange('');
+    }
+
     const errors = validateConfig();
     setValidationErrors(errors);
 
