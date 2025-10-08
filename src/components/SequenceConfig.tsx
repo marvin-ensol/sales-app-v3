@@ -212,6 +212,17 @@ export const SequenceConfig = ({
     }
   }, [initialAutomation]);
 
+  // Auto-clear contact list when all list-dependent features are disabled
+  useEffect(() => {
+    if (!createInitialTask && !canInterruptSequence && !autoCompleteOnExit) {
+      // All list-dependent features are disabled, clear the list selection
+      if (selectedListId) {
+        console.log('[SequenceConfig] All list features disabled, clearing list selection');
+        onListChange('');
+      }
+    }
+  }, [createInitialTask, canInterruptSequence, autoCompleteOnExit, selectedListId, onListChange]);
+
   const validateConfig = () => {
     const errors: Record<string, string> = {};
 
@@ -577,19 +588,17 @@ export const SequenceConfig = ({
 
   return (
     <div className="space-y-4">
-      {/* Contact List Card - shown when any feature requiring a list is enabled */}
-      {(createInitialTask || canInterruptSequence || autoCompleteOnExit) && (
-        <ContactListCard
-          hubspotLists={hubspotLists}
-          listsLoading={listsLoading}
-          refreshingLists={refreshingLists}
-          onRefreshLists={onRefreshLists}
-          selectedListId={selectedListId}
-          onListChange={onListChange}
-          validationError={validationErrors.contactList}
-          usedListIds={usedListIds}
-        />
-      )}
+      {/* Contact List Card - always visible */}
+      <ContactListCard
+        hubspotLists={hubspotLists}
+        listsLoading={listsLoading}
+        refreshingLists={refreshingLists}
+        onRefreshLists={onRefreshLists}
+        selectedListId={selectedListId}
+        onListChange={onListChange}
+        validationError={validationErrors.contactList}
+        usedListIds={usedListIds}
+      />
 
       {/* Task 1 Configuration */}
       <div className="p-4 border rounded-lg bg-slate-50/80 border-slate-200 max-w-lg mx-auto">
