@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { realtimeManager, HealthMetrics } from '@/lib/realtimeManager';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,25 @@ export const RealtimeStatusIndicator = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setAllHealth(realtimeManager.getAllHealth());
-      setIsOnline(realtimeManager.isNetworkOnline());
-      setConnectionCount(realtimeManager.getConnectionCount());
-    }, 1000);
+      try {
+        const health = realtimeManager.getAllHealth();
+        const online = realtimeManager.isNetworkOnline();
+        const count = realtimeManager.getConnectionCount();
+        
+        // Validate before setting state
+        if (health instanceof Map) {
+          setAllHealth(health);
+        }
+        if (typeof online === 'boolean') {
+          setIsOnline(online);
+        }
+        if (typeof count === 'number') {
+          setConnectionCount(count);
+        }
+      } catch (error) {
+        console.error('[RealtimeStatusIndicator] Polling error:', error);
+      }
+    }, 3000); // Reduced from 1000ms to 3000ms
 
     return () => clearInterval(interval);
   }, []);
@@ -46,7 +61,12 @@ export const RealtimeStatusIndicator = () => {
     return 'unknown';
   };
 
-  const status = getOverallStatus();
+  const status = useMemo(() => getOverallStatus(), [allHealth, isOnline]);
+
+  // Early return if no subscriptions
+  if (connectionCount === 0) {
+    return null;
+  }
 
   const getStatusColor = () => {
     switch (status) {
@@ -98,7 +118,7 @@ export const RealtimeStatusIndicator = () => {
     allHealth.forEach((_, channelId) => {
       const health = realtimeManager.getHealth(channelId);
       if (!health.isHealthy) {
-        realtimeManager.subscribe(channelId, [], () => {});
+        realtimeManager.forceReconnect(channelId);
       }
     });
   };
