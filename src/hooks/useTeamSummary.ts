@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { realtimeManager } from '@/lib/realtimeManager';
 
 export interface TasksByStatus {
   status: string;
@@ -45,10 +44,8 @@ export const useTeamSummary = ({ teamId, ownerId }: UseTeamSummaryProps) => {
   const [data, setData] = useState<TaskSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
-  const subscriptionHandleRef = useRef<any>(null);
 
-  const fetchTeamSummary = useCallback(async () => {
+  const fetchTeamSummary = async () => {
     if (!teamId) {
       setLoading(false);
       return;
@@ -89,61 +86,50 @@ export const useTeamSummary = ({ teamId, ownerId }: UseTeamSummaryProps) => {
     } finally {
       setLoading(false);
     }
-  }, [teamId, ownerId]);
-
-  const debouncedRefetch = useCallback(() => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      console.log(`[useTeamSummary] Debounced refetch triggered for team ${teamId}`);
-      fetchTeamSummary();
-    }, 1000); // Higher debounce for edge function calls to avoid rate limits
-  }, [fetchTeamSummary, teamId]);
+  };
 
   useEffect(() => {
     fetchTeamSummary();
-  }, [fetchTeamSummary]);
+  }, [teamId, ownerId]);
 
-  // Set up real-time subscription with centralized manager
+  // Set up real-time subscription to automatically refresh when tasks change
   useEffect(() => {
     if (!teamId) return;
 
-    const channelId = `team_summary_${teamId}_${ownerId || 'all'}`;
-    console.log(`🔄 Setting up real-time subscription for ${channelId}`);
+    const channelName = `team-${teamId}-${ownerId || 'all'}-tasks`;
+    console.log(`🔄 Setting up real-time subscription for ${channelName}`);
     
-    const handle = realtimeManager.subscribe(
-      channelId,
-      [
-        {
-          schema: 'public',
-          table: 'hs_tasks',
-          event: '*',
-          filter: `hubspot_team_id=eq.${teamId}`,
-        }
-      ],
-      (payload) => {
-        console.log('🔄 Task changed in team, refreshing summary:', payload.eventType);
-        debouncedRefetch();
-      }
-    );
+    try {
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hs_tasks',
+            filter: `hubspot_team_id=eq.${teamId}`,
+          },
+          (payload) => {
+            console.log('🔄 Task changed, refreshing team summary:', payload.eventType);
+            // Refetch team summary when tasks change
+            fetchTeamSummary();
+          }
+        )
+        .subscribe();
 
-    subscriptionHandleRef.current = handle;
-
-    return () => {
-      console.log(`🔄 Cleaning up real-time subscription for ${channelId}`);
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      handle.unsubscribe();
-    };
-  }, [teamId, ownerId, debouncedRefetch]);
+      return () => {
+        console.log(`🔄 Cleaning up real-time subscription for ${channelName}`);
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error(`Failed to set up real-time subscription for ${channelName}:`, error);
+    }
+  }, [teamId, ownerId]);
 
   return {
     data,
     loading,
     error,
-    refetch: debouncedRefetch,
   };
 };

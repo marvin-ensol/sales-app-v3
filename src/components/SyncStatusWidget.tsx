@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { Activity, Clock, AlertTriangle, CheckCircle, XCircle, Zap } from 'lucide-react';
-import { realtimeManager } from '@/lib/realtimeManager';
 
 interface SyncStatus {
   lastExecution?: {
@@ -26,11 +25,8 @@ export const SyncStatusWidget = () => {
     isLive: false
   });
   const [isOpen, setIsOpen] = useState(false);
-  const subscriptionHandleRef = useRef<any>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
-  const intervalRef = useRef<NodeJS.Timeout>();
 
-  const fetchSyncStatus = useCallback(async () => {
+  const fetchSyncStatus = async () => {
     try {
       // Get latest execution
       const { data: executions, error: execError } = await supabase
@@ -57,52 +53,35 @@ export const SyncStatusWidget = () => {
     } catch (error) {
       console.error('Error fetching sync status:', error);
     }
-  }, []);
-
-  const debouncedRefetch = useCallback(() => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      console.log('[SyncStatusWidget] Debounced refetch triggered');
-      fetchSyncStatus();
-    }, 500);
-  }, [fetchSyncStatus]);
+  };
 
   useEffect(() => {
     fetchSyncStatus();
     
-    // Set up real-time subscription with centralized manager
-    const handle = realtimeManager.subscribe(
-      'sync_status_widget',
-      [
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('sync_status_widget')
+      .on(
+        'postgres_changes',
         {
-          schema: 'public',
-          table: 'sync_executions',
           event: '*',
+          schema: 'public',
+          table: 'sync_executions'
+        },
+        () => {
+          fetchSyncStatus();
         }
-      ],
-      () => {
-        debouncedRefetch();
-      }
-    );
-
-    subscriptionHandleRef.current = handle;
+      )
+      .subscribe();
 
     // Refresh every 30 seconds
-    intervalRef.current = setInterval(fetchSyncStatus, 30000);
+    const interval = setInterval(fetchSyncStatus, 30000);
 
     return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      handle.unsubscribe();
+      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
-  }, [fetchSyncStatus, debouncedRefetch]);
+  }, []);
 
   const getStatusIcon = () => {
     if (syncStatus.isLive) {

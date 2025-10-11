@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Search, RefreshCw, X, Settings, Calendar, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { HubSpotOwner } from "@/hooks/useUsers";
 import { Task } from "@/types/task";
@@ -12,8 +12,6 @@ import { useIsCompactView } from "@/hooks/useIsCompactView";
 import OwnerSelector from "./OwnerSelector";
 import { PerformanceIndicator } from "./PerformanceIndicator";
 import DateRangeFilter from "./DateRangeFilter";
-import { RealtimeStatusIndicator } from "./RealtimeStatusIndicator";
-import RealtimeStatusErrorBoundary from "./RealtimeStatusErrorBoundary";
 
 interface KanbanHeaderProps {
   owners: HubSpotOwner[];
@@ -55,13 +53,10 @@ const KanbanHeader = ({
   futureCount
 }: KanbanHeaderProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { signOut } = useAuth();
   const { isCompact, containerRef } = useIsCompactView(600);
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
   const [activeCompactComponent, setActiveCompactComponent] = useState<'search' | 'filter'>('filter');
-  
-  const showRealtimeStatus = location.pathname === '/';
 
   // Use passed overdue/future counts if available, otherwise calculate from tasks
   const nowMs = Date.now();
@@ -109,12 +104,6 @@ const KanbanHeader = ({
         )}
 
         <div className="flex items-center gap-2">
-          {showRealtimeStatus && (
-            <RealtimeStatusErrorBoundary>
-              <RealtimeStatusIndicator />
-            </RealtimeStatusErrorBoundary>
-          )}
-          
           <Button 
             variant="outline" 
             size="icon"
