@@ -244,13 +244,34 @@ Deno.serve(async (req) => {
           continue; // Skip this run
         }
         
-        // Determine owner ID based on task_owner_setting
-        let hubspotOwnerId = null;
-        if (run.task_owner_setting === 'contact_owner') {
-          hubspotOwnerId = run.hs_owner_id_contact;
-        } else if (run.task_owner_setting === 'previous_task_owner') {
-          hubspotOwnerId = run.hs_owner_id_previous_task;
-        }
+    // If task_owner_setting is 'contact_owner' and hs_owner_id_contact is NULL,
+    // try to fetch it from the contact we just resolved/synced
+    if (run.task_owner_setting === 'contact_owner' && !run.hs_owner_id_contact && contactId) {
+      const { data: contactData, error: contactFetchError } = await supabase
+        .from('hs_contacts')
+        .select('hubspot_owner_id')
+        .eq('hs_object_id', contactId)
+        .maybeSingle();
+      
+      if (!contactFetchError && contactData?.hubspot_owner_id) {
+        console.log(`[${executionId}] 📋 Resolved contact owner from hs_contacts: ${contactData.hubspot_owner_id}`);
+        run.hs_owner_id_contact = contactData.hubspot_owner_id;
+      } else {
+        console.warn(`[${executionId}] ⚠️ Contact ${contactId} has no owner in hs_contacts`);
+      }
+    }
+
+    // Determine owner ID based on task_owner_setting
+    let hubspotOwnerId = null;
+    if (run.task_owner_setting === 'contact_owner') {
+      hubspotOwnerId = run.hs_owner_id_contact;
+      console.log(`[${executionId}] 👤 Task owner from contact: ${hubspotOwnerId || 'NULL (no owner)'}`);
+    } else if (run.task_owner_setting === 'previous_task_owner') {
+      hubspotOwnerId = run.hs_owner_id_previous_task;
+      console.log(`[${executionId}] 👤 Task owner from previous task: ${hubspotOwnerId || 'NULL (no owner)'}`);
+    } else if (run.task_owner_setting === 'no_owner') {
+      console.log(`[${executionId}] 👤 Task owner setting: no_owner (unassigned)`);
+    }
 
         const taskInput: any = {
           properties: {

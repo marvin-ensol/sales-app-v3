@@ -862,6 +862,7 @@ async function performIncrementalSync(supabase: any, hubspotToken: string, logge
       lifecyclestage: contact.properties?.lifecyclestage || null,
       createdate: parseContactTimestamp(contact.properties?.createdate),
       lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+      hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
       updated_at: new Date().toISOString()
     }));
 

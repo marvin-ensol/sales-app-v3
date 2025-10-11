@@ -22,6 +22,7 @@ export type Database = {
           firstname: string | null
           hs_lead_status: string | null
           hs_object_id: string
+          hubspot_owner_id: string | null
           lastmodifieddate: string | null
           lastname: string | null
           lifecyclestage: string | null
@@ -35,6 +36,7 @@ export type Database = {
           firstname?: string | null
           hs_lead_status?: string | null
           hs_object_id: string
+          hubspot_owner_id?: string | null
           lastmodifieddate?: string | null
           lastname?: string | null
           lifecyclestage?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           firstname?: string | null
           hs_lead_status?: string | null
           hs_object_id?: string
+          hubspot_owner_id?: string | null
           lastmodifieddate?: string | null
           lastname?: string | null
           lifecyclestage?: string | null

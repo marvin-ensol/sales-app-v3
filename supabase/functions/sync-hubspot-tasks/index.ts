@@ -701,7 +701,7 @@ serve(async (req) => {
                     },
                     body: JSON.stringify({
                       inputs: batchContactIds.map(id => ({ id })),
-                      properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
+                      properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage', 'hubspot_owner_id']
                     }),
                   });
 
@@ -768,6 +768,7 @@ serve(async (req) => {
                 lifecyclestage: contact.properties.lifecyclestage || null,
                 createdate: parseContactTimestamp(contact.properties.createdate),
                 lastmodifieddate: parseContactTimestamp(contact.properties.lastmodifieddate),
+                hubspot_owner_id: contact.properties.hubspot_owner_id || null,
               }));
 
               const { error: contactInsertError } = await supabase

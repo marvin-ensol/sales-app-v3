@@ -367,7 +367,7 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 inputs: [{ id: contactId }],
-                properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
+                properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage', 'hubspot_owner_id']
               }),
             });
 
@@ -396,18 +396,19 @@ serve(async (req) => {
                 };
                 
                 // Format contact for upsert (mirror incremental-sync pattern)
-                const contactToUpsert = {
-                  hs_object_id: contact.id,
-                  firstname: contact.properties?.firstname || null,
-                  lastname: contact.properties?.lastname || null,
-                  mobilephone: contact.properties?.mobilephone || null,
-                  ensol_source_group: contact.properties?.ensol_source_group || null,
-                  hs_lead_status: contact.properties?.hs_lead_status || null,
-                  lifecyclestage: contact.properties?.lifecyclestage || null,
-                  createdate: parseContactTimestamp(contact.properties?.createdate),
-                  lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
-                  updated_at: new Date().toISOString()
-                };
+        const contactToUpsert = {
+          hs_object_id: contact.id,
+          firstname: contact.properties?.firstname || null,
+          lastname: contact.properties?.lastname || null,
+          mobilephone: contact.properties?.mobilephone || null,
+          ensol_source_group: contact.properties?.ensol_source_group || null,
+          hs_lead_status: contact.properties?.hs_lead_status || null,
+          lifecyclestage: contact.properties?.lifecyclestage || null,
+          createdate: parseContactTimestamp(contact.properties?.createdate),
+          lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+          hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
+          updated_at: new Date().toISOString()
+        };
                 
                 // Upsert to hs_contacts
                 const { error: upsertError } = await supabase
@@ -434,6 +435,24 @@ serve(async (req) => {
         }
       } else {
         console.log(`✅ Contact ${contactId} already exists in hs_contacts`);
+      }
+    }
+
+    // ============ CONTACT OWNER RESOLUTION ============
+    // Fetch the contact's owner ID if task_owner_setting is 'contact_owner'
+    let contactOwnerId: string | null = null;
+    if (contactId) {
+      const { data: contactData, error: contactFetchError } = await supabase
+        .from('hs_contacts')
+        .select('hubspot_owner_id')
+        .eq('hs_object_id', contactId)
+        .maybeSingle();
+      
+      if (contactFetchError) {
+        console.error('❌ Error fetching contact owner:', contactFetchError);
+      } else if (contactData) {
+        contactOwnerId = contactData.hubspot_owner_id;
+        console.log(`📋 Contact ${contactId} owner: ${contactOwnerId || 'none'}`);
       }
     }
 
@@ -558,6 +577,13 @@ serve(async (req) => {
     // Create automation run entry
     // Note: hs_contact_id is now nullable. If contact sync failed above, it will be NULL
     // and will be resolved at execution time via hs_membership_id
+    
+    console.log(`📝 Creating automation run with:
+  - contact_id: ${contactId || 'NULL'}
+  - contact_owner_id: ${contactOwnerId || 'NULL'}
+  - task_owner_setting: ${taskOwnerSetting}
+  - membership_id: ${membership_id || 'N/A'}`);
+
     const runData: any = {
       automation_id,
       type: trigger_type === 'list_entry' ? 'create_on_entry' : 'create_from_sequence',
@@ -572,10 +598,9 @@ serve(async (req) => {
       hs_action_successful: false,
       position_in_sequence: positionInSequence,
       hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null,
+      hs_owner_id_contact: contactOwnerId || null,
       hs_contact_id: contactId || null // Will be NULL if contact sync failed
     };
-    
-    console.log(`📝 Creating automation run with contact_id: ${contactId || 'NULL (will resolve later)'}, membership_id: ${membership_id || 'N/A'}`);
     
     const { data: automationRun, error: insertError } = await supabase
       .from('task_automation_runs')
