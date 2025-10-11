@@ -322,8 +322,8 @@ Deno.serve(async (req) => {
             inputs: taskIdsToComplete.map(taskId => ({
               id: taskId,
               properties: {
-                hs_task_status: 'COMPLETED',
-                hs_task_completion_date: new Date().toISOString()
+                hs_task_status: 'COMPLETED'
+                // hs_task_completion_date is auto-set by HubSpot (read-only property)
               }
             }))
           };
