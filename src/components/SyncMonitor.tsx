@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, Activity, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { realtimeManager } from '@/lib/realtimeManager';
 
 interface SyncExecution {
   execution_id: string;
@@ -46,8 +46,10 @@ export const SyncMonitor = () => {
   const [selectedExecution, setSelectedExecution] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const subscriptionHandleRef = useRef<any>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const fetchExecutions = async () => {
+  const fetchExecutions = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -68,9 +70,9 @@ export const SyncMonitor = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchTaskAttempts = async (executionId: string) => {
+  const fetchTaskAttempts = useCallback(async (executionId: string) => {
     try {
       const { data, error } = await supabase
         .from('task_sync_attempts')
@@ -88,7 +90,7 @@ export const SyncMonitor = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
   const triggerSync = async (type: 'incremental' | 'full') => {
     try {
@@ -122,29 +124,44 @@ export const SyncMonitor = () => {
     }
   };
 
+  const debouncedRefetch = useCallback(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      console.log('[SyncMonitor] Debounced refetch triggered');
+      fetchExecutions();
+    }, 300);
+  }, [fetchExecutions]);
+
   useEffect(() => {
     fetchExecutions();
     
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('sync_monitor')
-      .on(
-        'postgres_changes',
+    // Set up real-time subscription with centralized manager
+    const handle = realtimeManager.subscribe(
+      'sync_monitor_executions',
+      [
         {
-          event: '*',
           schema: 'public',
-          table: 'sync_executions'
-        },
-        () => {
-          fetchExecutions();
+          table: 'sync_executions',
+          event: '*',
         }
-      )
-      .subscribe();
+      ],
+      () => {
+        debouncedRefetch();
+      }
+    );
+
+    subscriptionHandleRef.current = handle;
 
     return () => {
-      supabase.removeChannel(channel);
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      handle.unsubscribe();
     };
-  }, []);
+  }, [fetchExecutions, debouncedRefetch]);
 
   useEffect(() => {
     if (selectedExecution) {

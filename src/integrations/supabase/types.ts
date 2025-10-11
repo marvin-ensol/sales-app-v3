@@ -731,6 +731,18 @@ export type Database = {
           },
         ]
       }
+      realtime_subscription_health: {
+        Row: {
+          dead_rows: number | null
+          last_autovacuum: string | null
+          last_vacuum: string | null
+          live_rows: number | null
+          schemaname: unknown | null
+          table_size: string | null
+          tablename: unknown | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_execution_log: {
