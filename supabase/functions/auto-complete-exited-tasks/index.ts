@@ -76,6 +76,91 @@ Deno.serve(async (req) => {
 
     console.log(`[${runId}] 🎯 Processing ${contactIds.length} contacts across ${queueIds.length} queues`);
 
+    // ===== BATCH CONTACT REFRESH =====
+    // Force refresh all contacts from HubSpot before processing
+    console.log(`[${runId}] 📞 Refreshing ${contactIds.length} contact(s) from HubSpot...`);
+
+    const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
+    if (hubspotToken && contactIds.length > 0) {
+      try {
+        const contactResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: contactIds.map(id => ({ id })),
+            properties: [
+              'firstname',
+              'lastname',
+              'mobilephone',
+              'ensol_source_group',
+              'hs_lead_status',
+              'lifecyclestage',
+              'createdate',
+              'lastmodifieddate',
+              'hubspot_owner_id'
+            ]
+          }),
+        });
+
+        if (contactResponse.ok) {
+          const contactData = await contactResponse.json();
+          const contacts = contactData.results || [];
+          
+          console.log(`[${runId}] ✅ Fetched ${contacts.length} contact(s) from HubSpot`);
+          
+          const parseContactTimestamp = (value: any): string | null => {
+            if (!value || value === '' || value === 'null' || value === '0') return null;
+            if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+              const date = new Date(value);
+              return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+            }
+            const timestamp = parseInt(String(value));
+            if (isNaN(timestamp) || timestamp === 0) return null;
+            const date = new Date(timestamp);
+            return date.getFullYear() > 1970 ? date.toISOString() : null;
+          };
+          
+          const contactsToUpsert = contacts.map(contact => ({
+            hs_object_id: contact.id,
+            firstname: contact.properties?.firstname || null,
+            lastname: contact.properties?.lastname || null,
+            mobilephone: contact.properties?.mobilephone || null,
+            ensol_source_group: contact.properties?.ensol_source_group || null,
+            hs_lead_status: contact.properties?.hs_lead_status || null,
+            lifecyclestage: contact.properties?.lifecyclestage || null,
+            createdate: parseContactTimestamp(contact.properties?.createdate),
+            lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+            hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
+            updated_at: new Date().toISOString()
+          }));
+          
+          const { error: upsertError } = await supabase
+            .from('hs_contacts')
+            .upsert(contactsToUpsert, { 
+              onConflict: 'hs_object_id',
+              ignoreDuplicates: false 
+            });
+          
+          if (upsertError) {
+            console.error(`[${runId}] ❌ Failed to refresh contacts:`, upsertError);
+          } else {
+            console.log(`[${runId}] ✅ Refreshed ${contactsToUpsert.length} contact(s) in hs_contacts`);
+            const contactsWithOwners = contacts.filter(c => c.properties?.hubspot_owner_id).length;
+            console.log(`[${runId}] 📋 Contacts with owners: ${contactsWithOwners}, without owners: ${contacts.length - contactsWithOwners}`);
+          }
+        } else {
+          console.warn(`[${runId}] ⚠️ Failed to fetch contacts from HubSpot (${contactResponse.status})`);
+        }
+      } catch (error) {
+        console.error(`[${runId}] ❌ Error refreshing contacts:`, error);
+      }
+    } else {
+      console.log(`[${runId}] ℹ️ Skipping contact refresh (no token or no contacts)`);
+    }
+
     // Step 1: Query eligible tasks for these specific contact-queue combinations
     console.log(`[${runId}] 🔍 Querying eligible tasks for specific contact-queue combinations...`);
     
@@ -224,7 +309,7 @@ Deno.serve(async (req) => {
 
       const exitedContactIds = [...new Set(exitedTasks.map(t => t.associated_contact_id))];
       totalContactsExited += exitedContactIds.length;
-      console.log(`[${runId}] 🚪 ${exitedContactIds.length} contact(s) exited from list ${automation.hs_list_id}`);
+      console.log(`[${runId}] 🚪 ${exitedContactIds.length} contact(s) exited from list ${automation.hs_list_id} (with fresh contact data)`);
 
       // Sub-process 2.a: Auto-complete tasks if enabled
       if (automation.auto_complete_on_exit_enabled) {
