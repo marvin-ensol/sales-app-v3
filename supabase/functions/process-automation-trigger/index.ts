@@ -584,6 +584,47 @@ serve(async (req) => {
   - task_owner_setting: ${taskOwnerSetting}
   - membership_id: ${membership_id || 'N/A'}`);
 
+    // For task_completion triggers, check if a run already exists for this position
+    if (trigger_type === 'task_completion' && contactId) {
+      const { data: existingRun, error: checkError } = await supabase
+        .from('task_automation_runs')
+        .select('id, created_at, planned_execution_timestamp')
+        .eq('automation_id', automation_id)
+        .eq('hs_contact_id', contactId)
+        .eq('position_in_sequence', positionInSequence)
+        .eq('type', 'create_from_sequence')
+        .maybeSingle();
+      
+      if (checkError) {
+        console.warn('Error checking for existing run:', checkError);
+        // Continue anyway - better to risk a duplicate than block legitimate runs
+      }
+      
+      if (existingRun) {
+        console.log(`⚠️ Run already exists for position ${positionInSequence}: ${existingRun.id}`);
+        console.log(`   - Created at: ${existingRun.created_at}`);
+        console.log(`   - Scheduled for: ${existingRun.planned_execution_timestamp}`);
+        console.log('   - Skipping duplicate run creation');
+        console.log('=== PROCESS AUTOMATION TRIGGER END ===');
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Run already scheduled for this position',
+            existing_run_id: existingRun.id,
+            existing_run_created_at: existingRun.created_at,
+            existing_run_scheduled_for: existingRun.planned_execution_timestamp
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          }
+        );
+      }
+      
+      console.log(`✅ No existing run found for position ${positionInSequence} - proceeding with creation`);
+    }
+
     const runData: any = {
       automation_id,
       type: trigger_type === 'list_entry' ? 'create_on_entry' : 'create_from_sequence',
