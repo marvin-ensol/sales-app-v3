@@ -332,6 +332,111 @@ serve(async (req) => {
       trigger_type = 'list_entry';
     }
 
+    // ==== PHASE 2: BATCH CONTACT SYNC ====
+    // Ensure contact exists in hs_contacts before creating automation run
+    const contactId = trigger_type === 'list_entry' ? hs_object_id : associated_contact_id;
+    
+    if (contactId) {
+      console.log(`📞 Checking existence of contact ${contactId} in hs_contacts...`);
+      
+      // Check if contact exists
+      const { data: existingContact, error: contactCheckError } = await supabase
+        .from('hs_contacts')
+        .select('hs_object_id')
+        .eq('hs_object_id', contactId)
+        .maybeSingle();
+      
+      if (contactCheckError) {
+        console.error('Error checking contact existence:', contactCheckError);
+      }
+      
+      if (!existingContact) {
+        console.log(`🔍 Contact ${contactId} not found in hs_contacts, fetching from HubSpot...`);
+        
+        try {
+          const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
+          if (!hubspotToken) {
+            console.warn('⚠️ HUBSPOT_ACCESS_TOKEN not configured, cannot sync contact');
+          } else {
+            // Fetch contact from HubSpot
+            const contactResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${hubspotToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                inputs: [{ id: contactId }],
+                properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
+              }),
+            });
+
+            if (contactResponse.ok) {
+              const contactData = await contactResponse.json();
+              const contacts = contactData.results || [];
+              
+              if (contacts.length > 0) {
+                const contact = contacts[0];
+                
+                // Helper function to safely parse contact timestamps
+                const parseContactTimestamp = (value: any): string | null => {
+                  if (!value || value === '' || value === 'null' || value === '0') return null;
+                  
+                  // Handle ISO 8601 strings
+                  if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+                    const date = new Date(value);
+                    return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+                  }
+                  
+                  // Handle numeric timestamps
+                  const timestamp = parseInt(String(value));
+                  if (isNaN(timestamp) || timestamp === 0) return null;
+                  const date = new Date(timestamp);
+                  return date.getFullYear() > 1970 ? date.toISOString() : null;
+                };
+                
+                // Format contact for upsert (mirror incremental-sync pattern)
+                const contactToUpsert = {
+                  hs_object_id: contact.id,
+                  firstname: contact.properties?.firstname || null,
+                  lastname: contact.properties?.lastname || null,
+                  mobilephone: contact.properties?.mobilephone || null,
+                  ensol_source_group: contact.properties?.ensol_source_group || null,
+                  hs_lead_status: contact.properties?.hs_lead_status || null,
+                  lifecyclestage: contact.properties?.lifecyclestage || null,
+                  createdate: parseContactTimestamp(contact.properties?.createdate),
+                  lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+                  updated_at: new Date().toISOString()
+                };
+                
+                // Upsert to hs_contacts
+                const { error: upsertError } = await supabase
+                  .from('hs_contacts')
+                  .upsert(contactToUpsert, { 
+                    onConflict: 'hs_object_id',
+                    ignoreDuplicates: false 
+                  });
+                
+                if (upsertError) {
+                  console.error(`❌ Failed to sync contact ${contactId}:`, upsertError);
+                } else {
+                  console.log(`✅ Synced contact ${contactId} to hs_contacts`);
+                }
+              } else {
+                console.warn(`⚠️ Contact ${contactId} not found in HubSpot`);
+              }
+            } else {
+              console.warn(`⚠️ Failed to fetch contact from HubSpot (${contactResponse.status})`);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error syncing contact ${contactId}:`, error);
+        }
+      } else {
+        console.log(`✅ Contact ${contactId} already exists in hs_contacts`);
+      }
+    }
+
     // Fetch automation and category details
     const { data: automationData, error: automationError } = await supabase
       .from('task_automations')
@@ -451,6 +556,8 @@ serve(async (req) => {
     console.log(`Planned execution timestamp (display): ${displayTimestamp}`);
 
     // Create automation run entry
+    // Note: hs_contact_id is now nullable. If contact sync failed above, it will be NULL
+    // and will be resolved at execution time via hs_membership_id
     const runData: any = {
       automation_id,
       type: trigger_type === 'list_entry' ? 'create_on_entry' : 'create_from_sequence',
@@ -465,8 +572,10 @@ serve(async (req) => {
       hs_action_successful: false,
       position_in_sequence: positionInSequence,
       hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null,
-      hs_contact_id: trigger_type === 'list_entry' ? hs_object_id : associated_contact_id
+      hs_contact_id: contactId || null // Will be NULL if contact sync failed
     };
+    
+    console.log(`📝 Creating automation run with contact_id: ${contactId || 'NULL (will resolve later)'}, membership_id: ${membership_id || 'N/A'}`);
     
     const { data: automationRun, error: insertError } = await supabase
       .from('task_automation_runs')

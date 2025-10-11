@@ -138,6 +138,112 @@ Deno.serve(async (req) => {
         const runMetadata = []; // Track run details for later processing
 
       for (const run of dueRuns) {
+        // ==== PHASE 3: CONTACT RESOLUTION ====
+        // If hs_contact_id is NULL, try to resolve via hs_membership_id
+        let contactId = run.hs_contact_id;
+        
+        if (!contactId && run.hs_membership_id) {
+          console.log(`[${executionId}] ⚠️ Run ${run.id} has NULL contact, resolving via membership ${run.hs_membership_id}...`);
+          
+          try {
+            const { data: membership, error: membershipError } = await supabase
+              .from('hs_list_memberships')
+              .select('hs_object_id')
+              .eq('id', run.hs_membership_id)
+              .maybeSingle();
+            
+            if (membershipError) {
+              console.error(`[${executionId}] ❌ Error fetching membership:`, membershipError);
+            } else if (membership?.hs_object_id) {
+              contactId = membership.hs_object_id;
+              console.log(`[${executionId}] ✅ Resolved contact ${contactId} from membership`);
+              
+              // Try one more contact sync attempt
+              console.log(`[${executionId}] 🔄 Attempting to sync contact ${contactId}...`);
+              
+              const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
+              if (hubspotToken) {
+                try {
+                  const contactResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${hubspotToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      inputs: [{ id: contactId }],
+                      properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage']
+                    }),
+                  });
+
+                  if (contactResponse.ok) {
+                    const contactData = await contactResponse.json();
+                    const contacts = contactData.results || [];
+                    
+                    if (contacts.length > 0) {
+                      const contact = contacts[0];
+                      
+                      const parseContactTimestamp = (value: any): string | null => {
+                        if (!value || value === '' || value === 'null' || value === '0') return null;
+                        if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+                          const date = new Date(value);
+                          return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+                        }
+                        const timestamp = parseInt(String(value));
+                        if (isNaN(timestamp) || timestamp === 0) return null;
+                        const date = new Date(timestamp);
+                        return date.getFullYear() > 1970 ? date.toISOString() : null;
+                      };
+                      
+                      const contactToUpsert = {
+                        hs_object_id: contact.id,
+                        firstname: contact.properties?.firstname || null,
+                        lastname: contact.properties?.lastname || null,
+                        mobilephone: contact.properties?.mobilephone || null,
+                        ensol_source_group: contact.properties?.ensol_source_group || null,
+                        hs_lead_status: contact.properties?.hs_lead_status || null,
+                        lifecyclestage: contact.properties?.lifecyclestage || null,
+                        createdate: parseContactTimestamp(contact.properties?.createdate),
+                        lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+                        updated_at: new Date().toISOString()
+                      };
+                      
+                      await supabase
+                        .from('hs_contacts')
+                        .upsert(contactToUpsert, { 
+                          onConflict: 'hs_object_id',
+                          ignoreDuplicates: false 
+                        });
+                      
+                      console.log(`[${executionId}] ✅ Synced contact ${contactId} to hs_contacts`);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`[${executionId}] ⚠️ Failed to sync contact:`, error);
+                }
+              }
+            } else {
+              console.error(`[${executionId}] ❌ Membership ${run.hs_membership_id} not found or has no hs_object_id`);
+            }
+          } catch (error) {
+            console.error(`[${executionId}] ❌ Error resolving contact via membership:`, error);
+          }
+        }
+        
+        // If still no contact, skip this run and mark as failed
+        if (!contactId) {
+          console.error(`[${executionId}] ❌ Cannot process run ${run.id}: no contact ID available`);
+          
+          await supabase
+            .from('task_automation_runs')
+            .update({ 
+              failure_description: 'Failed to resolve contact ID. Contact not found in hs_contacts and could not be synced from HubSpot.',
+            })
+            .eq('id', run.id);
+          
+          continue; // Skip this run
+        }
+        
         // Determine owner ID based on task_owner_setting
         let hubspotOwnerId = null;
         if (run.task_owner_setting === 'contact_owner') {
@@ -156,7 +262,7 @@ Deno.serve(async (req) => {
           },
           associations: [
             {
-              to: { id: run.hs_contact_id },
+              to: { id: contactId },
               types: [
                 {
                   associationCategory: 'HUBSPOT_DEFINED',
@@ -180,7 +286,7 @@ Deno.serve(async (req) => {
           planned_execution_timestamp: run.planned_execution_timestamp,
           position_in_sequence: run.position_in_sequence,
           hubspot_owner_id: hubspotOwnerId,
-          hs_contact_id: run.hs_contact_id,
+          hs_contact_id: contactId,
         });
       }
 
