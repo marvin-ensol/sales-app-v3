@@ -63,12 +63,7 @@ export const RealtimeStatusIndicator = () => {
 
   const status = useMemo(() => getOverallStatus(), [allHealth, isOnline]);
 
-  // Early return if no subscriptions
-  if (connectionCount === 0) {
-    return null;
-  }
-
-  const getStatusColor = () => {
+  const statusColor = useMemo(() => {
     switch (status) {
       case 'connected':
         return 'bg-green-500';
@@ -81,9 +76,9 @@ export const RealtimeStatusIndicator = () => {
       default:
         return 'bg-gray-400';
     }
-  };
+  }, [status]);
 
-  const getStatusIcon = () => {
+  const statusIcon = useMemo(() => {
     switch (status) {
       case 'connected':
         return <Wifi className="h-4 w-4" />;
@@ -94,9 +89,9 @@ export const RealtimeStatusIndicator = () => {
       default:
         return <RefreshCw className="h-4 w-4 animate-spin" />;
     }
-  };
+  }, [status]);
 
-  const getStatusText = () => {
+  const statusText = useMemo(() => {
     switch (status) {
       case 'connected':
         return `Connected (${connectionCount})`;
@@ -111,7 +106,12 @@ export const RealtimeStatusIndicator = () => {
       default:
         return 'Unknown';
     }
-  };
+  }, [status, connectionCount]);
+
+  // Early return if no subscriptions
+  if (connectionCount === 0) {
+    return null;
+  }
 
   const handleReconnectAll = () => {
     console.log('[RealtimeStatusIndicator] Reconnecting all subscriptions');
@@ -131,9 +131,9 @@ export const RealtimeStatusIndicator = () => {
           size="sm"
           className="gap-2 h-8 px-2"
         >
-          <div className={`h-2 w-2 rounded-full ${getStatusColor()}`} />
-          {getStatusIcon()}
-          <span className="text-xs hidden sm:inline">{getStatusText()}</span>
+          <div className={`h-2 w-2 rounded-full ${statusColor}`} />
+          {statusIcon}
+          <span className="text-xs hidden sm:inline">{statusText}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96" align="end">
