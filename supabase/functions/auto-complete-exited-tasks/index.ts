@@ -286,7 +286,6 @@ Deno.serve(async (req) => {
     let totalTasksCompleted = 0;
     let totalContactsExited = 0;
     let totalSequenceTasksBlocked = 0;
-    const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
 
     for (const [automationId, { automation, tasks }] of tasksByAutomation) {
       console.log(`[${runId}] 🔄 Processing automation ${automationId} with ${tasks.length} tasks`);
