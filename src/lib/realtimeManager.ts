@@ -33,6 +33,8 @@ class RealtimeManager {
   private reconnectTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private isOnline: boolean = true;
   private callbacks: Map<string, Set<ChangeCallback>> = new Map();
+  private configsByChannel: Map<string, SubscriptionConfig[]> = new Map();
+  private readonly MAX_RECONNECT_ATTEMPTS = 6;
 
   private constructor() {
     this.setupNetworkListeners();
@@ -66,7 +68,12 @@ class RealtimeManager {
     configs: SubscriptionConfig[],
     callback: ChangeCallback
   ): SubscriptionHandle {
-    console.log(`[RealtimeManager] Subscribing to channel: ${channelId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[RealtimeManager] Subscribing to channel: ${channelId}`);
+    }
+
+    // Store configs for this channel
+    this.configsByChannel.set(channelId, configs);
 
     // Add callback to set
     if (!this.callbacks.has(channelId)) {
@@ -74,7 +81,7 @@ class RealtimeManager {
     }
     this.callbacks.get(channelId)!.add(callback);
 
-    // Create or reuse channel
+    // Create or reuse channel (only if not already exists)
     if (!this.channels.has(channelId)) {
       this.createChannel(channelId, configs);
     }
@@ -99,6 +106,12 @@ class RealtimeManager {
   }
 
   private createChannel(channelId: string, configs: SubscriptionConfig[]) {
+    // Prevent duplicate channel creation
+    if (this.channels.has(channelId)) {
+      console.warn(`[RealtimeManager] Channel ${channelId} already exists, skipping creation`);
+      return;
+    }
+
     const channel = supabase.channel(channelId);
 
     // Add all subscription configs
@@ -117,7 +130,9 @@ class RealtimeManager {
         'postgres_changes' as any,
         pgConfig,
         (payload: any) => {
-          console.log(`[RealtimeManager] Change detected on ${config.table}:`, payload);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[RealtimeManager] Change on ${config.table}`);
+          }
           this.handleChange(channelId, payload);
         }
       );
@@ -125,7 +140,9 @@ class RealtimeManager {
 
     // Subscribe with status callback
     channel.subscribe((status: string) => {
-      console.log(`[RealtimeManager] Subscription status for ${channelId}:`, status);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[RealtimeManager] ${channelId}: ${status}`);
+      }
       this.handleStatusChange(channelId, status);
     });
 
@@ -178,10 +195,24 @@ class RealtimeManager {
 
     const attempts = this.reconnectAttempts.get(channelId) || 0;
     
+    // Circuit breaker: stop after max attempts
+    if (attempts >= this.MAX_RECONNECT_ATTEMPTS) {
+      console.warn(`[RealtimeManager] Max reconnect attempts (${this.MAX_RECONNECT_ATTEMPTS}) reached for ${channelId}`);
+      const health = this.subscriptionHealth.get(channelId);
+      if (health) {
+        health.status = 'error';
+        health.lastError = `Failed after ${this.MAX_RECONNECT_ATTEMPTS} attempts`;
+        this.subscriptionHealth.set(channelId, health);
+      }
+      return;
+    }
+    
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
     const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
     
-    console.log(`[RealtimeManager] Scheduling reconnect for ${channelId} in ${delay}ms (attempt ${attempts + 1})`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[RealtimeManager] Scheduling reconnect for ${channelId} in ${delay}ms (attempt ${attempts + 1})`);
+    }
     
     // Clear existing timeout
     const existingTimeout = this.reconnectTimeouts.get(channelId);
@@ -190,7 +221,6 @@ class RealtimeManager {
     }
 
     const timeout = setTimeout(() => {
-      console.log(`[RealtimeManager] Attempting reconnect for ${channelId}`);
       this.reconnectAttempts.set(channelId, attempts + 1);
       this.forceReconnect(channelId);
     }, delay);
@@ -199,7 +229,9 @@ class RealtimeManager {
   }
 
   unsubscribe(channelId: string, callback: ChangeCallback) {
-    console.log(`[RealtimeManager] Unsubscribing callback from channel: ${channelId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[RealtimeManager] Unsubscribing from channel: ${channelId}`);
+    }
     
     const callbacks = this.callbacks.get(channelId);
     if (callbacks) {
@@ -213,7 +245,16 @@ class RealtimeManager {
   }
 
   private removeChannel(channelId: string) {
-    console.log(`[RealtimeManager] Removing channel: ${channelId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[RealtimeManager] Removing channel: ${channelId}`);
+    }
+    
+    // Clear timeout first to prevent race conditions
+    const timeout = this.reconnectTimeouts.get(channelId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.reconnectTimeouts.delete(channelId);
+    }
     
     const channel = this.channels.get(channelId);
     if (channel) {
@@ -224,12 +265,7 @@ class RealtimeManager {
     this.subscriptionHealth.delete(channelId);
     this.reconnectAttempts.delete(channelId);
     this.callbacks.delete(channelId);
-    
-    const timeout = this.reconnectTimeouts.get(channelId);
-    if (timeout) {
-      clearTimeout(timeout);
-      this.reconnectTimeouts.delete(channelId);
-    }
+    this.configsByChannel.delete(channelId);
   }
 
   getHealth(channelId: string): HealthMetrics {
@@ -243,39 +279,55 @@ class RealtimeManager {
   }
 
   forceReconnect(channelId: string) {
-    console.log(`[RealtimeManager] Force reconnecting channel: ${channelId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[RealtimeManager] Force reconnecting channel: ${channelId}`);
+    }
     
     const callbacks = this.callbacks.get(channelId);
     if (!callbacks || callbacks.size === 0) return;
 
-    // Store configs before removing
-    const channel = this.channels.get(channelId);
-    if (!channel) return;
+    // Get stored configs for this channel
+    const configs = this.configsByChannel.get(channelId);
+    if (!configs) {
+      console.error(`[RealtimeManager] No configs found for channel: ${channelId}`);
+      return;
+    }
 
     // Remove old channel
-    supabase.removeChannel(channel);
-    this.channels.delete(channelId);
+    const channel = this.channels.get(channelId);
+    if (channel) {
+      supabase.removeChannel(channel);
+      this.channels.delete(channelId);
+    }
 
-    // Recreate with stored callbacks
-    const configs: SubscriptionConfig[] = [
-      { schema: 'public', table: 'hs_tasks', event: '*' },
-      { schema: 'public', table: 'hs_contacts', event: '*' },
-    ];
+    // Clear timeout to prevent duplicate reconnects
+    const timeout = this.reconnectTimeouts.get(channelId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.reconnectTimeouts.delete(channelId);
+    }
 
+    // Recreate with original configs
     this.createChannel(channelId, configs);
   }
 
   pauseAll() {
-    console.log('[RealtimeManager] Pausing all subscriptions');
-    this.channels.forEach((channel, channelId) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[RealtimeManager] Pausing all subscriptions');
+    }
+    this.channels.forEach((channel) => {
       supabase.removeChannel(channel);
     });
     this.updateAllHealthStatus('disconnected');
   }
 
   resumeAll() {
-    console.log('[RealtimeManager] Resuming all subscriptions');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[RealtimeManager] Resuming all subscriptions');
+    }
     this.channels.forEach((_, channelId) => {
+      // Reset reconnect attempts on manual resume
+      this.reconnectAttempts.set(channelId, 0);
       this.forceReconnect(channelId);
     });
   }
