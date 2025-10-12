@@ -204,6 +204,28 @@ Deno.serve(async (req) => {
               continue;
             }
 
+            // VALIDATE: Check if all contact IDs were found
+            const foundContactIds = new Set(contacts.map(c => c.hs_object_id));
+            const missingContactIds = contactIds.filter(id => !foundContactIds.has(id));
+
+            if (missingContactIds.length > 0) {
+              console.warn(`[Batch Run ${batchRun.id}] ⚠️ Warning: ${missingContactIds.length} contact(s) not found in hs_contacts:`, missingContactIds.slice(0, 5));
+            }
+
+            if (contacts.length === 0) {
+              console.error(`[Batch Run ${batchRun.id}] ❌ No valid contacts found - skipping batch`);
+              await supabase
+                .from('task_automation_runs')
+                .update({
+                  hs_action_successful: false,
+                  failure_description: `No valid contacts found in hs_contacts. Contact IDs: ${contactIds.slice(0, 10).join(', ')}...`
+                })
+                .eq('id', batchRun.id);
+              continue;
+            }
+
+            console.log(`[Batch Run ${batchRun.id}] ✅ Found ${contacts.length}/${contactIds.length} valid contacts in database`);
+
             // Build batch task inputs
             const batchInputs = contacts.map(contact => {
               const taskInput: any = {
@@ -256,8 +278,14 @@ Deno.serve(async (req) => {
             const batchResult = await batchResponse.json();
             const successfulTasks = batchResult.results || [];
             const failedTasks = batchResult.errors || [];
+            const successfulTaskIds = successfulTasks.map((task: any) => task.id);
 
-            console.log(`[${executionId}] ✅ HubSpot batch result: ${successfulTasks.length} successful, ${failedTasks.length} failed`);
+            console.log(`[Batch Run ${batchRun.id}] ✅ Successfully created ${successfulTaskIds.length}/${contactIds.length} tasks in HubSpot`);
+            console.log(`[Batch Run ${batchRun.id}] Task IDs: ${successfulTaskIds.slice(0, 10).join(', ')}${successfulTaskIds.length > 10 ? '...' : ''}`);
+
+            if (failedTasks.length > 0) {
+              console.warn(`[Batch Run ${batchRun.id}] ⚠️ ${failedTasks.length} task(s) failed:`, JSON.stringify(failedTasks.slice(0, 3)));
+            }
 
             if (successfulTasks.length === 0) {
               console.error(`[${executionId}] ❌ No tasks created in HubSpot`);
@@ -303,7 +331,6 @@ Deno.serve(async (req) => {
             }
 
             // Update automation run with results
-            const successfulTaskIds = successfulTasks.map((t: any) => t.id);
             await supabase
               .from('task_automation_runs')
               .update({

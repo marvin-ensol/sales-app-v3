@@ -26,6 +26,10 @@ interface TaskAutomation {
   hs_list_id: string;
   hs_list_object: string;
   task_category_id: number;
+  first_task_creation: boolean;
+  schedule_enabled: boolean;
+  schedule_configuration: any;
+  timezone: string;
 }
 
 interface ExistingMembership {
@@ -66,7 +70,11 @@ serve(async (req) => {
         id,
         hs_list_id,
         hs_list_object,
-        task_category_id
+        task_category_id,
+        first_task_creation,
+        schedule_enabled,
+        schedule_configuration,
+        timezone
       `)
       .eq('automation_enabled', true)
       .not('hs_list_id', 'is', null);
@@ -286,6 +294,9 @@ serve(async (req) => {
         
         console.log(`[${executionId}] ✅ Completed processing automation ${automation.id} (last_api_call: ${syncStartTime})`);
         totalProcessed++;
+
+        // Log whether batch creation will be triggered
+        console.log(`[${executionId}] 📋 Automation ${automation.id}: first_task_creation=${automation.first_task_creation}, newMemberships=${newMemberships.length}`);
 
         // If first_task_creation is enabled, create a single batch automation run record
         if (automation.first_task_creation && newMemberships.length > 0) {
