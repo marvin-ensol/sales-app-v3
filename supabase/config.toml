@@ -80,6 +80,9 @@ verify_jwt = false
 [functions.retrigger-membership]
 verify_jwt = false
 
+[functions.handle-hubspot-webhook]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324
