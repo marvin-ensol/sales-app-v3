@@ -241,10 +241,16 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
-      // Step 1: Fetch all enabled automation IDs with auto_complete_on_engagement
+      // Step 1: Fetch all enabled automation IDs with auto_complete_on_engagement and their queue IDs
       const { data: automations, error: automationsError } = await supabase
         .from('task_automations')
-        .select('id')
+        .select(`
+          id,
+          task_category_id,
+          task_categories!inner (
+            hs_queue_id
+          )
+        `)
         .eq('automation_enabled', true)
         .eq('auto_complete_on_engagement', true);
 
@@ -259,25 +265,33 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
-      const automationIds = automations.map(a => a.id);
-      console.log(`[Call Creations] Found ${automationIds.length} automation(s) with auto_complete_on_engagement enabled`);
+      // Create mapping of queue_id -> automation_id for later use
+      const queueToAutomationMap = new Map();
+      const queueIds = automations
+        .map(a => {
+          const queueId = a.task_categories?.hs_queue_id;
+          if (queueId) {
+            queueToAutomationMap.set(queueId, a.id);
+          }
+          return queueId;
+        })
+        .filter(Boolean);
 
-      // Step 2: Find incomplete tasks for this contact created by these automations
+      console.log(`[Call Creations] Found ${queueIds.length} queue(s) with auto_complete_on_engagement enabled: ${queueIds.join(', ')}`);
+
+      // Step 2: Find incomplete tasks for this contact in queues related to enabled automations
       const { data: tasks, error: tasksError } = await supabase
         .from('hs_tasks')
         .select(`
           hs_object_id,
           hs_task_subject,
           hubspot_owner_id,
-          number_in_sequence,
-          created_by_automation_id,
           hs_queue_membership_ids,
           hs_timestamp
         `)
         .eq('associated_contact_id', contactId)
         .neq('hs_task_status', 'COMPLETED')
-        .not('created_by_automation_id', 'is', null)
-        .in('created_by_automation_id', automationIds);
+        .in('hs_queue_membership_ids', queueIds);
 
       if (tasksError) {
         console.error(`[Call Creations] Error fetching tasks for contact ${contactId}:`, tasksError);
@@ -290,17 +304,23 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
+      // Enrich tasks with their automation_id based on their queue
+      const enrichedTasks = tasks.map(task => ({
+        ...task,
+        automation_id_for_run: queueToAutomationMap.get(task.hs_queue_membership_ids)
+      }));
+
       // Separate tasks into due/overdue (complete) vs future (skip) based on timestamp
       const currentTime = new Date();
       const currentTimeMs = currentTime.getTime();
       
-      const tasksToComplete = tasks.filter(task => {
+      const tasksToComplete = enrichedTasks.filter(task => {
         if (!task.hs_timestamp) return true; // No due date = treat as due now
         const dueTimeMs = new Date(task.hs_timestamp).getTime();
         return dueTimeMs <= currentTimeMs; // Due or overdue
       });
 
-      const tasksToSkip = tasks.filter(task => {
+      const tasksToSkip = enrichedTasks.filter(task => {
         if (!task.hs_timestamp) return false; // No due date = not skipped
         const dueTimeMs = new Date(task.hs_timestamp).getTime();
         return dueTimeMs > currentTimeMs; // Future task
@@ -309,7 +329,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
       console.log(`[Call Creations] Found ${tasksToComplete.length} due/overdue task(s) to complete and ${tasksToSkip.length} future task(s) to skip for contact ${contactId}`);
 
       // Complete ALL tasks in HubSpot (both groups)
-      const taskUpdates = tasks.map(task => ({
+      const taskUpdates = enrichedTasks.map(task => ({
         id: task.hs_object_id,
         properties: {
           hs_task_status: 'COMPLETED'
@@ -345,7 +365,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_count: 1,
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
-            marked_completed_by_automation_id: task.created_by_automation_id,
+            marked_completed_by_automation_id: task.automation_id_for_run,
             marked_completed_by_automation_source: 'phone_call',
             is_skipped: null,
             updated_at: completionTime
@@ -361,7 +381,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         const { error: runError } = await supabase
           .from('task_automation_runs')
           .insert({
-            automation_id: task.created_by_automation_id,
+            automation_id: task.automation_id_for_run,
             type: 'complete_on_engagement',
             hs_trigger_object: 'engagement',
             hs_trigger_object_id: callId,
@@ -369,9 +389,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_action_successful: true,
             hs_actioned_task_ids: [task.hs_object_id],
             task_name: task.hs_task_subject,
-            hs_queue_id: task.hs_queue_membership_ids,
-            position_in_sequence: task.number_in_sequence,
-            hs_owner_id_previous_task: task.hubspot_owner_id
+            hs_queue_id: task.hs_queue_membership_ids
           });
 
         if (runError) {
@@ -388,7 +406,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_count: 1,
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
-            marked_completed_by_automation_id: task.created_by_automation_id,
+            marked_completed_by_automation_id: task.automation_id_for_run,
             marked_completed_by_automation_source: 'phone_call',
             is_skipped: true,
             updated_at: completionTime
@@ -404,7 +422,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         const { error: runError } = await supabase
           .from('task_automation_runs')
           .insert({
-            automation_id: task.created_by_automation_id,
+            automation_id: task.automation_id_for_run,
             type: 'complete_on_engagement',
             hs_trigger_object: 'engagement',
             hs_trigger_object_id: callId,
@@ -412,9 +430,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_action_successful: true,
             hs_actioned_task_ids: [task.hs_object_id],
             task_name: task.hs_task_subject,
-            hs_queue_id: task.hs_queue_membership_ids,
-            position_in_sequence: task.number_in_sequence,
-            hs_owner_id_previous_task: task.hubspot_owner_id
+            hs_queue_id: task.hs_queue_membership_ids
           });
 
         if (runError) {
@@ -423,7 +439,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
       }
 
       console.log(`[Call Creations] Completed ${tasksToComplete.length} due/overdue task(s) (is_skipped=null) and ${tasksToSkip.length} future task(s) (is_skipped=true)`);
-      console.log(`[Call Creations] Successfully processed ${tasks.length} total task(s) for call ${callId}`);
+      console.log(`[Call Creations] Successfully processed ${enrichedTasks.length} total task(s) for call ${callId}`);
       successful++;
 
     } catch (error) {
