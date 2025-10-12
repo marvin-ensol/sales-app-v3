@@ -22,6 +22,9 @@ export interface CategoryFormData {
   locks_lower_categories: boolean;
   task_display_order: string;
   order_by_position_in_sequence: boolean;
+  display_single_task: boolean;
+  display_tasks_without_owner: boolean;
+  force_task_assignment: boolean;
 }
 
 export interface SequenceFormData {
@@ -88,7 +91,10 @@ export const useTaskCategoriesManagement = () => {
           system_default: false,
           locks_lower_categories: categoryData.locks_lower_categories ?? false,
           task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
-          order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false
+          order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false,
+          display_single_task: categoryData.display_single_task ?? false,
+          display_tasks_without_owner: categoryData.display_tasks_without_owner ?? false,
+          force_task_assignment: categoryData.force_task_assignment ?? false
         })
         .select()
         .single();
@@ -118,7 +124,10 @@ export const useTaskCategoriesManagement = () => {
         visible_team_ids: categoryData.visible_team_ids || [],
         locks_lower_categories: categoryData.locks_lower_categories ?? false,
         task_display_order: categoryData.task_display_order || 'oldest_tasks_first',
-        order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false
+        order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false,
+        display_single_task: categoryData.display_single_task ?? false,
+        display_tasks_without_owner: categoryData.display_tasks_without_owner ?? false,
+        force_task_assignment: categoryData.force_task_assignment ?? false
       };
 
       // Optimistically update local state first

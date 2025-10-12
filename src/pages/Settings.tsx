@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff, ExternalLink, Settings2, Eye, ListOrdered, Lock, HelpCircle } from "lucide-react";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff, ExternalLink, Settings2, Eye, ListOrdered, Lock, HelpCircle, CircleAlert, CircleUser } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement, CategoryFormData } from "@/hooks/useTaskCategoriesManagement";
 import { useTaskAutomationsManagement, TaskAutomation } from "@/hooks/useTaskAutomationsManagement";
@@ -33,9 +33,9 @@ const Settings = () => {
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -97,13 +97,16 @@ const Settings = () => {
       visible_team_ids: category.visible_team_ids || teams.map(team => team.id),
       locks_lower_categories: category.locks_lower_categories || false,
       task_display_order: category.task_display_order || "oldest_tasks_first",
-      order_by_position_in_sequence: category.order_by_position_in_sequence || false
+      order_by_position_in_sequence: category.order_by_position_in_sequence || false,
+      display_single_task: category.display_single_task || false,
+      display_tasks_without_owner: category.display_tasks_without_owner || false,
+      force_task_assignment: category.force_task_assignment || false
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
   };
 
   const handleEditSave = async () => {
@@ -122,7 +125,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -152,7 +155,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -646,33 +649,111 @@ const Settings = () => {
                               </div>
                             </div>
 
-                            {/* Sub-card 4: Contraintes */}
-                            {/* Hide locking feature for "Autres" category */}
-                            {category.hs_queue_id !== null && (
-                              <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
-                                <div className="flex items-center gap-2 mb-4">
-                                  <Lock className="h-5 w-5 text-muted-foreground" />
-                                  <h3 className="text-base font-medium">Contraintes</h3>
-                                </div>
+                            {/* Sub-card 4: Tâches sans propriétaire */}
+                            <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-4">
+                                <CircleUser className="h-5 w-5 text-muted-foreground" />
+                                <h3 className="text-base font-medium">Tâches sans propriétaire</h3>
+                              </div>
+                              <div className="space-y-3">
+                                {/* Display unassigned tasks toggle */}
                                 <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
                                   <div className="flex items-center gap-2">
-                                    <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
-                                      Verrouiller les catégories en dessous
+                                    <Label htmlFor={`edit-display-unassigned-${category.id}`} className="text-sm font-medium">
+                                      Afficher les tâches sans propriétaire
                                     </Label>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p className="max-w-xs">Quand cette catégorie comporte au moins une tâche à faire</p>
+                                        <p className="max-w-xs">Tous les utilisateurs pouvant voir cette catégorie y voient les tâches sans propriétaire en plus de celles dont ils seraient propriétaires</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </div>
                                   <Switch
-                                    id={`edit-locks-${category.id}`}
-                                    checked={editForm.locks_lower_categories}
-                                    onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
+                                    id={`edit-display-unassigned-${category.id}`}
+                                    checked={editForm.display_tasks_without_owner}
+                                    onCheckedChange={(checked) => setEditForm({...editForm, display_tasks_without_owner: checked})}
                                   />
+                                </div>
+
+                                {/* Force assignment toggle */}
+                                <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor={`edit-force-assignment-${category.id}`} className="text-sm font-medium">
+                                      Forcer l'auto-attribution d'une tâche sans propriétaire pour la traiter
+                                    </Label>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="max-w-xs">Un utilisateur ne peut pas appeler le contact ou ouvrir HubSpot pour une tâche sans propriétaire tant qu'il ne se l'est pas attribuée</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                  <Switch
+                                    id={`edit-force-assignment-${category.id}`}
+                                    checked={editForm.force_task_assignment}
+                                    onCheckedChange={(checked) => setEditForm({...editForm, force_task_assignment: checked})}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Sub-card 5: Focus */}
+                            {/* Hide locking feature for "Autres" category */}
+                            {category.hs_queue_id !== null && (
+                              <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-4">
+                                  <CircleAlert className="h-5 w-5 text-muted-foreground" />
+                                  <h3 className="text-base font-medium">Focus</h3>
+                                </div>
+                                <div className="space-y-3">
+                                  {/* Locking toggle */}
+                                  <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                    <div className="flex items-center gap-2">
+                                      <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
+                                        Verrouiller les catégories sous celle-ci
+                                      </Label>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="max-w-xs">Quand cette catégorie comporte au moins une tâche arrivée à échéance</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                    <Switch
+                                      id={`edit-locks-${category.id}`}
+                                      checked={editForm.locks_lower_categories}
+                                      onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
+                                    />
+                                  </div>
+
+                                  {/* Display single task toggle */}
+                                  <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                    <div className="flex items-center gap-2">
+                                      <Label htmlFor={`edit-single-task-${category.id}`} className="text-sm font-medium">
+                                        N'afficher qu'une tâche à la fois
+                                      </Label>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="max-w-xs">Permet de garantir que l'ordre d'exécution des tâches suit l'ordre d'affichage paramétré</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                    <Switch
+                                      id={`edit-single-task-${category.id}`}
+                                      checked={editForm.display_single_task}
+                                      onCheckedChange={(checked) => setEditForm({...editForm, display_single_task: checked})}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -906,7 +987,7 @@ const Settings = () => {
                           variant="outline"
                            onClick={() => {
                              setShowCreateForm(false);
-                             setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false });
+                             setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
                            }}
                           disabled={isSubmitting}
                         >
