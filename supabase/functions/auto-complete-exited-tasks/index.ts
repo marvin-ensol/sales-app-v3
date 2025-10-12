@@ -205,12 +205,25 @@ Deno.serve(async (req) => {
 
     if (!eligibleTasks || eligibleTasks.length === 0) {
       console.log(`[${runId}] ✅ No eligible tasks to process`);
+      
+      // Mark memberships as processed even if no tasks found
+      console.log(`[${runId}] ✅ Marking ${membership_ids.length} memberships as processed (no tasks case)`);
+      const { error: markProcessedError } = await supabase
+        .from('hs_list_memberships')
+        .update({ exit_processed_at: new Date().toISOString() })
+        .in('id', membership_ids);
+
+      if (markProcessedError) {
+        console.error(`[${runId}] ⚠️ Failed to mark memberships as processed:`, markProcessedError.message);
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'No eligible tasks to process',
           tasksProcessed: 0,
-          actionsCreated: 0
+          actionsCreated: 0,
+          membershipsProcessed: membership_ids.length
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
@@ -411,11 +424,11 @@ Deno.serve(async (req) => {
         let cancelFailureDescription = null;
 
         try {
-          // Query ALL pending create_from_sequence runs for ALL exited contacts
+          // Query ALL pending runs (both initial and sequence) for ALL exited contacts
           const { data: pendingRuns, error: queryError } = await supabase
             .from('task_automation_runs')
             .select('id')
-            .eq('type', 'create_from_sequence')
+            .in('type', ['create_on_entry', 'create_from_sequence'])
             .eq('hs_action_successful', false)
             .in('hs_contact_id', exitedContactIds)
             .eq('hs_queue_id', automation.hs_queue_id)
@@ -437,12 +450,12 @@ Deno.serve(async (req) => {
               console.warn(`[${runId}] ⚠️ Failed to block ${runIds.length} pending sequence tasks:`, updateError.message);
               cancelFailureDescription = [{ message: `Update error: ${updateError.message}` }];
             } else {
-              console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending sequence tasks`);
+              console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending automation runs (initial + sequence tasks)`);
               blockedRunIds = runIds;
               totalSequenceTasksBlocked += runIds.length;
             }
           } else {
-            console.log(`[${runId}] ℹ️ No pending sequence tasks found to block`);
+            console.log(`[${runId}] ℹ️ No pending automation runs found to block`);
           }
         } catch (error: any) {
           console.error(`[${runId}] ❌ Error in sequence blocking:`, error.message);
