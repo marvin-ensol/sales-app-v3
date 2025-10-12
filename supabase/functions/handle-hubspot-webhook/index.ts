@@ -240,7 +240,28 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
-      // Find incomplete tasks for this contact with auto-completion enabled
+      // Step 1: Fetch all enabled automation IDs with auto_complete_on_engagement
+      const { data: automations, error: automationsError } = await supabase
+        .from('task_automations')
+        .select('id')
+        .eq('automation_enabled', true)
+        .eq('auto_complete_on_engagement', true);
+
+      if (automationsError) {
+        console.error(`[Call Creations] Error fetching automations:`, automationsError);
+        errors++;
+        continue;
+      }
+
+      if (!automations || automations.length === 0) {
+        console.log(`[Call Creations] No enabled automations with auto_complete_on_engagement found`);
+        continue;
+      }
+
+      const automationIds = automations.map(a => a.id);
+      console.log(`[Call Creations] Found ${automationIds.length} automation(s) with auto_complete_on_engagement enabled`);
+
+      // Step 2: Find incomplete tasks for this contact created by these automations
       const { data: tasks, error: tasksError } = await supabase
         .from('hs_tasks')
         .select(`
@@ -250,15 +271,12 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
           number_in_sequence,
           created_by_automation_id,
           hs_queue_membership_ids,
-          hs_timestamp,
-          task_automations!inner(
-            id,
-            auto_complete_on_engagement
-          )
+          hs_timestamp
         `)
         .eq('associated_contact_id', contactId)
         .neq('hs_task_status', 'COMPLETED')
-        .eq('task_automations.auto_complete_on_engagement', true);
+        .not('created_by_automation_id', 'is', null)
+        .in('created_by_automation_id', automationIds);
 
       if (tasksError) {
         console.error(`[Call Creations] Error fetching tasks for contact ${contactId}:`, tasksError);
