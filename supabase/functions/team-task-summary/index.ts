@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get all tasks for team owners
+    // Get all tasks for team owners (excluding skipped tasks)
     const { data: tasks, error: tasksError } = await supabase
       .from('hs_tasks')
       .select(`
@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
         hs_queue_membership_ids
       `)
       .eq('archived', false)
+      .is('is_skipped', null)
       .in('hubspot_owner_id', ownerIds);
 
     if (tasksError) {
@@ -204,7 +205,7 @@ Deno.serve(async (req) => {
           statusCategory = 'WAITING';
         }
 
-        // Check for overdue tasks
+        // Check for overdue tasks (excluding skipped tasks - already filtered in query)
         if ((task.hs_task_status === 'NOT_STARTED' || task.hs_task_status === 'WAITING') && task.hs_timestamp) {
           const dueDate = new Date(task.hs_timestamp);
           if (dueDate < now) {
