@@ -42,6 +42,8 @@ Deno.serve(async (req) => {
       .select('hs_object_id, hs_task_subject')
       .like('hs_task_subject', 'Tentative %');
 
+    const tentativeTaskIds = new Set<string>();
+
     if (tentativeError) {
       console.error('❌ Rule 1 fetch error:', tentativeError);
       result.errors.push({ rule: 1, error: tentativeError.message });
@@ -50,7 +52,7 @@ Deno.serve(async (req) => {
       for (const task of tentativeTasks) {
         const match = task.hs_task_subject?.match(/Tentative (\d+)/);
         if (match) {
-          const sequenceNumber = parseInt(match[1]);
+          const sequenceNumber = parseInt(match[1]) - 1;
           const { error: updateError } = await supabaseClient
             .from('hs_tasks')
             .update({ number_in_sequence: sequenceNumber })
@@ -61,20 +63,20 @@ Deno.serve(async (req) => {
             result.errors.push({ rule: 1, task_id: task.hs_object_id, error: updateError.message });
           } else {
             result.rule1_updated++;
+            tentativeTaskIds.add(task.hs_object_id);
           }
         }
       }
       console.log(`✅ Rule 1 completed: ${result.rule1_updated} tasks updated`);
     }
 
-    // Rule 2: Sequence numbering for non-22859490 queues
+    // Rule 2: Sequence numbering for all queues (excluding tasks handled by Rule 1)
     console.log('📋 Processing Rule 2: Queue sequence numbering...');
     
-    // Get all tasks that need sequence numbering (not queue 22859490)
+    // Get all tasks that need sequence numbering
     const { data: queueTasks, error: queueError } = await supabaseClient
       .from('hs_tasks')
       .select('hs_object_id, hs_queue_membership_ids, associated_contact_id, hs_createdate')
-      .neq('hs_queue_membership_ids', '22859490')
       .not('hs_queue_membership_ids', 'is', null)
       .not('associated_contact_id', 'is', null)
       .not('hs_createdate', 'is', null)
@@ -88,6 +90,11 @@ Deno.serve(async (req) => {
       const taskGroups: { [key: string]: any[] } = {};
       
       for (const task of queueTasks) {
+        // Skip tasks already processed by Rule 1 (Tentative pattern)
+        if (tentativeTaskIds.has(task.hs_object_id)) {
+          continue;
+        }
+        
         const groupKey = `${task.hs_queue_membership_ids}-${task.associated_contact_id}`;
         if (!taskGroups[groupKey]) {
           taskGroups[groupKey] = [];
