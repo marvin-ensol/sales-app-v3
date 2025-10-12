@@ -503,7 +503,7 @@ const Settings = () => {
                        >
                        {editingId === category.id ? (
                          /* Edit Mode */
-                         <TooltipProvider>
+                         <TooltipProvider delayDuration={200}>
                           <div className="space-y-4">
                             {/* Sub-card 1: Réglages de base */}
                             <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
@@ -543,7 +543,7 @@ const Settings = () => {
                                 {/* Hide Queue ID field for the fallback "Autres" category */}
                                 {category.hs_queue_id !== null && (
                                   <div>
-                                    <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                    <Label htmlFor={`edit-queue-${category.id}`}>Identifiant file d'attente HubSpot (Queue ID)</Label>
                                     <Input
                                       id={`edit-queue-${category.id}`}
                                       value={editForm.hs_queue_id}
@@ -754,7 +754,7 @@ const Settings = () => {
                                 {/* Hide Queue ID field for the fallback "Autres" category */}
                                 {category.hs_queue_id !== null && (
                                   <div>
-                                    <div className="text-sm text-gray-500 mb-1">Queue ID</div>
+                                    <div className="text-sm text-gray-500 mb-1">File d'attente</div>
                                     <div className="font-mono text-sm truncate">{category.hs_queue_id || "Non défini"}</div>
                                   </div>
                                 )}
