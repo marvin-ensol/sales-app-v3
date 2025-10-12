@@ -230,10 +230,11 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
-      if (durationMs < MIN_DURATION_MS) {
-        console.log(`[Call Creations] Skipping call ${callId}: duration too short (${durationMs}ms < ${MIN_DURATION_MS}ms)`);
-        continue;
-      }
+      // TEMPORARILY DISABLED: Duration check - uncomment to re-enable
+      // if (durationMs < MIN_DURATION_MS) {
+      //   console.log(`[Call Creations] Skipping call ${callId}: duration too short (${durationMs}ms < ${MIN_DURATION_MS}ms)`);
+      //   continue;
+      // }
 
       if (!contactId) {
         console.log(`[Call Creations] Skipping call ${callId}: no associated contact`);
