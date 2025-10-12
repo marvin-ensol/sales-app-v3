@@ -124,6 +124,16 @@ export const useEnhancedLocalTasks = ({
         
       case 'UPDATE':
         if (table === 'hs_tasks') {
+          // Check if task was deleted (soft delete)
+          if (newRecord?.hs_task_status === 'DELETED') {
+            console.log('🗑️ [ENHANCED] Task soft-deleted, optimistically removing:', newRecord.hs_object_id);
+            // Optimistically remove from state immediately
+            setTasks(prev => prev.filter(t => t.hubspotId !== newRecord.hs_object_id));
+            // Trigger immediate refetch for consistency
+            debouncedRefetch(0);
+            return;
+          }
+
           const wasRelevant = isRelevantToOwner(oldRecord);
           const isRelevant = isRelevantToOwner(newRecord);
           

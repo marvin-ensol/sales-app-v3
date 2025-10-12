@@ -85,6 +85,17 @@ export const useLocalTasks = (selectedOwnerId: string) => {
           },
           (payload) => {
             console.log('Real-time task change detected:', payload);
+            
+            // Handle soft-delete immediately
+            if (payload.eventType === 'UPDATE' && payload.new?.hs_task_status === 'DELETED') {
+              console.log('🗑️ Task soft-deleted, optimistically removing:', payload.new.hs_object_id);
+              // Optimistically remove from state immediately
+              setTasks(prev => prev.filter(t => t.hubspotId !== payload.new.hs_object_id));
+              // Refetch immediately for consistency
+              fetchTasks(selectedOwnerId);
+              return;
+            }
+            
             // Refetch tasks when any task changes
             fetchTasks(selectedOwnerId);
           }
