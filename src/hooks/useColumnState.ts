@@ -8,17 +8,20 @@ interface UseColumnStateProps {
   hasNewTasks: boolean;
   lockedColumns: string[];
   categories: TaskCategory[];
+  overdueCounts?: Record<string, number>;
 }
 
 export const useColumnState = ({
   notStartedTasks,
   hasNewTasks,
   lockedColumns,
-  categories
+  categories,
+  overdueCounts = {}
 }: UseColumnStateProps) => {
   const [expandedColumn, setExpandedColumn] = useState<string>("rappels");
   const [autoExpandInitialized, setAutoExpandInitialized] = useState(false);
   const [previousHasNewTasks, setPreviousHasNewTasks] = useState(false);
+  const [previousOverdueCounts, setPreviousOverdueCounts] = useState<Record<string, number>>({});
 
   // Auto-expand logic - handle initial load and new task changes
   useEffect(() => {
@@ -57,6 +60,27 @@ export const useColumnState = ({
       setPreviousHasNewTasks(hasNewTasks);
     }
   }, [hasNewTasks, previousHasNewTasks, autoExpandInitialized]);
+
+  // Auto-expand columns that newly have overdue tasks
+  useEffect(() => {
+    if (!autoExpandInitialized) return;
+
+    // Check each category for new overdue tasks
+    for (const category of categories) {
+      const currentOverdue = overdueCounts[category.id] || 0;
+      const previousOverdue = previousOverdueCounts[category.id] || 0;
+
+      // If this category went from 0 to ≥1 overdue tasks
+      if (previousOverdue === 0 && currentOverdue >= 1) {
+        console.log(`Category "${category.title}" now has ${currentOverdue} overdue task(s), auto-expanding`);
+        setExpandedColumn(category.id);
+        break; // Only expand the first category that meets the condition
+      }
+    }
+
+    // Update the tracking state
+    setPreviousOverdueCounts(overdueCounts);
+  }, [overdueCounts, categories, autoExpandInitialized, previousOverdueCounts]);
 
   // Update locked columns when categories or tasks change
   useEffect(() => {

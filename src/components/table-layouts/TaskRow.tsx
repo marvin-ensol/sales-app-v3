@@ -160,17 +160,24 @@ const TaskRow = ({
               </span>
             </div>
           ) : (
-            <div 
-              className={`font-medium text-sm text-gray-900 truncate transition-all duration-200 ${
+            <button
+              type="button"
+              onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
+              disabled={!task.contactPhone || task.isUnassigned}
+              className={`font-medium text-sm text-gray-900 truncate transition-all duration-200 inline-flex items-center gap-1 group/phone ${
                 task.contactPhone && !task.isUnassigned
-                  ? 'hover:text-blue-700 cursor-pointer' 
+                  ? 'hover:text-blue-700 hover:bg-blue-50 cursor-pointer rounded px-1 -mx-1 py-0.5' 
                   : ''
               }`}
-              onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
               title={task.contact}
             >
-              {task.contact.length > 20 ? `${task.contact.substring(0, 17)}...` : task.contact}
-            </div>
+              <span className="truncate">
+                {task.contact.length > 20 ? `${task.contact.substring(0, 17)}...` : task.contact}
+              </span>
+              {task.contactPhone && !task.isUnassigned && (
+                <Phone className="h-3 w-3 text-blue-600 opacity-0 group-hover/phone:opacity-100 transition-opacity duration-200 flex-shrink-0" />
+              )}
+            </button>
           )}
         </div>
         

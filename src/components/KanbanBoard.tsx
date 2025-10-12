@@ -86,7 +86,8 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
     notStartedTasks,
     hasNewTasks,
     lockedColumns,
-    categories
+    categories,
+    overdueCounts: teamSummary?.category_counts?.overdue_by_category || {}
   });
   console.log('Column state result:', { expandedColumn, lockedExpandableColumns });
   

@@ -270,22 +270,24 @@ const TaskCard = ({ task, onMove, onFrameUrlChange, showOwner, onTaskAssigned, s
               </span>
             </div>
           ) : (
-            <div 
-              className={`font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200`}
-              onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
-            >
-              <span className="inline-flex items-center gap-1">
-                <span className={`inline-block px-1 py-0.5 ${
+            <div className="font-bold text-gray-900 text-sm leading-tight break-words transition-all duration-200">
+              <button
+                type="button"
+                onClick={task.contactPhone && !task.isUnassigned ? handlePhoneClick : undefined}
+                disabled={!task.contactPhone || task.isUnassigned}
+                className={`inline-flex items-center gap-1 px-1 py-0.5 rounded transition-all duration-200 group/phone ${
                   task.contactPhone && !task.isUnassigned
-                    ? 'hover:bg-blue-100 hover:text-blue-800 hover:rounded hover:cursor-pointer' 
-                    : ''
-                }`}>
+                    ? 'hover:bg-blue-100 cursor-pointer' 
+                    : 'cursor-default'
+                }`}
+              >
+                <span className={task.contactPhone && !task.isUnassigned ? 'group-hover/phone:text-blue-800' : ''}>
                   {task.contact}
                 </span>
                 {task.contactPhone && !task.isUnassigned && (
-                  <Phone className="h-3 w-3 opacity-0 hover:opacity-100 transition-opacity duration-200" />
+                  <Phone className="h-3 w-3 text-blue-600 opacity-0 group-hover/phone:opacity-100 transition-opacity duration-200" />
                 )}
-              </span>
+              </button>
             </div>
           )}
         </div>
