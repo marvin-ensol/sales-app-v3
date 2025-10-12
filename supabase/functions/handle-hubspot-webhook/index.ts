@@ -345,7 +345,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_count: 1,
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
-            marked_completed_by_automation_id: task.task_automations.id,
+            marked_completed_by_automation_id: task.created_by_automation_id,
             marked_completed_by_automation_source: 'phone_call',
             is_skipped: null,
             updated_at: completionTime
@@ -361,7 +361,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         const { error: runError } = await supabase
           .from('task_automation_runs')
           .insert({
-            automation_id: task.task_automations.id,
+            automation_id: task.created_by_automation_id,
             type: 'complete_on_engagement',
             hs_trigger_object: 'engagement',
             hs_trigger_object_id: callId,
@@ -388,7 +388,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_count: 1,
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
-            marked_completed_by_automation_id: task.task_automations.id,
+            marked_completed_by_automation_id: task.created_by_automation_id,
             marked_completed_by_automation_source: 'phone_call',
             is_skipped: true,
             updated_at: completionTime
@@ -404,7 +404,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         const { error: runError } = await supabase
           .from('task_automation_runs')
           .insert({
-            automation_id: task.task_automations.id,
+            automation_id: task.created_by_automation_id,
             type: 'complete_on_engagement',
             hs_trigger_object: 'engagement',
             hs_trigger_object_id: callId,
