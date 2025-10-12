@@ -203,128 +203,230 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Log eligible tasks status (but don't return early)
     if (!eligibleTasks || eligibleTasks.length === 0) {
-      console.log(`[${runId}] ✅ No eligible tasks to process`);
-      
-      // Mark memberships as processed even if no tasks found
-      console.log(`[${runId}] ✅ Marking ${membership_ids.length} memberships as processed (no tasks case)`);
-      const { error: markProcessedError } = await supabase
-        .from('hs_list_memberships')
-        .update({ exit_processed_at: new Date().toISOString() })
-        .in('id', membership_ids);
-
-      if (markProcessedError) {
-        console.error(`[${runId}] ⚠️ Failed to mark memberships as processed:`, markProcessedError.message);
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'No eligible tasks to process',
-          tasksProcessed: 0,
-          actionsCreated: 0,
-          membershipsProcessed: membership_ids.length
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      console.log(`[${runId}] ℹ️ No open tasks to auto-complete, but will still process sequence exit blocking`);
+    } else {
+      console.log(`[${runId}] 📋 Found ${eligibleTasks.length} eligible tasks to auto-complete`);
     }
 
-    // Step 2: Filter and process eligible tasks
-    const tasksToProcess: EligibleTask[] = [];
+    // STEP 2: Build membership-based automation groups for exit blocking
+    console.log(`[${runId}] 🔍 Building automation groups from ${memberships.length} membership(s)...`);
     
-    for (const task of eligibleTasks) {
-      const queueId = task.hs_queue_membership_ids;
-      const categories = Array.isArray(task.task_categories) ? task.task_categories : [task.task_categories];
+    interface MembershipAutomationGroup {
+      automationId: string;
+      hs_list_id: string;
+      hs_queue_id: string;
+      automation_enabled: boolean;
+      auto_complete_on_exit_enabled: boolean;
+      sequence_exit_enabled: boolean;
+      exitedContactIds: string[];
+    }
+    
+    const membershipAutomationGroups = new Map<string, MembershipAutomationGroup>();
+    
+    for (const membership of memberships) {
+      if (!membership.automation_id) continue;
       
-      for (const category of categories) {
-        if (category.hs_queue_id === queueId) {
-          const automations = Array.isArray(category.task_automations) ? category.task_automations : [category.task_automations];
-          
-          for (const automation of automations) {
-            if (
-              automation.automation_enabled === true &&
-              automation.hs_list_id !== null &&
-              (automation.auto_complete_on_exit_enabled === true || automation.sequence_exit_enabled === true)
-            ) {
-              tasksToProcess.push({
-                task_id: task.hs_object_id,
-                task_queue_id: queueId,
-                associated_contact_id: task.associated_contact_id,
-                automation_id: automation.id,
-                automation_hs_list_id: automation.hs_list_id,
-                auto_complete_on_exit_enabled: automation.auto_complete_on_exit_enabled,
-                sequence_exit_enabled: automation.sequence_exit_enabled
-              });
-            }
-          }
+      const automationId = membership.automation_id;
+      if (!membershipAutomationGroups.has(automationId)) {
+        membershipAutomationGroups.set(automationId, {
+          automationId,
+          hs_list_id: membership.hs_list_id,
+          hs_queue_id: membership.hs_queue_id || '',
+          automation_enabled: false,
+          auto_complete_on_exit_enabled: false,
+          sequence_exit_enabled: false,
+          exitedContactIds: []
+        });
+      }
+      
+      const group = membershipAutomationGroups.get(automationId)!;
+      if (membership.hs_object_id && !group.exitedContactIds.includes(membership.hs_object_id)) {
+        group.exitedContactIds.push(membership.hs_object_id);
+      }
+    }
+    
+    // Fetch automation configs for these groups
+    const automationIds = Array.from(membershipAutomationGroups.keys());
+    const { data: automationConfigs, error: configError } = await supabase
+      .from('task_automations')
+      .select('id, automation_enabled, auto_complete_on_exit_enabled, sequence_exit_enabled, hs_list_id')
+      .in('id', automationIds);
+    
+    if (configError) {
+      console.error(`[${runId}] ⚠️ Failed to fetch automation configs:`, configError.message);
+    } else if (automationConfigs) {
+      for (const config of automationConfigs) {
+        const group = membershipAutomationGroups.get(config.id);
+        if (group) {
+          group.automation_enabled = config.automation_enabled;
+          group.auto_complete_on_exit_enabled = config.auto_complete_on_exit_enabled;
+          group.sequence_exit_enabled = config.sequence_exit_enabled;
         }
       }
     }
-
-    console.log(`[${runId}] 🎯 Filtered to ${tasksToProcess.length} tasks with active automations`);
-
-    // Step 3: Group tasks by automation ID
-    const tasksByAutomation = new Map<string, {
-      automation: {
-        id: string;
-        hs_list_id: string;
-        hs_queue_id: string;
-        auto_complete_on_exit_enabled: boolean;
-        sequence_exit_enabled: boolean;
-      };
-      tasks: EligibleTask[];
-    }>();
-
-    for (const task of tasksToProcess) {
-      const key = task.automation_id;
-      if (!tasksByAutomation.has(key)) {
-        tasksByAutomation.set(key, {
-          automation: {
-            id: task.automation_id,
-            hs_list_id: task.automation_hs_list_id,
-            hs_queue_id: task.task_queue_id,
-            auto_complete_on_exit_enabled: task.auto_complete_on_exit_enabled,
-            sequence_exit_enabled: task.sequence_exit_enabled
-          },
-          tasks: []
-        });
-      }
-      tasksByAutomation.get(key)!.tasks.push(task);
-    }
-
-    console.log(`[${runId}] 📊 Grouped into ${tasksByAutomation.size} automation(s)`);
-
-    // Step 4: Process each automation group
+    
+    console.log(`[${runId}] 📊 Found ${membershipAutomationGroups.size} unique automation(s) from memberships`);
+    
+    // STEP 3: Initialize tracking variables
     const automationRunsToCreate = [];
     let totalTasksCompleted = 0;
     let totalContactsExited = 0;
     let totalSequenceTasksBlocked = 0;
-
-    for (const [automationId, { automation, tasks }] of tasksByAutomation) {
-      console.log(`[${runId}] 🔄 Processing automation ${automationId} with ${tasks.length} tasks`);
-
-      // Get unique contact IDs for this automation's tasks
-      const uniqueContactIds = [...new Set(tasks.map(t => t.associated_contact_id))];
+    
+    // STEP 4: Process sequence exit blocking for ALL automation groups (independent of task completion)
+    for (const [automationId, group] of membershipAutomationGroups.entries()) {
+      totalContactsExited += group.exitedContactIds.length;
       
-      // Filter tasks to only those belonging to the contacts in our membership list
-      // (since we're only processing specific newly exited memberships)
-      const relevantContactIds = memberships
-        .filter(m => m.automation_id === automationId)
-        .map(m => m.hs_object_id);
-      
-      const exitedTasks = tasks.filter(task => relevantContactIds.includes(task.associated_contact_id));
-      
-      if (exitedTasks.length === 0) {
-        console.log(`[${runId}] ℹ️ No exited contacts for automation ${automationId}`);
+      if (!group.sequence_exit_enabled) {
+        console.log(`[${runId}] ⏭️ Skipping sequence blocking for automation ${automationId} (sequence_exit_enabled = false)`);
         continue;
       }
+      
+      console.log(`[${runId}] 🚫 Processing sequence exit blocking for automation ${automationId} with ${group.exitedContactIds.length} exited contact(s)`);
+      
+      let blockedRunIds: string[] = [];
+      let cancelFailureDescription = null;
+      
+      try {
+        // Query ALL pending runs (both initial and sequence) for ALL exited contacts
+        const { data: pendingRuns, error: queryError } = await supabase
+          .from('task_automation_runs')
+          .select('id')
+          .in('type', ['create_on_entry', 'create_from_sequence'])
+          .eq('hs_action_successful', false)
+          .in('hs_contact_id', group.exitedContactIds)
+          .eq('hs_queue_id', group.hs_queue_id)
+          .gt('planned_execution_timestamp', new Date().toISOString());
+        
+        if (queryError) {
+          console.warn(`[${runId}] ⚠️ Failed to query pending runs:`, queryError.message);
+          cancelFailureDescription = [{ message: `Query error: ${queryError.message}` }];
+        } else if (pendingRuns && pendingRuns.length > 0) {
+          const runIds = pendingRuns.map(r => r.id);
+          
+          // Block these runs
+          const { error: updateError } = await supabase
+            .from('task_automation_runs')
+            .update({ exit_contact_list_block: true })
+            .in('id', runIds);
+          
+          if (updateError) {
+            console.warn(`[${runId}] ⚠️ Failed to block ${runIds.length} pending runs:`, updateError.message);
+            cancelFailureDescription = [{ message: `Update error: ${updateError.message}` }];
+          } else {
+            console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending automation runs (initial + sequence tasks)`);
+            blockedRunIds = runIds;
+            totalSequenceTasksBlocked += runIds.length;
+          }
+        } else {
+          console.log(`[${runId}] ℹ️ No pending automation runs found to block for automation ${automationId}`);
+        }
+      } catch (error: any) {
+        console.error(`[${runId}] ❌ Error in sequence blocking for automation ${automationId}:`, error.message);
+        cancelFailureDescription = [{ message: error.message, stack: error.stack }];
+      }
+      
+      // Create cancel_on_exit automation run record
+      automationRunsToCreate.push({
+        automation_id: automationId,
+        type: 'cancel_on_exit',
+        hs_trigger_object: 'list_membership',
+        hs_trigger_object_id: group.hs_list_id,
+        hs_contact_id: group.exitedContactIds[0], // Use first contact as reference
+        hs_queue_id: group.hs_queue_id,
+        hs_action_successful: blockedRunIds.length > 0,
+        actioned_run_ids: blockedRunIds.length > 0 ? blockedRunIds : null,
+        failure_description: cancelFailureDescription
+      });
+    }
+    
+    // STEP 5: Process task auto-completion (only if there are eligible tasks)
+    if (eligibleTasks && eligibleTasks.length > 0) {
+      console.log(`[${runId}] 📋 Processing task auto-completion for ${eligibleTasks.length} eligible tasks`);
+      
+      // Filter and process eligible tasks
+      const tasksToProcess: EligibleTask[] = [];
+      
+      for (const task of eligibleTasks) {
+        const queueId = task.hs_queue_membership_ids;
+        const categories = Array.isArray(task.task_categories) ? task.task_categories : [task.task_categories];
+        
+        for (const category of categories) {
+          if (category.hs_queue_id === queueId) {
+            const automations = Array.isArray(category.task_automations) ? category.task_automations : [category.task_automations];
+            
+            for (const automation of automations) {
+              if (
+                automation.automation_enabled === true &&
+                automation.hs_list_id !== null &&
+                automation.auto_complete_on_exit_enabled === true
+              ) {
+                tasksToProcess.push({
+                  task_id: task.hs_object_id,
+                  task_queue_id: queueId,
+                  associated_contact_id: task.associated_contact_id,
+                  automation_id: automation.id,
+                  automation_hs_list_id: automation.hs_list_id,
+                  auto_complete_on_exit_enabled: automation.auto_complete_on_exit_enabled,
+                  sequence_exit_enabled: automation.sequence_exit_enabled
+                });
+              }
+            }
+          }
+        }
+      }
 
-      const exitedContactIds = [...new Set(exitedTasks.map(t => t.associated_contact_id))];
-      totalContactsExited += exitedContactIds.length;
-      console.log(`[${runId}] 🚪 ${exitedContactIds.length} contact(s) exited from list ${automation.hs_list_id} (with fresh contact data)`);
+      console.log(`[${runId}] 🎯 Filtered to ${tasksToProcess.length} tasks with auto_complete_on_exit enabled`);
 
-      // Sub-process 2.a: Auto-complete tasks if enabled
-      if (automation.auto_complete_on_exit_enabled) {
+      // Group tasks by automation ID
+      const tasksByAutomation = new Map<string, {
+        automation: {
+          id: string;
+          hs_list_id: string;
+          hs_queue_id: string;
+        };
+        tasks: EligibleTask[];
+      }>();
+
+      for (const task of tasksToProcess) {
+        const key = task.automation_id;
+        if (!tasksByAutomation.has(key)) {
+          tasksByAutomation.set(key, {
+            automation: {
+              id: task.automation_id,
+              hs_list_id: task.automation_hs_list_id,
+              hs_queue_id: task.task_queue_id
+            },
+            tasks: []
+          });
+        }
+        tasksByAutomation.get(key)!.tasks.push(task);
+      }
+
+      console.log(`[${runId}] 📊 Grouped into ${tasksByAutomation.size} automation(s) for completion`);
+
+      // Process each automation group for task completion
+      for (const [automationId, { automation, tasks }] of tasksByAutomation) {
+
+        console.log(`[${runId}] 🔄 Processing task completion for automation ${automationId} with ${tasks.length} tasks`);
+
+        // Filter tasks to only those belonging to the contacts in our membership list
+        const relevantContactIds = memberships
+          .filter(m => m.automation_id === automationId)
+          .map(m => m.hs_object_id);
+        
+        const exitedTasks = tasks.filter(task => relevantContactIds.includes(task.associated_contact_id));
+        
+        if (exitedTasks.length === 0) {
+          console.log(`[${runId}] ℹ️ No exited contacts for automation ${automationId}`);
+          continue;
+        }
+
+        const exitedContactIds = [...new Set(exitedTasks.map(t => t.associated_contact_id))];
+        console.log(`[${runId}] 🚪 ${exitedContactIds.length} contact(s) exited from list ${automation.hs_list_id} with ${exitedTasks.length} tasks to complete`);
+
         const taskIdsToComplete = exitedTasks.map(t => t.task_id);
         console.log(`[${runId}] 🎯 Auto-completing ${taskIdsToComplete.length} tasks via HubSpot batch API`);
 
@@ -417,69 +519,13 @@ Deno.serve(async (req) => {
           }
         }
       }
-
-      // Sub-process 2.b: Block future sequence tasks if enabled
-      if (automation.sequence_exit_enabled) {
-        let blockedRunIds: string[] = [];
-        let cancelFailureDescription = null;
-
-        try {
-          // Query ALL pending runs (both initial and sequence) for ALL exited contacts
-          const { data: pendingRuns, error: queryError } = await supabase
-            .from('task_automation_runs')
-            .select('id')
-            .in('type', ['create_on_entry', 'create_from_sequence'])
-            .eq('hs_action_successful', false)
-            .in('hs_contact_id', exitedContactIds)
-            .eq('hs_queue_id', automation.hs_queue_id)
-            .gt('planned_execution_timestamp', new Date().toISOString());
-
-          if (queryError) {
-            console.warn(`[${runId}] ⚠️ Error querying pending sequence tasks:`, queryError.message);
-            cancelFailureDescription = [{ message: `Query error: ${queryError.message}` }];
-          } else if (pendingRuns && pendingRuns.length > 0) {
-            const runIds = pendingRuns.map(r => r.id);
-            
-            // Batch update ALL identified runs
-            const { error: updateError } = await supabase
-              .from('task_automation_runs')
-              .update({ exit_contact_list_block: true })
-              .in('id', runIds);
-              
-            if (updateError) {
-              console.warn(`[${runId}] ⚠️ Failed to block ${runIds.length} pending sequence tasks:`, updateError.message);
-              cancelFailureDescription = [{ message: `Update error: ${updateError.message}` }];
-            } else {
-              console.log(`[${runId}] 🚫 Blocked ${runIds.length} pending automation runs (initial + sequence tasks)`);
-              blockedRunIds = runIds;
-              totalSequenceTasksBlocked += runIds.length;
-            }
-          } else {
-            console.log(`[${runId}] ℹ️ No pending automation runs found to block`);
-          }
-        } catch (error: any) {
-          console.error(`[${runId}] ❌ Error in sequence blocking:`, error.message);
-          cancelFailureDescription = [{ message: error.message }];
-        }
-
-        // Only create cancel_on_exit record if runs were blocked or an error occurred
-        if (blockedRunIds.length > 0 || cancelFailureDescription !== null) {
-          automationRunsToCreate.push({
-            automation_id: automation.id,
-            type: 'cancel_on_exit',
-            hs_trigger_object: 'list',
-            hs_trigger_object_id: automation.hs_list_id,
-            hs_queue_id: automation.hs_queue_id,
-            actioned_run_ids: blockedRunIds,
-            failure_description: cancelFailureDescription
-          });
-        }
-      }
+    } else {
+      console.log(`[${runId}] ℹ️ No eligible tasks to auto-complete`);
     }
 
     console.log(`[${runId}] 📝 Creating ${automationRunsToCreate.length} automation run record(s)`);
 
-    // Step 5: Batch insert automation runs
+    // STEP 6: Batch insert automation runs
     if (automationRunsToCreate.length > 0) {
       const { error: insertError } = await supabase
         .from('task_automation_runs')
@@ -492,7 +538,7 @@ Deno.serve(async (req) => {
       console.log(`[${runId}] ✅ Successfully created ${automationRunsToCreate.length} automation run record(s)`);
     }
 
-    // Mark these memberships as processed
+    // STEP 7: Mark these memberships as processed (always, even if no actions taken)
     console.log(`[${runId}] ✅ Marking ${membership_ids.length} memberships as processed`);
     const { error: markProcessedError } = await supabase
       .from('hs_list_memberships')
