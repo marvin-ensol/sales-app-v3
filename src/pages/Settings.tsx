@@ -679,14 +679,17 @@ const Settings = () => {
                                 </div>
 
                                 {/* Force assignment toggle */}
-                                <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                <div className={`flex items-center justify-between p-3 border rounded-lg ${editForm.display_tasks_without_owner ? 'bg-gray-50' : 'bg-gray-100 cursor-not-allowed'}`}>
                                   <div className="flex items-center gap-2">
-                                    <Label htmlFor={`edit-force-assignment-${category.id}`} className="text-sm font-medium">
+                                    <Label 
+                                      htmlFor={`edit-force-assignment-${category.id}`} 
+                                      className={`text-sm font-medium ${!editForm.display_tasks_without_owner ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
                                       Forcer l'auto-attribution d'une tâche sans propriétaire pour la traiter
                                     </Label>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                        <HelpCircle className={`h-4 w-4 text-muted-foreground ${!editForm.display_tasks_without_owner ? 'opacity-50 cursor-not-allowed' : 'cursor-help'}`} />
                                       </TooltipTrigger>
                                       <TooltipContent>
                                         <p className="max-w-xs">Un utilisateur ne peut pas appeler le contact ou ouvrir HubSpot pour une tâche sans propriétaire tant qu'il ne se l'est pas attribuée</p>
@@ -697,6 +700,8 @@ const Settings = () => {
                                     id={`edit-force-assignment-${category.id}`}
                                     checked={editForm.force_task_assignment}
                                     onCheckedChange={(checked) => setEditForm({...editForm, force_task_assignment: checked})}
+                                    disabled={!editForm.display_tasks_without_owner}
+                                    className={!editForm.display_tasks_without_owner ? 'cursor-not-allowed' : ''}
                                   />
                                 </div>
                               </div>
