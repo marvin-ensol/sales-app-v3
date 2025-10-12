@@ -1,3 +1,14 @@
+/**
+ * Process Automation Trigger
+ * 
+ * This function handles both list_entry and task_completion triggers for task automations.
+ * 
+ * LEGACY TASK CONFLICT DETECTION:
+ * Before creating a scheduled automation run, checks for pre-existing incomplete tasks
+ * at the target position or higher to prevent parallel sequences. If conflicts are found,
+ * creates a blocked run record (NULL timestamps + failure_description) for audit trail.
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 import { toZonedTime, fromZonedTime, format } from "https://esm.sh/date-fns-tz@3.2.0";
@@ -652,6 +663,107 @@ serve(async (req) => {
 
     console.log(`Planned execution timestamp (UTC): ${plannedExecutionTimestamp.toISOString()}`);
     console.log(`Planned execution timestamp (display): ${displayTimestamp}`);
+
+    // ============ LEGACY TASK CONFLICT CHECK ============
+    // Check if pre-existing tasks exist that would conflict with this automation run
+    // This prevents parallel sequences when legacy/manual tasks are already in the queue
+    console.log(`🔍 Checking for legacy task conflicts...`);
+    console.log(`   - Target queue: ${hsQueueId}`);
+    console.log(`   - Target contact: ${contactId}`);
+    console.log(`   - Target position: ${positionInSequence}`);
+
+    const { data: conflictingTasks, error: conflictError } = await supabase
+      .from('hs_tasks')
+      .select('hs_object_id, hs_task_subject, number_in_sequence, hs_task_status, hs_createdate')
+      .eq('hs_queue_membership_ids', hsQueueId)
+      .eq('associated_contact_id', contactId)
+      .gte('number_in_sequence', positionInSequence)  // >= comparison as requested
+      .eq('hs_task_completion_count', 0)
+      .neq('hs_task_status', 'DELETED')
+      .not('number_in_sequence', 'is', null)  // Only consider tasks with sequence numbers
+      .order('number_in_sequence', { ascending: true });
+
+    if (conflictError) {
+      console.error('❌ Error checking for conflicting tasks:', conflictError);
+      // Continue anyway - better to risk a duplicate than block legitimate runs
+    } else if (conflictingTasks && conflictingTasks.length > 0) {
+      // Found one or more conflicting tasks - block the run creation
+      console.warn(`⚠️ CONFLICT DETECTED: ${conflictingTasks.length} conflicting task(s) found`);
+      
+      // Log each conflicting task for audit purposes
+      conflictingTasks.forEach((task, index) => {
+        console.warn(`   [${index + 1}] Task ID: ${task.hs_object_id}`);
+        console.warn(`       - Subject: ${task.hs_task_subject || 'No subject'}`);
+        console.warn(`       - Position: ${task.number_in_sequence}`);
+        console.warn(`       - Status: ${task.hs_task_status}`);
+        console.warn(`       - Created: ${task.hs_createdate}`);
+      });
+      
+      console.warn(`   ❌ Blocking automation run creation to prevent parallel sequence`);
+      
+      // Build failure description with all conflicting task IDs
+      const taskIdsList = conflictingTasks.map(t => t.hs_object_id).join(', ');
+      const failureMessage = conflictingTasks.length === 1
+        ? `Did not create task due to pre-existing conflicting task with ID ${conflictingTasks[0].hs_object_id} at position ${conflictingTasks[0].number_in_sequence}`
+        : `Did not create task due to ${conflictingTasks.length} pre-existing conflicting tasks with IDs: ${taskIdsList}`;
+      
+      // Create a blocked run record for audit trail
+      const blockedRunData = {
+        automation_id,
+        type: trigger_type === 'list_entry' ? 'create_on_entry' : 'create_from_sequence',
+        hs_trigger_object: trigger_type === 'list_entry' ? 'list' : 'task',
+        hs_trigger_object_id: trigger_type === 'list_entry' ? hs_list_id : task_id,
+        hs_membership_id: membership_id || null,
+        planned_execution_timestamp: null,  // NULL timestamp = will never execute
+        planned_execution_timestamp_display: null,  // NULL display = clearly blocked
+        task_name: taskName,
+        task_owner_setting: taskOwnerSetting,
+        hs_queue_id: hsQueueId,
+        hs_action_successful: false,
+        position_in_sequence: positionInSequence,
+        hs_owner_id_previous_task: trigger_type === 'task_completion' ? hubspot_owner_id : null,
+        hs_owner_id_contact: contactOwnerId || null,
+        hs_contact_id: contactId || null,
+        failure_description: failureMessage
+      };
+      
+      const { data: blockedRun, error: insertError } = await supabase
+        .from('task_automation_runs')
+        .insert(blockedRunData)
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('❌ Error creating blocked run record:', insertError);
+        throw insertError;
+      }
+      
+      console.log(`✅ Created blocked run record: ${blockedRun.id}`);
+      console.log(`   - Failure description: ${failureMessage}`);
+      console.log('=== PROCESS AUTOMATION TRIGGER END ===');
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          blocked: true,
+          reason: 'legacy_task_conflict',
+          conflicting_tasks: conflictingTasks.map(t => ({
+            id: t.hs_object_id,
+            subject: t.hs_task_subject,
+            position: t.number_in_sequence,
+            status: t.hs_task_status
+          })),
+          blocked_run_id: blockedRun.id,
+          message: failureMessage
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    console.log(`✅ No conflicting legacy tasks found - proceeding with run creation`);
 
     // Create automation run entry
     // Note: hs_contact_id is now nullable. If contact sync failed above, it will be NULL
