@@ -33,9 +33,9 @@ const Settings = () => {
   const { lists: hubspotLists, loading: listsLoading, searchLists, refetch: refetchLists, needsRefresh } = useHubSpotLists();
   
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
+  const [editForm, setEditForm] = useState<CategoryFormData>({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false, task_owner_becomes_contact_owner: false });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
+  const [createForm, setCreateForm] = useState<CategoryFormData>({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: teams.map(team => team.id), locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false, task_owner_becomes_contact_owner: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [localCategories, setLocalCategories] = useState(categories);
@@ -100,13 +100,14 @@ const Settings = () => {
       order_by_position_in_sequence: category.order_by_position_in_sequence || false,
       display_single_task: category.display_single_task || false,
       display_tasks_without_owner: category.display_tasks_without_owner || false,
-      force_task_assignment: category.force_task_assignment || false
+      force_task_assignment: category.force_task_assignment || false,
+      task_owner_becomes_contact_owner: category.task_owner_becomes_contact_owner || false
     });
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
+    setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false, task_owner_becomes_contact_owner: false });
   };
 
   const handleEditSave = async () => {
@@ -125,7 +126,7 @@ const Settings = () => {
     try {
       await updateCategory(editingId, editForm);
       setEditingId(null);
-      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
+      setEditForm({ label: "", color: "", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false, task_owner_becomes_contact_owner: false });
       toast({
         title: "Succès",
         description: "Catégorie mise à jour avec succès"
@@ -155,7 +156,7 @@ const Settings = () => {
     try {
       await createCategory(createForm);
       setShowCreateForm(false);
-      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
+      setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false, task_owner_becomes_contact_owner: false });
       toast({
         title: "Succès",
         description: "Catégorie créée avec succès"
@@ -677,8 +678,9 @@ const Settings = () => {
                                     onCheckedChange={(checked) => setEditForm({
                                       ...editForm, 
                                       display_tasks_without_owner: checked,
-                                      // Auto-disable force_task_assignment when parent is turned off
-                                      force_task_assignment: checked ? editForm.force_task_assignment : false
+                                      // Auto-disable dependent settings when parent is turned off
+                                      force_task_assignment: checked ? editForm.force_task_assignment : false,
+                                      task_owner_becomes_contact_owner: checked ? editForm.task_owner_becomes_contact_owner : false
                                     })}
                                   />
                                 </div>
@@ -704,9 +706,41 @@ const Settings = () => {
                                   <Switch
                                     id={`edit-force-assignment-${category.id}`}
                                     checked={editForm.force_task_assignment}
-                                    onCheckedChange={(checked) => setEditForm({...editForm, force_task_assignment: checked})}
+                                    onCheckedChange={(checked) => setEditForm({
+                                      ...editForm, 
+                                      force_task_assignment: checked,
+                                      // Auto-disable dependent settings when parent is turned off
+                                      task_owner_becomes_contact_owner: checked ? editForm.task_owner_becomes_contact_owner : false
+                                    })}
                                     disabled={!editForm.display_tasks_without_owner}
                                     className={!editForm.display_tasks_without_owner ? 'cursor-not-allowed' : ''}
+                                  />
+                                </div>
+
+                                {/* Third Setting - Task owner becomes contact owner */}
+                                <div className={`flex items-center justify-between p-3 border rounded-lg ${editForm.force_task_assignment ? 'bg-gray-50' : 'bg-gray-100 cursor-not-allowed'}`}>
+                                  <div className="flex items-center gap-2">
+                                    <Label 
+                                      htmlFor={`edit-owner-becomes-contact-owner-${category.id}`} 
+                                      className={`text-sm font-medium ${!editForm.force_task_assignment ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                      Le propriétaire de la tâche devient le propriétaire du contact
+                                    </Label>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <HelpCircle className={`h-4 w-4 text-muted-foreground ${!editForm.force_task_assignment ? 'opacity-50 cursor-not-allowed' : 'cursor-help'}`} />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="max-w-xs">Quand un utilisateur s'attribue une tâche, il devient le propriétaire du contact associé à la tâche, que ce contact ait un propriétaire ou non</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                  <Switch
+                                    id={`edit-owner-becomes-contact-owner-${category.id}`}
+                                    checked={editForm.task_owner_becomes_contact_owner}
+                                    onCheckedChange={(checked) => setEditForm({...editForm, task_owner_becomes_contact_owner: checked})}
+                                    disabled={!editForm.force_task_assignment}
+                                    className={!editForm.force_task_assignment ? 'cursor-not-allowed' : ''}
                                   />
                                 </div>
                               </div>
@@ -995,10 +1029,10 @@ const Settings = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                           onClick={() => {
-                             setShowCreateForm(false);
-                             setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false });
-                           }}
+                          onClick={() => {
+                            setShowCreateForm(false);
+                            setCreateForm({ label: "", color: "#60a5fa", hs_queue_id: "", visible_team_ids: [], locks_lower_categories: false, task_display_order: "oldest_tasks_first", order_by_position_in_sequence: false, display_single_task: false, display_tasks_without_owner: false, force_task_assignment: false, task_owner_becomes_contact_owner: false });
+                          }}
                           disabled={isSubmitting}
                         >
                           <X className="h-4 w-4 mr-1" />

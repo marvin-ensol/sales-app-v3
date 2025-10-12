@@ -25,6 +25,7 @@ export interface CategoryFormData {
   display_single_task: boolean;
   display_tasks_without_owner: boolean;
   force_task_assignment: boolean;
+  task_owner_becomes_contact_owner: boolean;
 }
 
 export interface SequenceFormData {
@@ -94,7 +95,8 @@ export const useTaskCategoriesManagement = () => {
           order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false,
           display_single_task: categoryData.display_single_task ?? false,
           display_tasks_without_owner: categoryData.display_tasks_without_owner ?? false,
-          force_task_assignment: categoryData.force_task_assignment ?? false
+          force_task_assignment: categoryData.force_task_assignment ?? false,
+          task_owner_becomes_contact_owner: categoryData.task_owner_becomes_contact_owner ?? false
         })
         .select()
         .single();
@@ -127,7 +129,8 @@ export const useTaskCategoriesManagement = () => {
         order_by_position_in_sequence: categoryData.order_by_position_in_sequence ?? false,
         display_single_task: categoryData.display_single_task ?? false,
         display_tasks_without_owner: categoryData.display_tasks_without_owner ?? false,
-        force_task_assignment: categoryData.force_task_assignment ?? false
+        force_task_assignment: categoryData.force_task_assignment ?? false,
+        task_owner_becomes_contact_owner: categoryData.task_owner_becomes_contact_owner ?? false
       };
 
       // Optimistically update local state first
