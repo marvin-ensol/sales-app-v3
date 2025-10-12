@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 import { toZonedTime, fromZonedTime, format } from "https://esm.sh/date-fns-tz@3.2.0";
+import { syncContactsFromHubSpot } from '../_shared/contact-sync.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -332,109 +333,25 @@ serve(async (req) => {
       trigger_type = 'list_entry';
     }
 
-    // ==== PHASE 2: BATCH CONTACT SYNC ====
-    // Ensure contact exists in hs_contacts before creating automation run
+    // ==== PHASE 2: CONTACT SYNC ====
     const contactId = trigger_type === 'list_entry' ? hs_object_id : associated_contact_id;
-    
-    if (contactId) {
-      console.log(`📞 Checking existence of contact ${contactId} in hs_contacts...`);
-      
-      // Check if contact exists
-      const { data: existingContact, error: contactCheckError } = await supabase
-        .from('hs_contacts')
-        .select('hs_object_id')
-        .eq('hs_object_id', contactId)
-        .maybeSingle();
-      
-      if (contactCheckError) {
-        console.error('Error checking contact existence:', contactCheckError);
-      }
-      
-      if (!existingContact) {
-        console.log(`🔍 Contact ${contactId} not found in hs_contacts, fetching from HubSpot...`);
-        
-        try {
-          const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
-          if (!hubspotToken) {
-            console.warn('⚠️ HUBSPOT_ACCESS_TOKEN not configured, cannot sync contact');
-          } else {
-            // Fetch contact from HubSpot
-            const contactResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${hubspotToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                inputs: [{ id: contactId }],
-                properties: ['firstname', 'lastname', 'createdate', 'lastmodifieddate', 'mobilephone', 'ensol_source_group', 'hs_lead_status', 'lifecyclestage', 'hubspot_owner_id']
-              }),
-            });
 
-            if (contactResponse.ok) {
-              const contactData = await contactResponse.json();
-              const contacts = contactData.results || [];
-              
-              if (contacts.length > 0) {
-                const contact = contacts[0];
-                
-                // Helper function to safely parse contact timestamps
-                const parseContactTimestamp = (value: any): string | null => {
-                  if (!value || value === '' || value === 'null' || value === '0') return null;
-                  
-                  // Handle ISO 8601 strings
-                  if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
-                    const date = new Date(value);
-                    return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
-                  }
-                  
-                  // Handle numeric timestamps
-                  const timestamp = parseInt(String(value));
-                  if (isNaN(timestamp) || timestamp === 0) return null;
-                  const date = new Date(timestamp);
-                  return date.getFullYear() > 1970 ? date.toISOString() : null;
-                };
-                
-                // Format contact for upsert (mirror incremental-sync pattern)
-        const contactToUpsert = {
-          hs_object_id: contact.id,
-          firstname: contact.properties?.firstname || null,
-          lastname: contact.properties?.lastname || null,
-          mobilephone: contact.properties?.mobilephone || null,
-          ensol_source_group: contact.properties?.ensol_source_group || null,
-          hs_lead_status: contact.properties?.hs_lead_status || null,
-          lifecyclestage: contact.properties?.lifecyclestage || null,
-          createdate: parseContactTimestamp(contact.properties?.createdate),
-          lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
-          hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
-          updated_at: new Date().toISOString()
-        };
-                
-                // Upsert to hs_contacts
-                const { error: upsertError } = await supabase
-                  .from('hs_contacts')
-                  .upsert(contactToUpsert, { 
-                    onConflict: 'hs_object_id',
-                    ignoreDuplicates: false 
-                  });
-                
-                if (upsertError) {
-                  console.error(`❌ Failed to sync contact ${contactId}:`, upsertError);
-                } else {
-                  console.log(`✅ Synced contact ${contactId} to hs_contacts`);
-                }
-              } else {
-                console.warn(`⚠️ Contact ${contactId} not found in HubSpot`);
-              }
-            } else {
-              console.warn(`⚠️ Failed to fetch contact from HubSpot (${contactResponse.status})`);
-            }
-          }
-        } catch (error) {
-          console.error(`❌ Error syncing contact ${contactId}:`, error);
-        }
+    if (contactId) {
+      console.log(`📞 Syncing contact ${contactId}...`);
+      
+      const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
+      if (hubspotToken) {
+        const result = await syncContactsFromHubSpot({
+          contactIds: [contactId],
+          hubspotToken,
+          supabase,
+          forceRefresh: false,
+          maxAge: 60 * 60 * 1000 // Refresh if older than 1 hour or missing owner
+        });
+        
+        console.log(`✅ Contact sync result:`, result);
       } else {
-        console.log(`✅ Contact ${contactId} already exists in hs_contacts`);
+        console.warn('⚠️ HUBSPOT_ACCESS_TOKEN not configured, cannot sync contact');
       }
     }
 
