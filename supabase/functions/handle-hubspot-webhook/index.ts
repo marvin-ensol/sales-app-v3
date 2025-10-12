@@ -59,6 +59,24 @@ serve(async (req) => {
     );
 
     console.log(`[HubSpot Webhook] Task deletions: ${taskDeletions.length}, Call creations: ${callCreations.length}, Unknown: ${unknownEvents.length}`);
+    
+    // Log full payload details for unknown events to help troubleshooting
+    if (unknownEvents.length > 0) {
+      console.log('[HubSpot Webhook] ⚠️ Unknown events detected - full payload details:');
+      unknownEvents.forEach((event, index) => {
+        console.log(`[Unknown Event ${index + 1}/${unknownEvents.length}]`, JSON.stringify({
+          objectTypeId: event.objectTypeId,
+          objectId: event.objectId,
+          changeFlag: event.changeFlag,
+          eventId: event.eventId,
+          subscriptionId: event.subscriptionId,
+          portalId: event.portalId,
+          occurredAt: event.occurredAt,
+          attemptNumber: event.attemptNumber,
+          fullEvent: event
+        }, null, 2));
+      });
+    }
 
     const results = {
       taskDeletions: { processed: 0, successful: 0, errors: 0 },
