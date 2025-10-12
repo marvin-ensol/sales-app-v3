@@ -296,24 +296,38 @@ Deno.serve(async (req) => {
           throw new Error('HUBSPOT_ACCESS_TOKEN not configured');
         }
 
-        // ===== BATCH CONTACT REFRESH =====
-        const contactIdsToRefresh = [...new Set(
+        // ===== BATCH CONTACT REFRESH (with staleness check) =====
+        const uniqueContactIds = [...new Set(
           dueRuns
             .map(run => run.hs_contact_id)
             .filter(Boolean)
         )];
 
-        console.log(`[${executionId}] 📞 Refreshing ${contactIdsToRefresh.length} contact(s)...`);
+        console.log(`[${executionId}] 📞 Checking freshness of ${uniqueContactIds.length} contact(s)...`);
 
-        if (contactIdsToRefresh.length > 0) {
+        // Check which contacts need refreshing (older than 10 minutes or NULL owner)
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { data: staleContacts } = await supabase
+          .from('hs_contacts')
+          .select('hs_object_id, updated_at')
+          .in('hs_object_id', uniqueContactIds)
+          .or(`hubspot_owner_id.is.null,updated_at.lt.${tenMinutesAgo}`);
+
+        const staleContactIds = staleContacts?.map(c => c.hs_object_id) || [];
+
+        if (staleContactIds.length > 0) {
+          console.log(`[${executionId}] 🔄 Refreshing ${staleContactIds.length} stale contact(s)...`);
+          
           const result = await syncContactsFromHubSpot({
-            contactIds: contactIdsToRefresh,
+            contactIds: staleContactIds,
             hubspotToken,
             supabase,
-            forceRefresh: true // Always refresh at execution time
+            forceRefresh: true
           });
           
           console.log(`[${executionId}] ✅ Batch refresh complete:`, result);
+        } else {
+          console.log(`[${executionId}] ✅ All contacts are fresh (< 10 minutes old)`);
         }
 
         // Phase 1: Build batch payload

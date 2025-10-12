@@ -35,6 +35,134 @@ interface ExistingMembership {
   list_exit_date: string | null;
 }
 
+/**
+ * Helper to parse HubSpot contact timestamps
+ */
+function parseContactTimestamp(value: any): string | null {
+  if (!value || value === '' || value === 'null' || value === '0') return null;
+  
+  if (typeof value === 'string' && value.includes('T') && value.includes('Z')) {
+    const date = new Date(value);
+    return !isNaN(date.getTime()) && date.getFullYear() > 1970 ? date.toISOString() : null;
+  }
+  
+  const timestamp = parseInt(String(value));
+  if (isNaN(timestamp) || timestamp === 0) return null;
+  const date = new Date(timestamp);
+  return date.getFullYear() > 1970 ? date.toISOString() : null;
+}
+
+/**
+ * Batch sync contacts from HubSpot to hs_contacts
+ * Used to pre-populate contact data before memberships trigger automations
+ */
+async function syncContactsFromHubSpot(
+  contactIds: string[],
+  hubspotToken: string,
+  supabase: any,
+  executionId: string
+): Promise<{ synced: number; failed: number; contactsWithOwners: number; contactsWithoutOwners: number }> {
+  if (contactIds.length === 0) {
+    return { synced: 0, failed: 0, contactsWithOwners: 0, contactsWithoutOwners: 0 };
+  }
+
+  console.log(`[${executionId}] 📞 Syncing ${contactIds.length} contact(s) from HubSpot...`);
+
+  const batchSize = 100;
+  let syncedCount = 0;
+  let failedCount = 0;
+  let withOwners = 0;
+  let withoutOwners = 0;
+
+  for (let i = 0; i < contactIds.length; i += batchSize) {
+    const batch = contactIds.slice(i, i + batchSize);
+    
+    try {
+      const response = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/read', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hubspotToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: batch.map(id => ({ id })),
+          properties: [
+            'firstname',
+            'lastname',
+            'mobilephone',
+            'ensol_source_group',
+            'hs_lead_status',
+            'lifecyclestage',
+            'createdate',
+            'lastmodifieddate',
+            'hubspot_owner_id'
+          ]
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[${executionId}] ❌ Contact batch fetch failed: ${response.status}`);
+        failedCount += batch.length;
+        continue;
+      }
+
+      const data = await response.json();
+      const contacts = data.results || [];
+      
+      const contactsToUpsert = contacts.map((contact: any) => {
+        const hasOwner = !!contact.properties?.hubspot_owner_id;
+        if (hasOwner) withOwners++;
+        else withoutOwners++;
+        
+        return {
+          hs_object_id: contact.id,
+          firstname: contact.properties?.firstname || null,
+          lastname: contact.properties?.lastname || null,
+          mobilephone: contact.properties?.mobilephone || null,
+          ensol_source_group: contact.properties?.ensol_source_group || null,
+          hs_lead_status: contact.properties?.hs_lead_status || null,
+          lifecyclestage: contact.properties?.lifecyclestage || null,
+          createdate: parseContactTimestamp(contact.properties?.createdate),
+          lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+          hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
+          updated_at: new Date().toISOString()
+        };
+      });
+      
+      const { error: upsertError } = await supabase
+        .from('hs_contacts')
+        .upsert(contactsToUpsert, { 
+          onConflict: 'hs_object_id',
+          ignoreDuplicates: false 
+        });
+      
+      if (upsertError) {
+        console.error(`[${executionId}] ❌ Contact upsert failed:`, upsertError);
+        failedCount += contacts.length;
+      } else {
+        syncedCount += contacts.length;
+      }
+      
+      // Rate limit: 100ms between batches
+      if (i + batchSize < contactIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error(`[${executionId}] ❌ Error in contact batch sync:`, error);
+      failedCount += batch.length;
+    }
+  }
+
+  console.log(`[${executionId}] ✅ Contact sync complete: ${syncedCount} synced, ${failedCount} failed, ${withOwners} with owners, ${withoutOwners} without owners`);
+
+  return {
+    synced: syncedCount,
+    failed: failedCount,
+    contactsWithOwners: withOwners,
+    contactsWithoutOwners: withoutOwners
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -142,6 +270,27 @@ serve(async (req) => {
         } while (after);
 
         console.log(`[${executionId}] 🎯 Total members fetched for automation ${automation.id}: ${allMembers.length}`);
+
+        // === PRE-SYNC ALL CONTACTS FOR THIS LIST ===
+        // This ensures hs_contacts has fresh data before memberships trigger automations
+        const uniqueContactIds = [...new Set(allMembers.map(m => m.recordId))];
+        
+        if (uniqueContactIds.length > 0) {
+          console.log(`[${executionId}] 🔄 Pre-syncing ${uniqueContactIds.length} unique contact(s) for automation ${automation.id}...`);
+          
+          const contactSyncResult = await syncContactsFromHubSpot(
+            uniqueContactIds,
+            hubspotToken,
+            supabase,
+            executionId
+          );
+          
+          console.log(`[${executionId}] ✅ Contact pre-sync result:`, contactSyncResult);
+          
+          if (contactSyncResult.contactsWithoutOwners > 0) {
+            console.warn(`[${executionId}] ⚠️ ${contactSyncResult.contactsWithoutOwners} contact(s) have no owner - automation runs will be unassigned`);
+          }
+        }
 
         // Get existing memberships for this automation (only active ones)
         const { data: existingMemberships, error: existingError } = await supabase

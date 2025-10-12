@@ -508,7 +508,7 @@ serve(async (req) => {
           hubspotToken,
           supabase,
           forceRefresh: false,
-          maxAge: 60 * 60 * 1000 // Refresh if older than 1 hour or missing owner
+          maxAge: 15 * 60 * 1000 // Only 15 minutes (was 1 hour) - fresh from list sync
         });
         
         console.log(`✅ Contact sync result:`, result);
