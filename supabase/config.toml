@@ -68,6 +68,9 @@ verify_jwt = false
 [functions.execute-scheduled-automation-runs]
 verify_jwt = false
 
+[functions.auto-complete-exited-tasks]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324
