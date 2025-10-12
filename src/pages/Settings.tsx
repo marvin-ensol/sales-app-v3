@@ -674,7 +674,12 @@ const Settings = () => {
                                   <Switch
                                     id={`edit-display-unassigned-${category.id}`}
                                     checked={editForm.display_tasks_without_owner}
-                                    onCheckedChange={(checked) => setEditForm({...editForm, display_tasks_without_owner: checked})}
+                                    onCheckedChange={(checked) => setEditForm({
+                                      ...editForm, 
+                                      display_tasks_without_owner: checked,
+                                      // Auto-disable force_task_assignment when parent is turned off
+                                      force_task_assignment: checked ? editForm.force_task_assignment : false
+                                    })}
                                   />
                                 </div>
 
