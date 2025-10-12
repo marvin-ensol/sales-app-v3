@@ -746,7 +746,7 @@ export const SequenceConfig = ({
               htmlFor="auto-complete-on-exit"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              Les tâches dans cette catégorie s'auto-valident si le contact quitte la liste définie ci-dessus
+              Quand le contact quitte la liste définie ci-dessus
             </label>
             <Switch
               id="auto-complete-on-exit"
@@ -763,7 +763,7 @@ export const SequenceConfig = ({
               htmlFor="auto-complete-on-engagement"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              Auto-validation après appel sortant
+              Quand un appel sortant est effectué pour le contact
             </label>
             <Switch
               id="auto-complete-on-engagement"
@@ -771,9 +771,6 @@ export const SequenceConfig = ({
               onCheckedChange={(checked) => setAutoCompleteOnEngagement(checked as boolean)}
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Les tâches seront automatiquement validées lorsqu'un appel sortant d'au moins 2 secondes est enregistré avec le contact associé
-          </p>
         </div>
       </div>
 
