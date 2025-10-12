@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -623,24 +624,26 @@ export const SequenceConfig = ({
         <div className="border-t border-slate-200/80 my-4"></div>
 
         {/* Toggle below divider */}
-        <div className="flex items-center justify-between mb-4">
-          <label
-            htmlFor="create-initial-task"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Créer une tâche quand le contact entre dans la liste définie ci-dessus
-          </label>
-          <Switch
-            id="create-initial-task"
-            checked={createInitialTask}
-            disabled={!sequenceMode}
-            onCheckedChange={(checked) => setCreateInitialTask(checked as boolean)}
-          />
+        <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="create-initial-task"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Créer une tâche quand le contact entre dans la liste définie ci-dessus
+            </label>
+            <Switch
+              id="create-initial-task"
+              checked={createInitialTask}
+              disabled={!sequenceMode}
+              onCheckedChange={(checked) => setCreateInitialTask(checked as boolean)}
+            />
+          </div>
         </div>
 
         {/* Owner selector for Task 1 - only shown when checkbox is checked */}
         {createInitialTask && (
-          <div className="mb-4">
+          <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
             <TaskOwnerSelector
               value={initialTaskOwner}
               onChange={setInitialTaskOwner}
@@ -706,18 +709,20 @@ export const SequenceConfig = ({
               <h4 className="text-base font-medium">Sortie de séquence</h4>
             </div>
             
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="can-interrupt-sequence"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                La séquence pourra être interrompue avant les tâches restantes si le contact quitte la liste définie ci-dessus
-              </label>
-              <Switch
-                id="can-interrupt-sequence"
-                checked={canInterruptSequence}
-                onCheckedChange={(checked) => setCanInterruptSequence(checked as boolean)}
-              />
+            <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="can-interrupt-sequence"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  La séquence pourra être interrompue avant les tâches restantes si le contact quitte la liste définie ci-dessus
+                </label>
+                <Switch
+                  id="can-interrupt-sequence"
+                  checked={canInterruptSequence}
+                  onCheckedChange={(checked) => setCanInterruptSequence(checked as boolean)}
+                />
+              </div>
             </div>
 
           </div>
@@ -731,18 +736,20 @@ export const SequenceConfig = ({
           <h4 className="text-base font-medium">Auto-validation des tâches</h4>
         </div>
         
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="auto-complete-on-exit"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Les tâches dans cette catégorie s'auto-valident si le contact quitte la liste définie ci-dessus
-          </label>
-          <Switch
-            id="auto-complete-on-exit"
-            checked={autoCompleteOnExit}
-            onCheckedChange={(checked) => setAutoCompleteOnExit(checked as boolean)}
-          />
+        <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="auto-complete-on-exit"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Les tâches dans cette catégorie s'auto-valident si le contact quitte la liste définie ci-dessus
+            </label>
+            <Switch
+              id="auto-complete-on-exit"
+              checked={autoCompleteOnExit}
+              onCheckedChange={(checked) => setAutoCompleteOnExit(checked as boolean)}
+            />
+          </div>
         </div>
       </div>
 
@@ -753,18 +760,20 @@ export const SequenceConfig = ({
           <h4 className="text-base font-medium">Horaires de travail</h4>
         </div>
         
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="use-working-hours"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
-          </label>
-          <Switch
-            id="use-working-hours"
-            checked={useWorkingHours}
-            onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
-          />
+        <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="use-working-hours"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
+            </label>
+            <Switch
+              id="use-working-hours"
+              checked={useWorkingHours}
+              onCheckedChange={(checked) => setUseWorkingHours(checked as boolean)}
+            />
+          </div>
         </div>
 
         {useWorkingHours && (
@@ -781,15 +790,15 @@ export const SequenceConfig = ({
                 {dayNames.map(({ key, label }) => (
                   <TableRow key={key}>
                     <TableCell className="h-14">
-                      <div className="flex items-center justify-between h-full">
-                        <label htmlFor={`day-${key}`} className="text-sm font-medium">
-                          {label}
-                        </label>
-                        <Switch
+                      <div className="flex items-center gap-2 h-full">
+                        <Checkbox
                           id={`day-${key}`}
                           checked={workingHours[key].enabled}
                           onCheckedChange={(checked) => updateDaySchedule(key, 'enabled', checked as boolean)}
                         />
+                        <label htmlFor={`day-${key}`} className="text-sm font-medium cursor-pointer">
+                          {label}
+                        </label>
                       </div>
                     </TableCell>
                     {workingHours[key].enabled ? (

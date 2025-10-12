@@ -9,9 +9,9 @@ interface TaskOwnerSelectorProps {
 
 export const TaskOwnerSelector = ({ value, onChange, excludeOptions = [] }: TaskOwnerSelectorProps) => {
   const allOwnerOptions = [
-    { value: 'no_owner', label: 'Aucun owner' },
-    { value: 'contact_owner', label: 'Owner du contact' },
-    { value: 'previous_task_owner', label: 'Owner de la tâche précédente' }
+    { value: 'no_owner', label: 'Aucun propriétaire' },
+    { value: 'contact_owner', label: 'Propriétaire du contact' },
+    { value: 'previous_task_owner', label: 'Propriétaire de la tâche précédente' }
   ];
 
   const ownerOptions = allOwnerOptions.filter(option => 
@@ -20,10 +20,10 @@ export const TaskOwnerSelector = ({ value, onChange, excludeOptions = [] }: Task
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">Owner de la tâche</label>
+      <label className="text-sm font-medium">Propriétaire de la tâche</label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="w-full bg-background">
-          <SelectValue placeholder="Sélectionner un owner..." />
+          <SelectValue placeholder="Sélectionner un propriétaire..." />
         </SelectTrigger>
         <SelectContent className="bg-background border z-50">
           {ownerOptions.map((option) => (
