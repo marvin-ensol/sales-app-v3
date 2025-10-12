@@ -52,11 +52,12 @@ serve(async (req) => {
       e.objectTypeId === '0-27' && e.changeFlag === 'DELETED'
     );
     const callCreations = events.filter(e => 
-      e.objectTypeId === '0-48' && e.changeFlag === 'NEW'
+      e.objectTypeId === '0-48' && 
+      (e.changeFlag === 'NEW' || e.changeFlag === 'CREATED' || e.subscriptionType?.toLowerCase() === 'object.creation')
     );
     const unknownEvents = events.filter(e => 
       !((e.objectTypeId === '0-27' && e.changeFlag === 'DELETED') || 
-        (e.objectTypeId === '0-48' && e.changeFlag === 'NEW'))
+        (e.objectTypeId === '0-48' && (e.changeFlag === 'NEW' || e.changeFlag === 'CREATED' || e.subscriptionType?.toLowerCase() === 'object.creation')))
     );
 
     console.log(`[HubSpot Webhook] Task deletions: ${taskDeletions.length}, Call creations: ${callCreations.length}, Unknown: ${unknownEvents.length}`);
@@ -249,6 +250,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
           number_in_sequence,
           created_by_automation_id,
           hs_queue_membership_ids,
+          hs_timestamp,
           task_automations!inner(
             id,
             auto_complete_on_engagement
@@ -269,9 +271,25 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
-      console.log(`[Call Creations] Found ${tasks.length} eligible task(s) for contact ${contactId}`);
+      // Separate tasks into due/overdue (complete) vs future (skip) based on timestamp
+      const currentTime = new Date();
+      const currentTimeMs = currentTime.getTime();
+      
+      const tasksToComplete = tasks.filter(task => {
+        if (!task.hs_timestamp) return true; // No due date = treat as due now
+        const dueTimeMs = new Date(task.hs_timestamp).getTime();
+        return dueTimeMs <= currentTimeMs; // Due or overdue
+      });
 
-      // Complete tasks in HubSpot
+      const tasksToSkip = tasks.filter(task => {
+        if (!task.hs_timestamp) return false; // No due date = not skipped
+        const dueTimeMs = new Date(task.hs_timestamp).getTime();
+        return dueTimeMs > currentTimeMs; // Future task
+      });
+
+      console.log(`[Call Creations] Found ${tasksToComplete.length} due/overdue task(s) to complete and ${tasksToSkip.length} future task(s) to skip for contact ${contactId}`);
+
+      // Complete ALL tasks in HubSpot (both groups)
       const taskUpdates = tasks.map(task => ({
         id: task.hs_object_id,
         properties: {
@@ -299,8 +317,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
       const completionTime = new Date().toISOString();
 
-      // Update tasks locally
-      for (const task of tasks) {
+      // Update due/overdue tasks locally (is_skipped = null)
+      for (const task of tasksToComplete) {
         const { error: updateError } = await supabase
           .from('hs_tasks')
           .update({
@@ -310,6 +328,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             marked_completed_by_automation: true,
             marked_completed_by_automation_id: task.task_automations.id,
             marked_completed_by_automation_source: 'phone_call',
+            is_skipped: null,
             updated_at: completionTime
           })
           .eq('hs_object_id', task.hs_object_id);
@@ -341,7 +360,51 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         }
       }
 
-      console.log(`[Call Creations] Successfully completed ${tasks.length} task(s) for call ${callId}`);
+      // Update future tasks locally (is_skipped = true)
+      for (const task of tasksToSkip) {
+        const { error: updateError } = await supabase
+          .from('hs_tasks')
+          .update({
+            hs_task_status: 'COMPLETED',
+            hs_task_completion_count: 1,
+            hs_task_completion_date: completionTime,
+            marked_completed_by_automation: true,
+            marked_completed_by_automation_id: task.task_automations.id,
+            marked_completed_by_automation_source: 'phone_call',
+            is_skipped: true,
+            updated_at: completionTime
+          })
+          .eq('hs_object_id', task.hs_object_id);
+
+        if (updateError) {
+          console.error(`[Call Creations] Error updating task ${task.hs_object_id} locally:`, updateError);
+          continue;
+        }
+
+        // Create automation run record
+        const { error: runError } = await supabase
+          .from('task_automation_runs')
+          .insert({
+            automation_id: task.task_automations.id,
+            type: 'complete_on_engagement',
+            hs_trigger_object: 'engagement',
+            hs_trigger_object_id: callId,
+            hs_contact_id: contactId,
+            hs_action_successful: true,
+            hs_actioned_task_ids: [task.hs_object_id],
+            task_name: task.hs_task_subject,
+            hs_queue_id: task.hs_queue_membership_ids,
+            position_in_sequence: task.number_in_sequence,
+            hs_owner_id_previous_task: task.hubspot_owner_id
+          });
+
+        if (runError) {
+          console.error(`[Call Creations] Error creating automation run for task ${task.hs_object_id}:`, runError);
+        }
+      }
+
+      console.log(`[Call Creations] Completed ${tasksToComplete.length} due/overdue task(s) (is_skipped=null) and ${tasksToSkip.length} future task(s) (is_skipped=true)`);
+      console.log(`[Call Creations] Successfully processed ${tasks.length} total task(s) for call ${callId}`);
       successful++;
 
     } catch (error) {
