@@ -71,6 +71,15 @@ verify_jwt = false
 [functions.auto-complete-exited-tasks]
 verify_jwt = false
 
+[functions.handle-call-creation-webhook]
+verify_jwt = false
+
+[functions.skip-hubspot-task]
+verify_jwt = false
+
+[functions.retrigger-membership]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 port = 54324

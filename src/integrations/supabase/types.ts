@@ -147,6 +147,9 @@ export type Database = {
           is_skipped: boolean | null
           marked_completed_by_automation: boolean | null
           marked_completed_by_automation_id: string | null
+          marked_completed_source:
+            | Database["public"]["Enums"]["task_auto_complete_sources"]
+            | null
           number_in_sequence: number | null
           updated_at: string
         }
@@ -184,6 +187,9 @@ export type Database = {
           is_skipped?: boolean | null
           marked_completed_by_automation?: boolean | null
           marked_completed_by_automation_id?: string | null
+          marked_completed_source?:
+            | Database["public"]["Enums"]["task_auto_complete_sources"]
+            | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -221,6 +227,9 @@ export type Database = {
           is_skipped?: boolean | null
           marked_completed_by_automation?: boolean | null
           marked_completed_by_automation_id?: string | null
+          marked_completed_source?:
+            | Database["public"]["Enums"]["task_auto_complete_sources"]
+            | null
           number_in_sequence?: number | null
           updated_at?: string
         }
@@ -498,6 +507,7 @@ export type Database = {
       }
       task_automations: {
         Row: {
+          auto_complete_on_engagement: boolean | null
           auto_complete_on_exit_enabled: boolean | null
           automation_enabled: boolean
           created_at: string
@@ -517,6 +527,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_complete_on_engagement?: boolean | null
           auto_complete_on_exit_enabled?: boolean | null
           automation_enabled?: boolean
           created_at?: string
@@ -536,6 +547,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_complete_on_engagement?: boolean | null
           auto_complete_on_exit_enabled?: boolean | null
           automation_enabled?: boolean
           created_at?: string
@@ -568,6 +580,9 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          display_single_task: boolean | null
+          display_tasks_without_owner: boolean | null
+          force_task_assignment: boolean | null
           hs_queue_id: string | null
           id: number
           label: string | null
@@ -576,11 +591,15 @@ export type Database = {
           order_column: number
           system_default: boolean | null
           task_display_order: string | null
+          task_owner_becomes_contact_owner: boolean | null
           visible_team_ids: Json | null
         }
         Insert: {
           color?: string | null
           created_at?: string
+          display_single_task?: boolean | null
+          display_tasks_without_owner?: boolean | null
+          force_task_assignment?: boolean | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
@@ -589,11 +608,15 @@ export type Database = {
           order_column: number
           system_default?: boolean | null
           task_display_order?: string | null
+          task_owner_becomes_contact_owner?: boolean | null
           visible_team_ids?: Json | null
         }
         Update: {
           color?: string | null
           created_at?: string
+          display_single_task?: boolean | null
+          display_tasks_without_owner?: boolean | null
+          force_task_assignment?: boolean | null
           hs_queue_id?: string | null
           id?: number
           label?: string | null
@@ -602,6 +625,7 @@ export type Database = {
           order_column?: number
           system_default?: boolean | null
           task_display_order?: string | null
+          task_owner_becomes_contact_owner?: boolean | null
           visible_team_ids?: Json | null
         }
         Relationships: []
@@ -834,8 +858,12 @@ export type Database = {
         | "create_from_sequence"
         | "complete_on_exit"
         | "cancel_on_exit"
+        | "complete_on_engagement"
+        | "sequence_exit"
+      marked_completed_source: "list_exit" | "phone_call"
+      task_auto_complete_sources: "list_exit" | "phone_call"
       task_owner_setting: "no_owner" | "contact_owner" | "previous_task_owner"
-      trigger_object_type: "list" | "task"
+      trigger_object_type: "list" | "task" | "engagement"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -968,9 +996,13 @@ export const Constants = {
         "create_from_sequence",
         "complete_on_exit",
         "cancel_on_exit",
+        "complete_on_engagement",
+        "sequence_exit",
       ],
+      marked_completed_source: ["list_exit", "phone_call"],
+      task_auto_complete_sources: ["list_exit", "phone_call"],
       task_owner_setting: ["no_owner", "contact_owner", "previous_task_owner"],
-      trigger_object_type: ["list", "task"],
+      trigger_object_type: ["list", "task", "engagement"],
     },
   },
 } as const

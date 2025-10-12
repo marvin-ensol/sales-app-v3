@@ -87,6 +87,7 @@ interface SequenceConfig {
   sequence_exit_enabled?: boolean;
   schedule_enabled?: boolean;
   auto_complete_on_exit_enabled?: boolean;
+  auto_complete_on_engagement?: boolean;
   tasks_configuration?: any;
   schedule_configuration?: any;
   total_tasks?: number;
@@ -112,6 +113,7 @@ export const SequenceConfig = ({
   const [initialTaskOwner, setInitialTaskOwner] = useState<TaskOwnerType>('contact_owner');
   const [canInterruptSequence, setCanInterruptSequence] = useState(false);
   const [autoCompleteOnExit, setAutoCompleteOnExit] = useState(false);
+  const [autoCompleteOnEngagement, setAutoCompleteOnEngagement] = useState(false);
   const [useWorkingHours, setUseWorkingHours] = useState(false);
   const [sequenceMode, setSequenceMode] = useState(false);
   const [sequenceTasks, setSequenceTasks] = useState<SequenceTask[]>([]);
@@ -139,6 +141,7 @@ export const SequenceConfig = ({
       setSequenceMode(initialAutomation.sequence_enabled ?? false);
       setCanInterruptSequence(initialAutomation.sequence_exit_enabled ?? false);
       setAutoCompleteOnExit(initialAutomation.auto_complete_on_exit_enabled ?? false);
+      setAutoCompleteOnEngagement(initialAutomation.auto_complete_on_engagement ?? false);
       setUseWorkingHours(initialAutomation.schedule_enabled ?? false);
 
       // Parse tasks_configuration JSONB
@@ -216,7 +219,7 @@ export const SequenceConfig = ({
   const validateConfig = () => {
     const errors: Record<string, string> = {};
 
-    // Contact list validation - when any feature requires a list
+    // Contact list validation - when any feature requires a list (excluding engagement-based completion)
     if ((createInitialTask || canInterruptSequence || autoCompleteOnExit) && (!selectedListId || selectedListId === '')) {
       errors.contactList = 'Veuillez sélectionner une liste de contact';
     }
@@ -314,6 +317,7 @@ export const SequenceConfig = ({
       sequence_enabled: sequenceTasks.length >= 1,
       sequence_exit_enabled: canInterruptSequence,
       auto_complete_on_exit_enabled: autoCompleteOnExit,
+      auto_complete_on_engagement: autoCompleteOnEngagement,
       schedule_enabled: useWorkingHours && Object.values(workingHours).some(day => day.enabled)
     };
   };
@@ -397,7 +401,7 @@ export const SequenceConfig = ({
   };
 
   const handleSave = async () => {
-    // Clear list selection if none of the list-dependent features is enabled
+    // Clear list selection if none of the list-dependent features is enabled (engagement doesn't need list)
     if (!createInitialTask && !canInterruptSequence && !autoCompleteOnExit && selectedListId) {
       console.log('[SequenceConfig] No list features enabled, clearing list selection before save');
       onListChange('');
@@ -750,6 +754,26 @@ export const SequenceConfig = ({
               onCheckedChange={(checked) => setAutoCompleteOnExit(checked as boolean)}
             />
           </div>
+        </div>
+
+        {/* Auto-complete on engagement toggle */}
+        <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="auto-complete-on-engagement"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Auto-validation après appel sortant
+            </label>
+            <Switch
+              id="auto-complete-on-engagement"
+              checked={autoCompleteOnEngagement}
+              onCheckedChange={(checked) => setAutoCompleteOnEngagement(checked as boolean)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Les tâches seront automatiquement validées lorsqu'un appel sortant d'au moins 2 secondes est enregistré avec le contact associé
+          </p>
         </div>
       </div>
 

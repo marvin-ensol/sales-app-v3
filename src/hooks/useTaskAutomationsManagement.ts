@@ -12,6 +12,7 @@ export interface TaskAutomation {
   sequence_exit_enabled?: boolean;
   first_task_creation?: boolean;
   auto_complete_on_exit_enabled?: boolean;
+  auto_complete_on_engagement?: boolean;
   schedule_enabled?: boolean;
   schedule_configuration?: any;
   tasks_configuration?: any;
@@ -36,6 +37,7 @@ export interface AutomationFormData {
   sequence_exit_enabled?: boolean;
   first_task_creation?: boolean;
   auto_complete_on_exit_enabled?: boolean;
+  auto_complete_on_engagement?: boolean;
   schedule_enabled?: boolean;
   schedule_configuration?: any;
   tasks_configuration?: any;
