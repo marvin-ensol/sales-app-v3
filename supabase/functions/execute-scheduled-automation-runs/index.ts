@@ -125,7 +125,15 @@ Deno.serve(async (req) => {
       if (dueRuns.length === 0) {
         console.log(`[${executionId}] No creation-type runs to process after filtering`);
       } else {
-        console.log(`[${executionId}] Processing ${dueRuns.length} runs (types: create_on_entry, create_from_sequence)`);
+        // Separate batch runs (list-level) from individual runs (per-contact)
+        const batchRuns = dueRuns.filter(run => 
+          run.type === 'create_on_entry' && run.hs_trigger_object === 'list' && run.actioned_run_ids
+        );
+        const individualRuns = dueRuns.filter(run => 
+          !(run.type === 'create_on_entry' && run.hs_trigger_object === 'list' && run.actioned_run_ids)
+        );
+
+        console.log(`[${executionId}] Processing ${dueRuns.length} runs: ${batchRuns.length} batch (list-level), ${individualRuns.length} individual`);
         
         const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
         if (!hubspotToken) {
@@ -133,13 +141,202 @@ Deno.serve(async (req) => {
           throw new Error('HUBSPOT_ACCESS_TOKEN not configured');
         }
 
-        // ===== BATCH CONTACT REFRESH =====
-        // Extract unique contact IDs from all runs and force refresh from HubSpot
+        // ===== PROCESS BATCH RUNS FIRST =====
+        for (const batchRun of batchRuns) {
+          console.log(`[${executionId}] 📦 Processing batch run for list ${batchRun.hs_trigger_object_id}...`);
+          
+          try {
+            // Extract contact IDs from actioned_run_ids
+            const contactIds = (batchRun.actioned_run_ids as any[]).map(item => item.contact_id).filter(Boolean);
+            
+            if (contactIds.length === 0) {
+              console.error(`[${executionId}] ❌ Batch run has no contact IDs`);
+              await supabase
+                .from('task_automation_runs')
+                .update({ 
+                  hs_action_successful: false,
+                  failure_description: 'No contact IDs found in batch run'
+                })
+                .eq('id', batchRun.id);
+              continue;
+            }
+
+            console.log(`[${executionId}] 📞 Batch creating tasks for ${contactIds.length} contacts...`);
+
+            // Fetch automation config to get task_owner_setting
+            const { data: automationData, error: automationError } = await supabase
+              .from('task_automations')
+              .select('tasks_configuration')
+              .eq('id', batchRun.automation_id)
+              .single();
+
+            if (automationError || !automationData) {
+              console.error(`[${executionId}] ❌ Failed to fetch automation config:`, automationError);
+              await supabase
+                .from('task_automation_runs')
+                .update({ 
+                  hs_action_successful: false,
+                  failure_description: 'Failed to fetch automation configuration'
+                })
+                .eq('id', batchRun.id);
+              continue;
+            }
+
+            const tasksConfig = automationData.tasks_configuration as any;
+            const firstTaskConfig = tasksConfig?.tasks?.[0];
+            const taskOwnerSetting = firstTaskConfig?.task_owner_setting || 'no_owner';
+
+            // Fetch contacts and build batch task payload
+            const { data: contacts, error: contactsError } = await supabase
+              .from('hs_contacts')
+              .select('hs_object_id, hubspot_owner_id')
+              .in('hs_object_id', contactIds);
+
+            if (contactsError) {
+              console.error(`[${executionId}] ❌ Failed to fetch contacts:`, contactsError);
+              await supabase
+                .from('task_automation_runs')
+                .update({ 
+                  hs_action_successful: false,
+                  failure_description: 'Failed to fetch contacts from database'
+                })
+                .eq('id', batchRun.id);
+              continue;
+            }
+
+            // Build batch task inputs
+            const batchInputs = contacts.map(contact => {
+              const taskInput: any = {
+                properties: {
+                  hs_task_subject: firstTaskConfig?.task_name || 'Task',
+                  hs_queue_membership_ids: batchRun.hs_queue_id,
+                  hs_task_type: 'TODO',
+                  hs_task_status: 'NOT_STARTED',
+                  hs_timestamp: batchRun.planned_execution_timestamp,
+                },
+                associations: [{
+                  to: { id: contact.hs_object_id },
+                  types: [{
+                    associationCategory: 'HUBSPOT_DEFINED',
+                    associationTypeId: 204, // task-to-contact
+                  }],
+                }],
+              };
+
+              if (taskOwnerSetting === 'contact_owner' && contact.hubspot_owner_id) {
+                taskInput.properties.hubspot_owner_id = contact.hubspot_owner_id;
+              }
+
+              return taskInput;
+            });
+
+            // Send batch request to HubSpot
+            const batchResponse = await fetch('https://api.hubapi.com/crm/v3/objects/tasks/batch/create', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${hubspotToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ inputs: batchInputs }),
+            });
+
+            if (!batchResponse.ok) {
+              const errorText = await batchResponse.text();
+              console.error(`[${executionId}] ❌ HubSpot batch create failed (${batchResponse.status}):`, errorText);
+              await supabase
+                .from('task_automation_runs')
+                .update({ 
+                  hs_action_successful: false,
+                  failure_description: `HubSpot API error: ${batchResponse.status}`
+                })
+                .eq('id', batchRun.id);
+              continue;
+            }
+
+            const batchResult = await batchResponse.json();
+            const successfulTasks = batchResult.results || [];
+            const failedTasks = batchResult.errors || [];
+
+            console.log(`[${executionId}] ✅ HubSpot batch result: ${successfulTasks.length} successful, ${failedTasks.length} failed`);
+
+            if (successfulTasks.length === 0) {
+              console.error(`[${executionId}] ❌ No tasks created in HubSpot`);
+              await supabase
+                .from('task_automation_runs')
+                .update({ 
+                  hs_action_successful: false,
+                  failure_description: failedTasks.length > 0 ? JSON.stringify(failedTasks) : 'No tasks created'
+                })
+                .eq('id', batchRun.id);
+              continue;
+            }
+
+            // Insert tasks into hs_tasks
+            const tasksToInsert = successfulTasks.map((task: any) => ({
+              hs_object_id: task.id,
+              hs_task_subject: task.properties?.hs_task_subject || null,
+              hs_task_body: task.properties?.hs_task_body || null,
+              hs_body_preview: task.properties?.hs_body_preview || null,
+              hs_task_status: task.properties?.hs_task_status || 'NOT_STARTED',
+              hs_task_priority: task.properties?.hs_task_priority || null,
+              hs_task_type: task.properties?.hs_task_type || 'TODO',
+              hs_timestamp: task.properties?.hs_timestamp || null,
+              hs_queue_membership_ids: task.properties?.hs_queue_membership_ids || null,
+              hubspot_owner_id: task.properties?.hubspot_owner_id || null,
+              hs_createdate: task.createdAt || null,
+              hs_lastmodifieddate: task.updatedAt || null,
+              created_by_automation: true,
+              created_by_automation_id: batchRun.automation_id,
+              number_in_sequence: 1,
+              archived: false,
+              updated_at: new Date().toISOString()
+            }));
+
+            const { error: insertError } = await supabase
+              .from('hs_tasks')
+              .upsert(tasksToInsert, { onConflict: 'hs_object_id', ignoreDuplicates: false });
+
+            if (insertError) {
+              console.error(`[${executionId}] ❌ Failed to insert tasks:`, insertError);
+            } else {
+              console.log(`[${executionId}] ✅ Inserted ${tasksToInsert.length} tasks into hs_tasks`);
+            }
+
+            // Update automation run with results
+            const successfulTaskIds = successfulTasks.map((t: any) => t.id);
+            await supabase
+              .from('task_automation_runs')
+              .update({
+                hs_action_successful: true,
+                hs_actioned_task_ids: successfulTaskIds,
+                failure_description: failedTasks.length > 0 ? JSON.stringify(failedTasks) : null
+              })
+              .eq('id', batchRun.id);
+
+            console.log(`[${executionId}] ✅ Batch run completed: ${successfulTaskIds.length} tasks created`);
+
+          } catch (error) {
+            console.error(`[${executionId}] ❌ Error processing batch run:`, error);
+            await supabase
+              .from('task_automation_runs')
+              .update({ 
+                hs_action_successful: false,
+                failure_description: error instanceof Error ? error.message : 'Unknown error'
+              })
+              .eq('id', batchRun.id);
+          }
+        }
+
+        // ===== BATCH CONTACT REFRESH FOR INDIVIDUAL RUNS =====
+        // Extract unique contact IDs from individual runs and force refresh from HubSpot
         const contactIdsToRefresh = [...new Set(
-          dueRuns
+          individualRuns
             .map(run => run.hs_contact_id)
             .filter(Boolean)
         )];
+
+        // Continue with individual runs processing...
+        dueRuns = individualRuns;
 
         console.log(`[${executionId}] 📞 Refreshing ${contactIdsToRefresh.length} contact(s) from HubSpot...`);
 
