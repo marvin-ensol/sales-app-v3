@@ -45,6 +45,7 @@ serve(async (req) => {
 
     const events: HubSpotWebhookEvent[] = await req.json();
     console.log(`[HubSpot Webhook] Received ${events.length} event(s)`);
+    console.log('[HubSpot Webhook] Raw payload:', JSON.stringify(events, null, 2));
 
     // Group events by type
     const taskDeletions = events.filter(e => 
@@ -59,6 +60,15 @@ serve(async (req) => {
     );
 
     console.log(`[HubSpot Webhook] Task deletions: ${taskDeletions.length}, Call creations: ${callCreations.length}, Unknown: ${unknownEvents.length}`);
+    
+    // Log detailed event information for debugging
+    if (taskDeletions.length > 0) {
+      console.log('[HubSpot Webhook] Task deletion events details:', JSON.stringify(taskDeletions, null, 2));
+    }
+    
+    if (callCreations.length > 0) {
+      console.log('[HubSpot Webhook] Call creation events details:', JSON.stringify(callCreations, null, 2));
+    }
     
     // Log full payload details for unknown events to help troubleshooting
     if (unknownEvents.length > 0) {

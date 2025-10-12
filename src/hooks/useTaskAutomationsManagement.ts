@@ -105,6 +105,7 @@ export const useTaskAutomationsManagement = () => {
           sequence_exit_enabled: automationData.sequence_exit_enabled ?? null,
           first_task_creation: automationData.first_task_creation ?? null,
           auto_complete_on_exit_enabled: automationData.auto_complete_on_exit_enabled ?? null,
+          auto_complete_on_engagement: automationData.auto_complete_on_engagement ?? null,
           schedule_enabled: automationData.schedule_enabled ?? null,
           schedule_configuration: automationData.schedule_configuration ?? null,
           tasks_configuration: automationData.tasks_configuration ?? null
@@ -140,6 +141,7 @@ export const useTaskAutomationsManagement = () => {
       if (automationData.sequence_exit_enabled !== undefined) updatePayload.sequence_exit_enabled = automationData.sequence_exit_enabled;
       if (automationData.first_task_creation !== undefined) updatePayload.first_task_creation = automationData.first_task_creation;
       if (automationData.auto_complete_on_exit_enabled !== undefined) updatePayload.auto_complete_on_exit_enabled = automationData.auto_complete_on_exit_enabled;
+      if (automationData.auto_complete_on_engagement !== undefined) updatePayload.auto_complete_on_engagement = automationData.auto_complete_on_engagement;
       if (automationData.schedule_enabled !== undefined) updatePayload.schedule_enabled = automationData.schedule_enabled;
       if (automationData.schedule_configuration !== undefined) updatePayload.schedule_configuration = automationData.schedule_configuration;
       if (automationData.tasks_configuration !== undefined) updatePayload.tasks_configuration = automationData.tasks_configuration;
