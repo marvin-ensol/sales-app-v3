@@ -667,7 +667,7 @@ serve(async (req) => {
     // ============ LEGACY TASK CONFLICT CHECK ============
     // Check if pre-existing tasks exist that would conflict with this automation run
     // This prevents parallel sequences when legacy/manual tasks are already in the queue
-    console.log(`🔍 Checking for legacy task conflicts...`);
+    console.log(`🔍 Checking for legacy task conflicts (v2)...`);
     console.log(`   - Target queue: ${hsQueueId}`);
     console.log(`   - Target contact: ${contactId}`);
     console.log(`   - Target position: ${positionInSequence}`);
