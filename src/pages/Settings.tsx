@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff, ExternalLink } from "lucide-react";
+import { ArrowLeft, Settings as SettingsIcon, Edit2, Save, X, Plus, Trash2, ArrowUp, ArrowDown, ChevronRight, Repeat, EyeOff, ExternalLink, Settings2, Eye, ListOrdered, Lock, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTaskCategoriesManagement, CategoryFormData } from "@/hooks/useTaskCategoriesManagement";
 import { useTaskAutomationsManagement, TaskAutomation } from "@/hooks/useTaskAutomationsManagement";
@@ -15,6 +15,7 @@ import { useHubSpotLists } from "@/hooks/useHubSpotLists";
 import { useToast } from "@/hooks/use-toast";
 import { TeamSelector } from "@/components/TeamSelector";
 import { useTeams } from "@/hooks/useTeams";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { SequenceModal } from "@/components/SequenceModal";
 import { UsersTeamsSection } from "@/components/UsersTeamsSection";
 import { SequenceConfig } from "@/components/SequenceConfig";
@@ -487,69 +488,97 @@ const Settings = () => {
                 {/* Categories List */}
                  <div className="space-y-3">
                    {(localCategories.length > 0 ? localCategories : categories).map((category) => (
-                     <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
-                      <div 
-                        className="cursor-pointer"
-                        onClick={(e) => {
-                          // Don't trigger edit if clicking on reorder buttons
-                          if ((e.target as HTMLElement).closest('[data-reorder-button]')) {
-                            return;
-                          }
-                          if (editingId !== category.id) {
-                            handleEditStart(category);
-                          }
-                        }}
-                      >
-                      {editingId === category.id ? (
-                        /* Edit Mode */
-                         <div className="space-y-3">
-                           <div className="grid grid-cols-1 gap-3">
-                              <div>
-                                <div className="flex items-center gap-3 mb-2">
-                                  <div className="flex-1">
-                                    <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
-                                    {category.hs_queue_id === null ? (
-                                      // Read-only name for "Autres" category
-                                      <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                                        <div className="flex-1">
-                                          <div className="font-medium">{editForm.label}</div>
-                                          <div className="text-xs text-gray-500 mt-1">
-                                            Catégorie de dernier ressort ; son nom est non modifiable.
+                      <div key={category.id} className="p-4 border rounded-lg" style={{ backgroundColor: '#f3f3f3' }}>
+                       <div 
+                         className="cursor-pointer"
+                         onClick={(e) => {
+                           // Don't trigger edit if clicking on reorder buttons
+                           if ((e.target as HTMLElement).closest('[data-reorder-button]')) {
+                             return;
+                           }
+                           if (editingId !== category.id) {
+                             handleEditStart(category);
+                           }
+                         }}
+                       >
+                       {editingId === category.id ? (
+                         /* Edit Mode */
+                         <TooltipProvider>
+                          <div className="space-y-4">
+                            {/* Sub-card 1: Réglages de base */}
+                            <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-4">
+                                <Settings2 className="h-5 w-5 text-muted-foreground" />
+                                <h3 className="text-base font-medium">Réglages de base</h3>
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <div className="flex-1">
+                                      <Label htmlFor={`edit-label-${category.id}`}>Nom</Label>
+                                      {category.hs_queue_id === null ? (
+                                        // Read-only name for "Autres" category
+                                        <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                          <div className="flex-1">
+                                            <div className="font-medium">{editForm.label}</div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                              Catégorie de dernier ressort ; son nom est non modifiable.
+                                            </div>
                                           </div>
                                         </div>
-                                      </div>
-                                    ) : (
-                                      <Input
-                                        id={`edit-label-${category.id}`}
-                                        value={editForm.label}
-                                        onChange={(e) => setEditForm({...editForm, label: e.target.value})}
-                                        placeholder="Nom de la catégorie"
-                                      />
-                                    )}
+                                      ) : (
+                                        <Input
+                                          id={`edit-label-${category.id}`}
+                                          value={editForm.label}
+                                          onChange={(e) => setEditForm({...editForm, label: e.target.value})}
+                                          placeholder="Nom de la catégorie"
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      ID: {category.id}
+                                    </div>
                                   </div>
-                                 <div className="text-sm text-gray-500">
-                                   ID: {category.id}
-                                 </div>
-                               </div>
-                             </div>
-                             <div>
-                               <Label htmlFor={`edit-color-${category.id}`}>Couleur</Label>
-                               <div className="flex items-center gap-2">
-                                 <Input
-                                   id={`edit-color-${category.id}`}
-                                   type="color"
-                                   value={editForm.color}
-                                   onChange={(e) => setEditForm({...editForm, color: e.target.value})}
-                                   className="w-16 h-10 p-1 cursor-pointer"
-                                 />
-                                 <Input
-                                   value={editForm.color}
-                                   onChange={(e) => setEditForm({...editForm, color: e.target.value})}
-                                   placeholder="#000000"
-                                   className="flex-1"
-                                 />
-                               </div>
-                             </div>
+                                </div>
+                                {/* Hide Queue ID field for the fallback "Autres" category */}
+                                {category.hs_queue_id !== null && (
+                                  <div>
+                                    <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
+                                    <Input
+                                      id={`edit-queue-${category.id}`}
+                                      value={editForm.hs_queue_id}
+                                      onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
+                                      placeholder="ID de la queue HubSpot"
+                                    />
+                                  </div>
+                                )}
+                                <div>
+                                  <Label htmlFor={`edit-color-${category.id}`}>Couleur</Label>
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      id={`edit-color-${category.id}`}
+                                      type="color"
+                                      value={editForm.color}
+                                      onChange={(e) => setEditForm({...editForm, color: e.target.value})}
+                                      className="w-16 h-10 p-1 cursor-pointer"
+                                    />
+                                    <Input
+                                      value={editForm.color}
+                                      onChange={(e) => setEditForm({...editForm, color: e.target.value})}
+                                      placeholder="#000000"
+                                      className="flex-1"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Sub-card 2: Visibilité */}
+                            <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-4">
+                                <Eye className="h-5 w-5 text-muted-foreground" />
+                                <h3 className="text-base font-medium">Visibilité</h3>
+                              </div>
                               {/* Hide team visibility settings for "Autres" category */}
                               {category.hs_queue_id !== null ? (
                                 <div>
@@ -566,105 +595,120 @@ const Settings = () => {
                                   </div>
                                 </div>
                               )}
-                                 {/* Hide Queue ID field for the fallback "Autres" category */}
-                                 {category.hs_queue_id !== null && (
-                                   <div>
-                                     <Label htmlFor={`edit-queue-${category.id}`}>Queue ID HubSpot</Label>
-                                     <Input
-                                       id={`edit-queue-${category.id}`}
-                                       value={editForm.hs_queue_id}
-                                       onChange={(e) => setEditForm({...editForm, hs_queue_id: e.target.value})}
-                                       placeholder="ID de la queue HubSpot"
-                                     />
-                                   </div>
-                                 )}
-                                 
-                                 {/* Sequence Priority Toggle */}
-                                 <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                                   <div className="flex-1">
-                                      <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
-                                        Prioriser les tâches selon leur position dans une séquence
-                                      </Label>
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelles que soient les échéances
-                                      </div>
-                                   </div>
-                                   <Switch
-                                     id={`edit-sequence-priority-${category.id}`}
-                                     checked={editForm.order_by_position_in_sequence}
-                                     onCheckedChange={(checked) => setEditForm({...editForm, order_by_position_in_sequence: Boolean(checked)})}
-                                   />
-                                 </div>
-                                 
-                                 <div className="space-y-3">
-                                   <div>
-                                     <Label className="text-sm font-medium">Ordre d'affichage des tâches</Label>
-                                    <RadioGroup
-                                      value={editForm.task_display_order}
-                                      onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
-                                      className="mt-2"
-                                    >
-                                       <div className="flex items-center space-x-2">
-                                         <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
-                                         <Label htmlFor={`newest-${category.id}`} className="text-sm">Échéance plus récente → Échéance plus ancienne</Label>
-                                       </div>
-                                       <div className="flex items-center space-x-2">
-                                         <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
-                                         <Label htmlFor={`oldest-${category.id}`} className="text-sm">Échéance plus ancienne → Échéance plus récente</Label>
-                                       </div>
-                                     </RadioGroup>
-                                  </div>
-                                  {/* Hide locking feature for "Autres" category */}
-                                  {category.hs_queue_id !== null && (
-                                    <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                                      <div className="flex-1">
-                                        <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
-                                          Verrouiller les catégories en dessous
-                                        </Label>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          Quand cette catégorie comporte au moins une tâche à faire
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        id={`edit-locks-${category.id}`}
-                                        checked={editForm.locks_lower_categories}
-                                        onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
-                                      />
+                            </div>
+
+                            {/* Sub-card 3: Ordre d'affichage des tâches */}
+                            <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-4">
+                                <ListOrdered className="h-5 w-5 text-muted-foreground" />
+                                <h3 className="text-base font-medium">Ordre d'affichage des tâches</h3>
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <Label className="text-sm font-medium">Afficher en haut</Label>
+                                  <RadioGroup
+                                    value={editForm.task_display_order}
+                                    onValueChange={(value) => setEditForm({...editForm, task_display_order: value})}
+                                    className="mt-2"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="newest_tasks_first" id={`newest-${category.id}`} />
+                                      <Label htmlFor={`newest-${category.id}`} className="text-sm">Les tâches dont l'échéance est la plus proche de maintenant</Label>
                                     </div>
-                                  )}
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="oldest_tasks_first" id={`oldest-${category.id}`} />
+                                      <Label htmlFor={`oldest-${category.id}`} className="text-sm">Les tâches dont l'échéance est la plus lointaine dans le passé</Label>
+                                    </div>
+                                  </RadioGroup>
                                 </div>
-                           </div>
-                           <div className="flex justify-between items-center">
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleDelete(category.id, category.hs_queue_id);
-                               }}
-                               disabled={!category.hs_queue_id || isSubmitting}
-                               className="text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                             >
-                               Supprimer cette catégorie
-                             </button>
-                             
-                             <div className="flex gap-2">
-                               <Button
-                                 size="sm"
-                                 variant="outline"
-                                 onClick={handleEditCancel}
-                                 disabled={isSubmitting}
-                               >
-                                 Annuler
-                               </Button>
-                               <Button
-                                 size="sm"
-                                 onClick={handleEditSave}
-                                 disabled={isSubmitting}
-                               >
-                                 Enregistrer
-                               </Button>
-                             </div>
-                           </div>
-                         </div>
+                                
+                                {/* Sequence Priority Toggle */}
+                                <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor={`edit-sequence-priority-${category.id}`} className="text-sm font-medium">
+                                      Prioriser les tâches selon leur position dans une séquence
+                                    </Label>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="max-w-xs">Les tâches 1 apparaissent avant les tâches 2 d'une séquence, quelles que soient les échéances</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                  <Switch
+                                    id={`edit-sequence-priority-${category.id}`}
+                                    checked={editForm.order_by_position_in_sequence}
+                                    onCheckedChange={(checked) => setEditForm({...editForm, order_by_position_in_sequence: Boolean(checked)})}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Sub-card 4: Contraintes */}
+                            {/* Hide locking feature for "Autres" category */}
+                            {category.hs_queue_id !== null && (
+                              <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-4">
+                                  <Lock className="h-5 w-5 text-muted-foreground" />
+                                  <h3 className="text-base font-medium">Contraintes</h3>
+                                </div>
+                                <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor={`edit-locks-${category.id}`} className="text-sm font-medium">
+                                      Verrouiller les catégories en dessous
+                                    </Label>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="max-w-xs">Quand cette catégorie comporte au moins une tâche à faire</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                  <Switch
+                                    id={`edit-locks-${category.id}`}
+                                    checked={editForm.locks_lower_categories}
+                                    onCheckedChange={(checked) => setEditForm({...editForm, locks_lower_categories: checked})}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex justify-between items-center">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(category.id, category.hs_queue_id);
+                                }}
+                                disabled={!category.hs_queue_id || isSubmitting}
+                                className="text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Supprimer cette catégorie
+                              </button>
+                              
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleEditCancel}
+                                  disabled={isSubmitting}
+                                >
+                                  Annuler
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={handleEditSave}
+                                  disabled={isSubmitting}
+                                >
+                                  Enregistrer
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                         </TooltipProvider>
                        ) : (
                         /* View Mode */
                         <div className="space-y-3">
