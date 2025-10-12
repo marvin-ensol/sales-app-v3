@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
-import { AlertTriangle, Plus, X, CalendarIcon, LogOut, CheckCircle, Clock, Users } from "lucide-react";
+import { AlertTriangle, Plus, X, CalendarIcon, LogOut, CheckCircle, Clock, Users, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SequenceTaskList, TaskOwnerType } from "./SequenceTaskList";
 import { TaskOwnerSelector } from "./TaskOwnerSelector";
 import { ContactListCard } from "./ContactListCard";
@@ -647,13 +648,11 @@ export const SequenceConfig = ({
 
         {/* Owner selector for Task 1 - only shown when checkbox is checked */}
         {createInitialTask && (
-          <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
-            <TaskOwnerSelector
-              value={initialTaskOwner}
-              onChange={setInitialTaskOwner}
-              excludeOptions={['previous_task_owner']}
-            />
-          </div>
+          <TaskOwnerSelector
+            value={initialTaskOwner}
+            onChange={setInitialTaskOwner}
+            excludeOptions={['previous_task_owner']}
+          />
         )}
 
         {!createInitialTask && (
@@ -782,13 +781,25 @@ export const SequenceConfig = ({
         </div>
         
         <div className="p-3 bg-slate-50/50 border border-slate-200/60 rounded-lg">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="use-working-hours"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              S'assurer que les échéances des tâches créées automatiquement tiennent compte des horaires de travail
-            </label>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="use-working-hours"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Tenir compte d'un planning pour les échéances des tâches créées automatiquement
+              </label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-4 w-4 p-0">
+                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>En dehors des horaires acceptables, permet de retarder la création des tâches automatiques jusqu'à ce que les utilisateurs soient à nouveau disponibles pour les traiter</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Switch
               id="use-working-hours"
               checked={useWorkingHours}
