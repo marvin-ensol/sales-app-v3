@@ -26,10 +26,6 @@ interface TaskAutomation {
   hs_list_id: string;
   hs_list_object: string;
   task_category_id: number;
-  first_task_creation: boolean;
-  schedule_enabled: boolean;
-  schedule_configuration: any;
-  timezone: string;
 }
 
 interface ExistingMembership {
@@ -70,11 +66,7 @@ serve(async (req) => {
         id,
         hs_list_id,
         hs_list_object,
-        task_category_id,
-        first_task_creation,
-        schedule_enabled,
-        schedule_configuration,
-        timezone
+        task_category_id
       `)
       .eq('automation_enabled', true)
       .not('hs_list_id', 'is', null);
@@ -294,75 +286,6 @@ serve(async (req) => {
         
         console.log(`[${executionId}] ✅ Completed processing automation ${automation.id} (last_api_call: ${syncStartTime})`);
         totalProcessed++;
-
-        // Log whether batch creation will be triggered
-        console.log(`[${executionId}] 📋 Automation ${automation.id}: first_task_creation=${automation.first_task_creation}, newMemberships=${newMemberships.length}`);
-
-        // If first_task_creation is enabled, create a single batch automation run record
-        if (automation.first_task_creation && newMemberships.length > 0) {
-          console.log(`[${executionId}] 📋 Creating batch automation run for ${newMemberships.length} new memberships...`);
-
-          try {
-            // Calculate planned execution timestamp using automation's schedule
-            const scheduleEnabled = automation.schedule_enabled || false;
-            const scheduleConfig = automation.schedule_configuration || null;
-            const timezone = automation.timezone || 'Europe/Paris';
-
-            let plannedTimestamp = new Date();
-            if (scheduleEnabled && scheduleConfig) {
-              // Simple working hours check (we'll do full calculation in execute function)
-              const nowLocal = new Date().toLocaleString('en-US', { timeZone: timezone });
-              plannedTimestamp = new Date(nowLocal);
-            }
-
-            // Get automation's queue_id
-            const { data: categoryData, error: categoryError } = await supabase
-              .from('task_categories')
-              .select('hs_queue_id')
-              .eq('id', automation.task_category_id)
-              .single();
-
-            if (categoryError) {
-              console.error(`[${executionId}] ❌ Error fetching category for automation ${automation.id}:`, categoryError);
-            }
-
-            const queueId = categoryData?.hs_queue_id || null;
-
-            // Create a single automation run with array of contact IDs
-            const { error: runError } = await supabase
-              .from('task_automation_runs')
-              .insert({
-                automation_id: automation.id,
-                type: 'create_on_entry',
-                hs_trigger_object: 'list',
-                hs_trigger_object_id: automation.hs_list_id,
-                hs_action_successful: null, // Will be set after execution
-                hs_actioned_task_ids: null, // Will be populated after execution
-                task_name: null, // Batch operation
-                hs_queue_id: queueId,
-                planned_execution_timestamp: plannedTimestamp.toISOString(),
-                planned_execution_timestamp_display: plannedTimestamp.toLocaleString('en-US', { 
-                  timeZone: timezone,
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false
-                }),
-                // Store contact IDs in actioned_run_ids temporarily (will be used to create tasks)
-                actioned_run_ids: newMemberships.map(m => ({ contact_id: m.hs_object_id }))
-              });
-
-            if (runError) {
-              console.error(`[${executionId}] ❌ Error creating batch automation run:`, runError);
-            } else {
-              console.log(`[${executionId}] ✅ Created batch automation run for ${newMemberships.length} contacts`);
-            }
-          } catch (batchError) {
-            console.error(`[${executionId}] ❌ Error in batch automation run creation:`, batchError);
-          }
-        }
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
