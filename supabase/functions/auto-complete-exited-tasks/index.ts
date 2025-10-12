@@ -361,6 +361,7 @@ Deno.serve(async (req) => {
                 hs_task_completion_count: 1,
                 marked_completed_by_automation: true,
                 marked_completed_by_automation_id: automationId,
+                marked_completed_by_automation_source: 'list_exit',
                 is_skipped: true,
                 updated_at: completionTimestamp
               })

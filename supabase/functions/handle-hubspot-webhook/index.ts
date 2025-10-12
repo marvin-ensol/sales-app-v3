@@ -281,7 +281,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
             marked_completed_by_automation_id: task.task_automations.id,
-            marked_completed_source: 'phone_call',
+            marked_completed_by_automation_source: 'phone_call',
             updated_at: completionTime
           })
           .eq('hs_object_id', task.hs_object_id);

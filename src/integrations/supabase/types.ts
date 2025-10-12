@@ -147,7 +147,7 @@ export type Database = {
           is_skipped: boolean | null
           marked_completed_by_automation: boolean | null
           marked_completed_by_automation_id: string | null
-          marked_completed_source:
+          marked_completed_by_automation_source:
             | Database["public"]["Enums"]["task_auto_complete_sources"]
             | null
           number_in_sequence: number | null
@@ -187,7 +187,7 @@ export type Database = {
           is_skipped?: boolean | null
           marked_completed_by_automation?: boolean | null
           marked_completed_by_automation_id?: string | null
-          marked_completed_source?:
+          marked_completed_by_automation_source?:
             | Database["public"]["Enums"]["task_auto_complete_sources"]
             | null
           number_in_sequence?: number | null
@@ -227,7 +227,7 @@ export type Database = {
           is_skipped?: boolean | null
           marked_completed_by_automation?: boolean | null
           marked_completed_by_automation_id?: string | null
-          marked_completed_source?:
+          marked_completed_by_automation_source?:
             | Database["public"]["Enums"]["task_auto_complete_sources"]
             | null
           number_in_sequence?: number | null
