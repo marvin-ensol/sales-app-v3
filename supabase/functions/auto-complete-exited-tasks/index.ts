@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
       automationRunsToCreate.push({
         automation_id: automationId,
         type: 'cancel_on_exit',
-        hs_trigger_object: 'list_membership',
+        hs_trigger_object: 'list',
         hs_trigger_object_id: group.hs_list_id,
         hs_contact_id: group.exitedContactIds[0], // Use first contact as reference
         hs_queue_id: group.hs_queue_id,
@@ -525,17 +525,19 @@ Deno.serve(async (req) => {
 
     console.log(`[${runId}] 📝 Creating ${automationRunsToCreate.length} automation run record(s)`);
 
-    // STEP 6: Batch insert automation runs
+    // STEP 6: Batch insert automation runs (don't fail if insert errors occur)
+    const insertErrors = [];
     if (automationRunsToCreate.length > 0) {
       const { error: insertError } = await supabase
         .from('task_automation_runs')
         .insert(automationRunsToCreate);
 
       if (insertError) {
-        throw new Error(`Failed to insert automation runs: ${insertError.message}`);
+        console.error(`[${runId}] ⚠️ Failed to insert automation runs:`, insertError.message);
+        insertErrors.push({ step: 'automation_runs_insert', message: insertError.message });
+      } else {
+        console.log(`[${runId}] ✅ Successfully created ${automationRunsToCreate.length} automation run record(s)`);
       }
-
-      console.log(`[${runId}] ✅ Successfully created ${automationRunsToCreate.length} automation run record(s)`);
     }
 
     // STEP 7: Mark these memberships as processed (always, even if no actions taken)
@@ -566,7 +568,8 @@ Deno.serve(async (req) => {
         tasksCompleted: totalTasksCompleted,
         automationRunsCreated: automationRunsToCreate.length,
         sequenceTasksBlocked: totalSequenceTasksBlocked,
-        membershipsProcessed: membership_ids.length
+        membershipsProcessed: membership_ids.length,
+        errors: insertErrors.length > 0 ? insertErrors : undefined
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
