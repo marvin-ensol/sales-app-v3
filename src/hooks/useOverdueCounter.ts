@@ -31,10 +31,10 @@ export const useOverdueCounter = (hsTimestamp: Date | null) => {
           let counterText;
           if (days > 0) {
             // Over 24 hours: show days and hours only
-            counterText = `+${days}j ${hours}h`;
+            counterText = `+${days}J ${hours}H`;
           } else {
             // Under 24 hours: show hours, minutes, seconds
-            counterText = `+${hours}h ${minutes}m ${seconds}s`;
+            counterText = `+${hours}H ${minutes}M ${seconds}S`;
           }
           
           setCounter(counterText);
