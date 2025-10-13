@@ -144,51 +144,105 @@ Deno.serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+    // Parse request body for override mode
+    const requestBody = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const override = requestBody.override === true;
+    const targetRunIds = requestBody.run_ids || null;
+
     const executionId = `retry_${new Date().toISOString().replace(/[:.]/g, '-')}`;
     console.log(`[${executionId}] === RETRY STUCK AUTOMATION RUNS START ===`);
+    console.log(`[${executionId}] Override mode: ${override}`);
+    if (targetRunIds) {
+      console.log(`[${executionId}] Target run IDs: ${targetRunIds.length} provided`);
+    }
     
-    // Find runs that are:
-    // - Not executed (hs_action_successful = false)
-    // - Older than 10 minutes (missed by regular execution)
-    // - Not older than 48 hours (don't retry ancient runs)
-    // - Have a valid planned_execution_timestamp (not NULL)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    let stuckRuns;
     
-    console.log(`[${executionId}] Looking for stuck runs between ${fortyEightHoursAgo} and ${tenMinutesAgo}`);
+    if (override) {
+      // OVERRIDE MODE: Process recent/specific runs without time gates
+      console.log(`[${executionId}] ⚡ OVERRIDE MODE ACTIVE - bypassing 10-min/48-hour gates`);
+      
+      let query = supabase
+        .from('task_automation_runs')
+        .select(`
+          id,
+          automation_id,
+          planned_execution_timestamp,
+          planned_execution_timestamp_display,
+          hs_trigger_object_id,
+          hs_trigger_object,
+          type,
+          position_in_sequence,
+          task_name,
+          task_owner_setting,
+          hs_owner_id_contact,
+          hs_owner_id_previous_task,
+          hs_queue_id,
+          hs_contact_id,
+          exit_contact_list_block,
+          hs_membership_id
+        `)
+        .eq('hs_action_successful', false)
+        .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
+        .in('type', ['create_on_entry', 'create_from_sequence']);
+      
+      if (targetRunIds && Array.isArray(targetRunIds) && targetRunIds.length > 0) {
+        query = query.in('id', targetRunIds);
+      } else {
+        // Process all pending runs up to max cap
+        query = query.limit(300);
+      }
+      
+      const { data, error: queryError } = await query.order('planned_execution_timestamp', { ascending: true });
+      
+      if (queryError) {
+        console.error(`[${executionId}] ❌ Error querying runs:`, queryError);
+        throw queryError;
+      }
+      
+      stuckRuns = data;
+    } else {
+      // NORMAL MODE: Only process runs older than 10 minutes
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      
+      console.log(`[${executionId}] Looking for stuck runs between ${fortyEightHoursAgo} and ${tenMinutesAgo}`);
 
-    const { data: stuckRuns, error: queryError } = await supabase
-      .from('task_automation_runs')
-      .select(`
-        id,
-        automation_id,
-        planned_execution_timestamp,
-        planned_execution_timestamp_display,
-        hs_trigger_object_id,
-        hs_trigger_object,
-        type,
-        position_in_sequence,
-        task_name,
-        task_owner_setting,
-        hs_owner_id_contact,
-        hs_owner_id_previous_task,
-        hs_queue_id,
-        hs_contact_id,
-        exit_contact_list_block,
-        hs_membership_id
-      `)
-      .eq('hs_action_successful', false)
-      .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
-      .in('type', ['create_on_entry', 'create_from_sequence'])
-      .not('planned_execution_timestamp', 'is', null)
-      .lt('planned_execution_timestamp', tenMinutesAgo)
-      .gte('planned_execution_timestamp', fortyEightHoursAgo)
-      .order('planned_execution_timestamp', { ascending: true })
-      .limit(100); // Process 100 at a time to avoid timeout
+      const { data, error: queryError } = await supabase
+        .from('task_automation_runs')
+        .select(`
+          id,
+          automation_id,
+          planned_execution_timestamp,
+          planned_execution_timestamp_display,
+          hs_trigger_object_id,
+          hs_trigger_object,
+          type,
+          position_in_sequence,
+          task_name,
+          task_owner_setting,
+          hs_owner_id_contact,
+          hs_owner_id_previous_task,
+          hs_queue_id,
+          hs_contact_id,
+          exit_contact_list_block,
+          hs_membership_id
+        `)
+        .eq('hs_action_successful', false)
+        .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
+        .in('type', ['create_on_entry', 'create_from_sequence'])
+        .not('planned_execution_timestamp', 'is', null)
+        .lt('planned_execution_timestamp', tenMinutesAgo)
+        .gte('planned_execution_timestamp', fortyEightHoursAgo)
+        .order('planned_execution_timestamp', { ascending: true })
+        .limit(100);
 
-    if (queryError) {
-      console.error(`[${executionId}] ❌ Error querying stuck runs:`, queryError);
-      throw queryError;
+      if (queryError) {
+        console.error(`[${executionId}] ❌ Error querying stuck runs:`, queryError);
+        throw queryError;
+      }
+      
+      stuckRuns = data;
     }
 
     if (!stuckRuns || stuckRuns.length === 0) {
@@ -229,197 +283,247 @@ Deno.serve(async (req) => {
       console.log(`[${executionId}] ✅ Contact refresh complete:`, result);
     }
 
-    // Build batch payload
-    const batchInputs = [];
-    const runMetadata = [];
+    // === BATCH-SPLITTING: Process runs in chunks of ≤100 ===
+    const CHUNK_SIZE = 100;
+    const chunks = [];
+    for (let i = 0; i < stuckRuns.length; i += CHUNK_SIZE) {
+      chunks.push(stuckRuns.slice(i, i + CHUNK_SIZE));
+    }
 
-    for (const run of stuckRuns) {
-      // Resolve contact ID if missing
-      let contactId = run.hs_contact_id;
-      
-      if (!contactId && run.hs_membership_id) {
-        console.log(`[${executionId}] ⚠️ Run ${run.id} has NULL contact, resolving via membership...`);
+    console.log(`[${executionId}] 📦 Split ${stuckRuns.length} runs into ${chunks.length} chunk(s) of max ${CHUNK_SIZE}`);
+
+    let totalCreated = 0;
+    let totalFailed = 0;
+
+    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+      const chunk = chunks[chunkIndex];
+      console.log(`[${executionId}] 🔄 Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} runs)...`);
+
+      // Build batch payload for this chunk
+      const batchInputs = [];
+      const runMetadata = [];
+
+      for (const run of chunk) {
+        // Resolve contact ID if missing
+        let contactId = run.hs_contact_id;
         
-        const { data: membership } = await supabase
-          .from('hs_list_memberships')
-          .select('hs_object_id')
-          .eq('id', run.hs_membership_id)
-          .maybeSingle();
-        
-        if (membership?.hs_object_id) {
-          contactId = membership.hs_object_id;
-          console.log(`[${executionId}] ✅ Resolved contact ${contactId}`);
+        if (!contactId && run.hs_membership_id) {
+          console.log(`[${executionId}] ⚠️ Run ${run.id} has NULL contact, resolving via membership...`);
           
-          await syncContactsFromHubSpot({
-            contactIds: [contactId],
-            hubspotToken,
-            supabase,
-            forceRefresh: true
-          });
+          const { data: membership } = await supabase
+            .from('hs_list_memberships')
+            .select('hs_object_id')
+            .eq('id', run.hs_membership_id)
+            .maybeSingle();
+          
+          if (membership?.hs_object_id) {
+            contactId = membership.hs_object_id;
+            console.log(`[${executionId}] ✅ Resolved contact ${contactId}`);
+            
+            await syncContactsFromHubSpot({
+              contactIds: [contactId],
+              hubspotToken,
+              supabase,
+              forceRefresh: true
+            });
+          }
         }
+        
+        if (!contactId) {
+          console.error(`[${executionId}] ❌ Cannot process run ${run.id}: no contact ID`);
+          await supabase
+            .from('task_automation_runs')
+            .update({ 
+              failure_description: 'Retry failed: Could not resolve contact ID',
+            })
+            .eq('id', run.id);
+          totalFailed++;
+          continue;
+        }
+
+        // Determine owner
+        let hubspotOwnerId = null;
+        if (run.task_owner_setting === 'contact_owner') {
+          if (!run.hs_owner_id_contact && contactId) {
+            const { data: contactData } = await supabase
+              .from('hs_contacts')
+              .select('hubspot_owner_id')
+              .eq('hs_object_id', contactId)
+              .maybeSingle();
+            
+            if (contactData?.hubspot_owner_id) {
+              run.hs_owner_id_contact = contactData.hubspot_owner_id;
+            } else {
+              console.warn(`[${executionId}] ⚠️ Contact ${contactId} has no owner (unassigned task)`);
+            }
+          }
+          hubspotOwnerId = run.hs_owner_id_contact;
+        } else if (run.task_owner_setting === 'previous_task_owner') {
+          hubspotOwnerId = run.hs_owner_id_previous_task;
+        }
+
+        // Defensive check: ensure task name is not empty
+        const taskSubject = run.task_name || 'Automated Task (No Name)';
+        if (!run.task_name) {
+          console.warn(`[${executionId}] ⚠️ Run ${run.id} has empty task_name, using default`);
+        }
+
+        const taskInput: any = {
+          properties: {
+            hs_task_subject: taskSubject,
+            hs_queue_membership_ids: run.hs_queue_id,
+            hs_task_type: 'TODO',
+            hs_task_status: 'NOT_STARTED',
+            hs_timestamp: run.planned_execution_timestamp,
+          },
+          associations: [
+            {
+              to: { id: contactId },
+              types: [
+                {
+                  associationCategory: 'HUBSPOT_DEFINED',
+                  associationTypeId: 204,
+                },
+              ],
+            },
+          ],
+        };
+
+        if (hubspotOwnerId) {
+          taskInput.properties.hubspot_owner_id = hubspotOwnerId;
+        }
+
+        batchInputs.push(taskInput);
+        runMetadata.push({
+          run_id: run.id,
+          automation_id: run.automation_id,
+          task_name: taskSubject,
+          hs_queue_id: run.hs_queue_id,
+          planned_execution_timestamp: run.planned_execution_timestamp,
+          position_in_sequence: run.position_in_sequence,
+          hubspot_owner_id: hubspotOwnerId,
+          hs_contact_id: contactId,
+        });
       }
-      
-      if (!contactId) {
-        console.error(`[${executionId}] ❌ Cannot process run ${run.id}: no contact ID`);
-        await supabase
-          .from('task_automation_runs')
-          .update({ 
-            failure_description: 'Retry failed: Could not resolve contact ID',
-          })
-          .eq('id', run.id);
+
+      // Guardrail: Skip HubSpot call if no valid inputs
+      if (batchInputs.length === 0) {
+        console.log(`[${executionId}] ⚠️ Chunk ${chunkIndex + 1}: No valid tasks to create after filtering`);
         continue;
       }
 
-      // Determine owner
-      let hubspotOwnerId = null;
-      if (run.task_owner_setting === 'contact_owner') {
-        if (!run.hs_owner_id_contact && contactId) {
-          const { data: contactData } = await supabase
-            .from('hs_contacts')
-            .select('hubspot_owner_id')
-            .eq('hs_object_id', contactId)
-            .maybeSingle();
-          
-          if (contactData?.hubspot_owner_id) {
-            run.hs_owner_id_contact = contactData.hubspot_owner_id;
-          }
-        }
-        hubspotOwnerId = run.hs_owner_id_contact;
-      } else if (run.task_owner_setting === 'previous_task_owner') {
-        hubspotOwnerId = run.hs_owner_id_previous_task;
+      // Guardrail: Verify chunk size
+      if (batchInputs.length > 100) {
+        console.error(`[${executionId}] 🚨 HubSpot batch limit guard: chunk size ${batchInputs.length} exceeds 100!`);
+        throw new Error(`Batch size ${batchInputs.length} exceeds HubSpot limit of 100`);
       }
 
-      const taskInput: any = {
-        properties: {
-          hs_task_subject: run.task_name,
-          hs_queue_membership_ids: run.hs_queue_id,
-          hs_task_type: 'TODO',
-          hs_task_status: 'NOT_STARTED',
-          hs_timestamp: run.planned_execution_timestamp,
-        },
-        associations: [
-          {
-            to: { id: contactId },
-            types: [
-              {
-                associationCategory: 'HUBSPOT_DEFINED',
-                associationTypeId: 204,
-              },
-            ],
+      console.log(`[${executionId}] 🚀 Chunk ${chunkIndex + 1}: Creating ${batchInputs.length} tasks via HubSpot batch API...`);
+
+      // Call HubSpot batch API
+      try {
+        const batchPayload = { inputs: batchInputs };
+        const hubspotResponse = await fetch('https://api.hubapi.com/crm/v3/objects/tasks/batch/create', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${hubspotToken}`,
+            'Content-Type': 'application/json',
           },
-        ],
-      };
+          body: JSON.stringify(batchPayload),
+        });
 
-      if (hubspotOwnerId) {
-        taskInput.properties.hubspot_owner_id = hubspotOwnerId;
+        if (!hubspotResponse.ok) {
+          const errorText = await hubspotResponse.text();
+          console.error(`[${executionId}] ❌ Chunk ${chunkIndex + 1}: Batch create failed (${hubspotResponse.status}):`, errorText.substring(0, 500));
+          
+          // Don't throw - continue to next chunk
+          totalFailed += batchInputs.length;
+          continue;
+        }
+
+        const batchResult = await hubspotResponse.json();
+        const createdTasks = batchResult.results || [];
+
+        console.log(`[${executionId}] ✅ Chunk ${chunkIndex + 1}: Batch create successful - ${createdTasks.length} tasks created`);
+        totalCreated += createdTasks.length;
+
+        // Insert tasks into hs_tasks
+        const tasksToInsert = createdTasks.map((task: any, index: number) => {
+          const metadata = runMetadata[index];
+          return {
+            hs_object_id: task.id,
+            hs_task_subject: task.properties.hs_task_subject,
+            hs_task_body: null,
+            hs_task_status: task.properties.hs_task_status,
+            hs_task_priority: task.properties.hs_task_priority || 'MEDIUM',
+            hs_timestamp: task.properties.hs_timestamp,
+            hs_queue_membership_ids: task.properties.hs_queue_membership_ids,
+            hubspot_owner_id: task.properties.hubspot_owner_id,
+            associated_contact_id: metadata.hs_contact_id,
+            hs_createdate: task.createdAt,
+            hs_lastmodifieddate: task.updatedAt,
+            created_by_automation: true,
+            created_by_automation_id: metadata.automation_id,
+            number_in_sequence: metadata.position_in_sequence,
+            archived: false,
+          };
+        });
+
+        const { error: insertError } = await supabase
+          .from('hs_tasks')
+          .insert(tasksToInsert);
+
+        if (insertError) {
+          console.error(`[${executionId}] ❌ Chunk ${chunkIndex + 1}: Error inserting tasks:`, insertError);
+        } else {
+          console.log(`[${executionId}] ✅ Chunk ${chunkIndex + 1}: Inserted ${tasksToInsert.length} tasks into hs_tasks`);
+        }
+
+        // Update automation runs
+        const runIds = createdTasks.map((_, index) => runMetadata[index].run_id);
+        const taskIds = createdTasks.map(task => task.id);
+
+        const { error: updateError } = await supabase
+          .from('task_automation_runs')
+          .update({
+            hs_action_successful: true,
+            hs_actioned_task_ids: taskIds,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', runIds);
+
+        if (updateError) {
+          console.error(`[${executionId}] ❌ Chunk ${chunkIndex + 1}: Error updating runs:`, updateError);
+        } else {
+          console.log(`[${executionId}] ✅ Chunk ${chunkIndex + 1}: Marked ${runIds.length} runs as successful`);
+        }
+      } catch (chunkError) {
+        console.error(`[${executionId}] ❌ Chunk ${chunkIndex + 1}: Exception:`, chunkError);
+        totalFailed += batchInputs.length;
       }
 
-      batchInputs.push(taskInput);
-      runMetadata.push({
-        run_id: run.id,
-        automation_id: run.automation_id,
-        task_name: run.task_name,
-        hs_queue_id: run.hs_queue_id,
-        planned_execution_timestamp: run.planned_execution_timestamp,
-        position_in_sequence: run.position_in_sequence,
-        hubspot_owner_id: hubspotOwnerId,
-        hs_contact_id: contactId,
-      });
+      // Rate limit between chunks
+      if (chunkIndex < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     }
 
-    if (batchInputs.length === 0) {
-      console.log(`[${executionId}] ⚠️ No valid tasks to create after filtering`);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'No valid tasks to retry',
-          executionId 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    console.log(`[${executionId}] === RETRY COMPLETE ===`);
+    console.log(`[${executionId}] 📊 Summary: ${totalCreated} created, ${totalFailed} failed, ${stuckRuns.length} total runs`);
+
+    // Post-run check: warn if many runs were not processed
+    if (totalCreated + totalFailed < stuckRuns.length) {
+      console.warn(`[${executionId}] ⚠️ Warning: Processed ${totalCreated + totalFailed}/${stuckRuns.length} runs (${stuckRuns.length - totalCreated - totalFailed} skipped/filtered)`);
     }
-
-    console.log(`[${executionId}] 🚀 Creating ${batchInputs.length} tasks via batch API...`);
-
-    // Call HubSpot batch API
-    const batchPayload = { inputs: batchInputs };
-    const hubspotResponse = await fetch('https://api.hubapi.com/crm/v3/objects/tasks/batch/create', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hubspotToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(batchPayload),
-    });
-
-    if (!hubspotResponse.ok) {
-      const errorText = await hubspotResponse.text();
-      console.error(`[${executionId}] ❌ Batch create failed (${hubspotResponse.status}):`, errorText);
-      throw new Error(`HubSpot batch API error: ${errorText}`);
-    }
-
-    const batchResult = await hubspotResponse.json();
-    const createdTasks = batchResult.results || [];
-
-    console.log(`[${executionId}] ✅ Created ${createdTasks.length} tasks`);
-
-    // Insert tasks into hs_tasks
-    const tasksToInsert = createdTasks.map((task: any, index: number) => {
-      const metadata = runMetadata[index];
-      return {
-        hs_object_id: task.id,
-        hs_task_subject: task.properties.hs_task_subject,
-        hs_task_body: null,
-        hs_task_status: task.properties.hs_task_status,
-        hs_task_priority: task.properties.hs_task_priority || 'MEDIUM',
-        hs_timestamp: task.properties.hs_timestamp,
-        hs_queue_membership_ids: task.properties.hs_queue_membership_ids,
-        hubspot_owner_id: task.properties.hubspot_owner_id,
-        associated_contact_id: metadata.hs_contact_id,
-        hs_createdate: task.createdAt,
-        hs_lastmodifieddate: task.updatedAt,
-        created_by_automation: true,
-        created_by_automation_id: metadata.automation_id,
-        number_in_sequence: metadata.position_in_sequence,
-        archived: false,
-      };
-    });
-
-    const { error: insertError } = await supabase
-      .from('hs_tasks')
-      .insert(tasksToInsert);
-
-    if (insertError) {
-      console.error(`[${executionId}] ❌ Error inserting tasks:`, insertError);
-    } else {
-      console.log(`[${executionId}] ✅ Inserted ${tasksToInsert.length} tasks into hs_tasks`);
-    }
-
-    // Update automation runs
-    const runIds = createdTasks.map((_, index) => runMetadata[index].run_id);
-    const taskIds = createdTasks.map(task => task.id);
-
-    const { error: updateError } = await supabase
-      .from('task_automation_runs')
-      .update({
-        hs_action_successful: true,
-        hs_actioned_task_ids: taskIds,
-        updated_at: new Date().toISOString()
-      })
-      .in('id', runIds);
-
-    if (updateError) {
-      console.error(`[${executionId}] ❌ Error updating runs:`, updateError);
-    } else {
-      console.log(`[${executionId}] ✅ Marked ${runIds.length} runs as successful`);
-    }
-
-    console.log(`[${executionId}] === RETRY STUCK AUTOMATION RUNS COMPLETE ===`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Retried ${stuckRuns.length} stuck runs, created ${createdTasks.length} tasks`,
+        message: `Retried ${stuckRuns.length} stuck runs in ${chunks.length} chunk(s)`,
+        total_runs: stuckRuns.length,
+        tasks_created: totalCreated,
+        tasks_failed: totalFailed,
+        chunks_processed: chunks.length,
         executionId 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
