@@ -94,45 +94,39 @@ const KanbanContent = ({
     }
   };
 
-  const getCompletedTasksByQueue = (queue: TaskQueue) => {
-    // Use centralized data when available for selected owner
-    if (teamSummary?.category_counts && selectedOwnerId !== 'all') {
-      return teamSummary.category_counts.completed_by_category[queue] || 0;
-    }
-    
-    // Fallback to local calculation for 'all' owners or when data unavailable
-    return allTasks.filter(task => {
-      // Map NULL queue to fallback category if needed
-      const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
-      
-      return taskQueue === queue && 
-        task.status === 'completed' &&
-        // When a specific owner is selected, only count their tasks
-        (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId);
-    }).length;
-  };
+const getCompletedTasksByQueue = (queue: TaskQueue) => {
+  // Prefer centralized data for selected owner when it's non-zero; otherwise fallback locally
+  if (teamSummary?.category_counts && selectedOwnerId !== 'all') {
+    const serverVal = teamSummary.category_counts.completed_by_category[queue] || 0;
+    if (serverVal > 0) return serverVal;
+  }
+  // Local fallback (also used for 'all')
+  return allTasks.filter(task => {
+    const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
+    return taskQueue === queue && 
+      task.status === 'completed' &&
+      (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId);
+  }).length;
+};
 
-  const getOverdueTasksByQueue = (queue: TaskQueue) => {
-    // Use centralized data when available for selected owner
-    if (teamSummary?.category_counts && selectedOwnerId !== 'all') {
-      return teamSummary.category_counts.overdue_by_category[queue] || 0;
-    }
-    
-    // Fallback to local calculation for 'all' owners or when data unavailable
-    const nowMs = Date.now();
-    return allTasks.filter(task => {
-      // Map NULL queue to fallback category if needed
-      const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
-      
-      return taskQueue === queue && 
-        task.status !== 'completed' && 
-        task.status !== 'deleted' &&
-        task.hsTimestamp && 
-        task.hsTimestamp.getTime() < nowMs &&
-        // When a specific owner is selected, only count their tasks
-        (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId);
-    }).length;
-  };
+const getOverdueTasksByQueue = (queue: TaskQueue) => {
+  // Prefer centralized data for selected owner when it's non-zero; otherwise fallback locally
+  if (teamSummary?.category_counts && selectedOwnerId !== 'all') {
+    const serverVal = teamSummary.category_counts.overdue_by_category[queue] || 0;
+    if (serverVal > 0) return serverVal;
+  }
+  // Local fallback (also used for 'all')
+  const nowMs = Date.now();
+  return allTasks.filter(task => {
+    const taskQueue = task.queue || (kanbanColumns.find(col => col.queueId === null)?.id?.toString() || 'other');
+    return taskQueue === queue && 
+      task.status !== 'completed' && 
+      task.status !== 'deleted' &&
+      task.hsTimestamp && 
+      task.hsTimestamp.getTime() < nowMs &&
+      (selectedOwnerId === 'all' || task.hubspotOwnerId === selectedOwnerId);
+  }).length;
+};
 
   // Check if a column is completely empty (no to-do tasks and no completed tasks)
   const isColumnCompletelyEmpty = (columnId: string) => {

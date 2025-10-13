@@ -219,6 +219,7 @@ const KanbanBoard = ({ onFrameUrlChange }: KanbanBoardProps) => {
             teamId={teamMembers[0]?.teamId}
             onMemberClick={handleMemberClick}
             selectedOwnerId={selectedOwnerId}
+            allTasks={allTasks}
           />
         )}
       </div>

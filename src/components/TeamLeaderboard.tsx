@@ -7,12 +7,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect, useCallback } from "react";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { useResponsiveCardDisplay } from "@/hooks/useResponsiveCardDisplay";
-
+import { Task } from "@/types/task";
+import { useTeamStats } from "@/hooks/useTeamStats";
 interface TeamLeaderboardProps {
   teamMembers: HubSpotOwner[];
   teamId?: string;
   onMemberClick?: (ownerId: string) => void;
   selectedOwnerId?: string;
+  allTasks?: Task[];
 }
 
 interface TeamMemberStats {
@@ -133,7 +135,8 @@ export const TeamLeaderboard = ({
   teamMembers, 
   teamId, 
   onMemberClick,
-  selectedOwnerId 
+  selectedOwnerId,
+  allTasks
 }: TeamLeaderboardProps) => {
   const [showCompletedBadge, setShowCompletedBadge] = useState(true);
   
@@ -141,6 +144,10 @@ export const TeamLeaderboard = ({
     teamId: teamId || ''
     // Remove ownerId to prevent re-fetching when switching team members
   });
+
+  // Compute local fallback stats from allTasks
+  const fallbackStats = useTeamStats({ teamMembers, allTasks: allTasks || [] });
+  const fallbackMap = new Map(fallbackStats.map(s => [s.owner.id, s] as const));
 
   // Auto-rotate badges every 7 seconds
   useEffect(() => {
@@ -160,25 +167,34 @@ export const TeamLeaderboard = ({
     return null;
   }
 
-  // Convert summary data to team stats format first
-  const teamStats: TeamMemberStats[] = summaryData?.task_summary?.owners?.map(ownerSummary => {
-    const owner = teamMembers.find(m => m.id === ownerSummary.owner_id);
-    if (!owner) return null;
+// Convert summary data to team stats format with fallback merging
+const serverTeamStats: TeamMemberStats[] = summaryData?.task_summary?.owners?.map(ownerSummary => {
+  const owner = teamMembers.find(m => m.id === ownerSummary.owner_id);
+  if (!owner) return null as any;
 
-    return {
-      owner,
-      completedTodayCount: ownerSummary.completed_today_count,
-      overdueCount: ownerSummary.overdue_count
-    };
-  }).filter(Boolean) as TeamMemberStats[] || [];
+  const fb = fallbackMap.get(owner.id);
+  const completedTodayCount = (ownerSummary.completed_today_count === 0 && fb && fb.completedTodayCount > 0)
+    ? fb.completedTodayCount
+    : ownerSummary.completed_today_count;
+  const overdueCount = (ownerSummary.overdue_count === 0 && fb && fb.overdueCount > 0)
+    ? fb.overdueCount
+    : ownerSummary.overdue_count;
 
-  // Sort by completed today (descending), then by overdue (ascending)
-  const sortedTeamStats = teamStats.sort((a, b) => {
-    if (b.completedTodayCount !== a.completedTodayCount) {
-      return b.completedTodayCount - a.completedTodayCount;
-    }
-    return a.overdueCount - b.overdueCount;
-  });
+  return {
+    owner,
+    completedTodayCount,
+    overdueCount
+  };
+}).filter(Boolean) as TeamMemberStats[] || [];
+
+const sourceStats: TeamMemberStats[] = serverTeamStats.length > 0 ? serverTeamStats : fallbackStats;
+// Sort by completed today (descending), then by overdue (ascending)
+const sortedTeamStats = sourceStats.sort((a, b) => {
+  if (b.completedTodayCount !== a.completedTodayCount) {
+    return b.completedTodayCount - a.completedTodayCount;
+  }
+  return a.overdueCount - b.overdueCount;
+});
 
   // Implement proper ranking algorithm that handles ties correctly
   const rankedPerformers = [];

@@ -140,6 +140,12 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Found ${tasks?.length || 0} tasks for team (non-skipped)`);
+    const ownerCounts: Record<string, number> = {};
+    for (const t of tasks || []) {
+      if (!t.hubspot_owner_id) continue;
+      ownerCounts[t.hubspot_owner_id] = (ownerCounts[t.hubspot_owner_id] || 0) + 1;
+    }
+    console.log('Owner task counts (sample):', Object.entries(ownerCounts).slice(0, 5));
 
     // Get current time in Paris timezone for "completed today" calculation
     const now = new Date();
