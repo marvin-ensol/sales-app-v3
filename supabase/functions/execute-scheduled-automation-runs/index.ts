@@ -240,9 +240,9 @@ Deno.serve(async (req) => {
 
     console.log(`[${executionId}] Primary query found ${dueRuns?.length || 0} automation runs due for execution`);
 
-    // If no runs found in current minute, check for missed runs in the last 2 minutes (catch-up fallback)
+    // If no runs found in current minute, check for missed runs in the last 10 minutes (catch-up fallback)
     if (!dueRuns || dueRuns.length === 0) {
-      const fallbackStart = new Date(startOfMinute.getTime() - 2 * 60 * 1000); // 2 minutes before current minute
+      const fallbackStart = new Date(startOfMinute.getTime() - 10 * 60 * 1000); // 10 minutes before current minute
       console.log(`[${executionId}] No runs found in current minute - checking fallback window: ${fallbackStart.toISOString()} to ${endOfMinute.toISOString()}`);
       
       const { data: fallbackRuns, error: fallbackError } = await supabase
@@ -527,6 +527,20 @@ Deno.serve(async (req) => {
     // Note: complete_on_exit type is now handled immediately in auto-complete-exited-tasks
     // No scheduled execution needed for this type
 
+    // Monitor for very old stuck runs (older than 15 minutes)
+    const { count: stuckCount } = await supabase
+      .from('task_automation_runs')
+      .select('*', { count: 'exact', head: true })
+      .eq('hs_action_successful', false)
+      .lt('planned_execution_timestamp', new Date(Date.now() - 15 * 60 * 1000).toISOString())
+      .not('planned_execution_timestamp', 'is', null)
+      .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
+      .in('type', ['create_on_entry', 'create_from_sequence']);
+
+    if (stuckCount && stuckCount > 0) {
+      console.warn(`[${executionId}] ⚠️ Found ${stuckCount} stuck automation runs older than 15 minutes`);
+    }
+
     console.log(`[${executionId}] === SCHEDULED AUTOMATION RUNS EXECUTION COMPLETE ===`);
 
     return new Response(
@@ -534,6 +548,7 @@ Deno.serve(async (req) => {
         success: true,
         execution_id: executionId,
         due_runs_count: dueRuns?.length || 0,
+        stuck_runs_count: stuckCount || 0,
         message: 'Scheduled automation runs check completed',
       }),
       {
