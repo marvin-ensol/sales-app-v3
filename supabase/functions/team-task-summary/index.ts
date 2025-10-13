@@ -132,7 +132,8 @@ Deno.serve(async (req) => {
       `)
       .eq('archived', false)
       .is('is_skipped', null)
-      .in('hubspot_owner_id', ownerIds);
+      .in('hubspot_owner_id', ownerIds)
+      .limit(10000);
 
     if (tasksError) {
       throw new Error(`Failed to fetch tasks: ${tasksError.message}`);
