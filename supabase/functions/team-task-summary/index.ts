@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
         hs_queue_membership_ids
       `)
       .eq('archived', false)
-      .is('is_skipped', null)
+      .or('is_skipped.is.null,is_skipped.eq.false')
       .in('hubspot_owner_id', ownerIds)
       .limit(10000);
 
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch tasks: ${tasksError.message}`);
     }
 
-    console.log(`Found ${tasks?.length || 0} tasks for team`);
+    console.log(`Found ${tasks?.length || 0} tasks for team (non-skipped)`);
 
     // Get current time in Paris timezone for "completed today" calculation
     const now = new Date();
