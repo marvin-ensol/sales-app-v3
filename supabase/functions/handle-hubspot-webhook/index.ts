@@ -288,10 +288,17 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         contact_id: contactId || null
       };
 
+      // Construct HubSpot URL if we have a contact ID
+      const hubspotUrl = contactId 
+        ? `https://app-eu1.hubspot.com/contacts/142467012/contact/${contactId}/?engagement=${callId}`
+        : null;
+
       await supabase
         .from('events')
         .update({
           hs_contact_id: contactId || null,
+          hs_owner_id: hubspotOwnerId || null,
+          hubspot_url: hubspotUrl,
           logs: {
             call_details: callDetailsLog
           }
