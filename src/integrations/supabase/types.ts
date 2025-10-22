@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          created_at: string
+          error_details: Json | null
+          event: string
+          hs_contact_id: string | null
+          hs_engagement_id: string | null
+          id: string
+          logs: Json | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_details?: Json | null
+          event: string
+          hs_contact_id?: string | null
+          hs_engagement_id?: string | null
+          id?: string
+          logs?: Json | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_details?: Json | null
+          event?: string
+          hs_contact_id?: string | null
+          hs_engagement_id?: string | null
+          id?: string
+          logs?: Json | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hs_contacts: {
         Row: {
           created_at: string
