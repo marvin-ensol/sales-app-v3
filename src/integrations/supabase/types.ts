@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      error_logs: {
+        Row: {
+          context: string
+          created_at: string
+          endpoint: string | null
+          error_type: string
+          id: string
+          response_error: string | null
+          response_message: string | null
+          status_code: number | null
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          endpoint?: string | null
+          error_type: string
+          id?: string
+          response_error?: string | null
+          response_message?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          endpoint?: string | null
+          error_type?: string
+          id?: string
+          response_error?: string | null
+          response_message?: string | null
+          status_code?: number | null
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           created_at: string

@@ -25,6 +25,7 @@ interface CallDetails {
   properties: {
     hs_call_direction?: string;
     hs_call_duration?: string;
+    hubspot_owner_id?: string;
   };
   associations?: {
     contacts?: {
@@ -200,9 +201,29 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
     const callId = event.objectId.toString();
     
     try {
+      // Create initial event record
+      const { data: insertedEvent, error: eventInsertError } = await supabase
+        .from('events')
+        .insert({
+          type: 'webhook',
+          event: 'call_created',
+          hs_engagement_id: callId,
+          created_at: new Date(event.occurredAt).toISOString()
+        })
+        .select()
+        .single();
+
+      if (eventInsertError) {
+        console.error(`[Call Creations] Failed to create event record for call ${callId}:`, eventInsertError);
+        errors++;
+        continue;
+      }
+
+      const eventId = insertedEvent.id;
+
       // Fetch call details from HubSpot
       const callResponse = await fetch(
-        `https://api.hubapi.com/crm/v3/objects/calls/${callId}?properties=hs_call_direction,hs_call_duration&associations=contacts`,
+        `https://api.hubapi.com/crm/v3/objects/calls/${callId}?properties=hs_call_direction,hs_call_duration,hubspot_owner_id&associations=contacts`,
         {
           headers: {
             'Authorization': `Bearer ${hubspotToken}`,
@@ -213,6 +234,41 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
       if (!callResponse.ok) {
         console.error(`[Call Creations] Failed to fetch call ${callId}: ${callResponse.status}`);
+        
+        // Parse error response
+        let errorBody;
+        try {
+          errorBody = await callResponse.json();
+        } catch {
+          errorBody = await callResponse.text();
+        }
+
+        // Create error_logs entry
+        await supabase
+          .from('error_logs')
+          .insert({
+            context: 'call_created',
+            error_type: 'api',
+            endpoint: `https://api.hubapi.com/crm/v3/objects/calls/${callId}`,
+            status_code: callResponse.status,
+            response_error: callResponse.statusText,
+            response_message: typeof errorBody === 'object' 
+              ? JSON.stringify(errorBody) 
+              : errorBody
+          });
+
+        // Update event record with error
+        await supabase
+          .from('events')
+          .update({
+            error_details: {
+              error_type: 'api_fetch_failed',
+              status_code: callResponse.status,
+              message: callResponse.statusText
+            }
+          })
+          .eq('id', eventId);
+
         errors++;
         continue;
       }
@@ -221,6 +277,26 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
       const direction = callDetails.properties?.hs_call_direction;
       const durationMs = parseInt(callDetails.properties?.hs_call_duration || '0');
       const contactId = callDetails.associations?.contacts?.results?.[0]?.id;
+      const hubspotOwnerId = callDetails.properties?.hubspot_owner_id || null;
+
+      // Update event record with successful call details
+      const callDetailsLog = {
+        call_id: callId,
+        hs_call_direction: direction || null,
+        hs_call_duration: durationMs,
+        hubspot_owner_id: hubspotOwnerId,
+        contact_id: contactId || null
+      };
+
+      await supabase
+        .from('events')
+        .update({
+          hs_contact_id: contactId || null,
+          logs: {
+            call_details: callDetailsLog
+          }
+        })
+        .eq('id', eventId);
 
       console.log(`[Call Creations] Call ${callId}: direction=${direction}, duration=${durationMs}ms, contact=${contactId}`);
 
