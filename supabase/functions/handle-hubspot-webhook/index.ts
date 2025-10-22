@@ -508,7 +508,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                   status: t.status,
                   hs_timestamp: t.hs_timestamp,
                   hs_queue_membership_ids: t.hs_queue_membership_ids,
-                  automation_enabled: t.automation_enabled
+                  automation_enabled: t.automation_enabled,
+                  hs_update_successful: null
                 }))
               }
             }
@@ -544,12 +545,10 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         }
       );
 
-      let updateSuccessful = 0;
-      let updateUnsuccessful = 0;
-
       if (!batchResponse.ok) {
         console.error(`[Call Creations] Failed to complete tasks in HubSpot: ${batchResponse.status}`);
-        updateUnsuccessful = tasksToProcess.length;
+        const updateUnsuccessful = tasksToProcess.length;
+        
         
         let errorBody;
         try {
@@ -580,13 +579,17 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                   total_update_successful: 0,
                   total_update_unsuccessful: tasksToProcess.length
                 },
-                eligible_tasks: eligibleTasks.map(t => ({
-                  id: t.id,
-                  status: t.status,
-                  hs_timestamp: t.hs_timestamp,
-                  hs_queue_membership_ids: t.hs_queue_membership_ids,
-                  automation_enabled: t.automation_enabled
-                }))
+                eligible_tasks: eligibleTasks.map(t => {
+                  const wasProcessed = tasksToProcess.some(tp => tp.id === t.id);
+                  return {
+                    id: t.id,
+                    status: t.status,
+                    hs_timestamp: t.hs_timestamp,
+                    hs_queue_membership_ids: t.hs_queue_membership_ids,
+                    automation_enabled: t.automation_enabled,
+                    hs_update_successful: wasProcessed ? false : null
+                  };
+                })
               }
             },
             error_details: {
@@ -605,9 +608,54 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
       const batchResult = await batchResponse.json();
       console.log(`[Call Creations] Batch update successful for ${tasksToProcess.length} tasks`);
 
+      // Step 1: Parse HubSpot batch response to track individual task success/failure
+      const hubspotUpdateStatus = new Map<string, boolean>();
+
+      // Mark successful tasks
+      if (batchResult.results && Array.isArray(batchResult.results)) {
+        batchResult.results.forEach((result: any) => {
+          hubspotUpdateStatus.set(result.id, true);
+        });
+      }
+
+      // Mark failed tasks and log errors
+      if (batchResult.errors && Array.isArray(batchResult.errors)) {
+        for (const error of batchResult.errors) {
+          const failedTaskIds = error.context?.id || [];
+          failedTaskIds.forEach((id: string) => {
+            hubspotUpdateStatus.set(id, false);
+          });
+
+          // Log individual task failures to error_logs
+          await supabase
+            .from('error_logs')
+            .insert({
+              context: 'call_created',
+              error_type: 'batch_task_failed',
+              endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks/batch/update',
+              status_code: null,
+              response_error: error.category || 'UNKNOWN',
+              response_message: `Task IDs: ${failedTaskIds.join(', ')} - ${error.message}`
+            });
+        }
+      }
+
+      // For any tasks we sent but didn't get explicit success/failure, mark as failed
+      tasksToProcess.forEach(task => {
+        if (!hubspotUpdateStatus.has(task.id)) {
+          hubspotUpdateStatus.set(task.id, false);
+        }
+      });
+
+      // Step 2: Initialize local DB update status tracking
+      const localUpdateStatus = new Map<string, boolean>();
+      tasksToProcess.forEach(task => {
+        localUpdateStatus.set(task.id, false);
+      });
+
       const completionTime = new Date().toISOString();
 
-      // Update overdue tasks locally (is_skipped = null)
+      // Step 3: Update overdue tasks locally (is_skipped = null)
       for (const task of tasksToComplete) {
         const { error: updateError } = await supabase
           .from('hs_tasks')
@@ -625,9 +673,24 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
         if (updateError) {
           console.error(`[Call Creations] Error updating task ${task.id} locally:`, updateError);
-          updateUnsuccessful++;
+          
+          // Log local DB update failure
+          await supabase
+            .from('error_logs')
+            .insert({
+              context: 'call_created',
+              error_type: 'database',
+              endpoint: null,
+              status_code: null,
+              response_error: 'supabase_update_failed',
+              response_message: `Failed to update task ${task.id} locally: ${updateError.message}`
+            });
+          
           continue;
         }
+
+        // Mark as successful in local DB
+        localUpdateStatus.set(task.id, true);
 
         // Create automation run record
         const { error: runError } = await supabase
@@ -647,11 +710,9 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         if (runError) {
           console.error(`[Call Creations] Error creating automation run for task ${task.id}:`, runError);
         }
-        
-        updateSuccessful++;
       }
 
-      // Update future tasks locally (is_skipped = true)
+      // Step 4: Update future tasks locally (is_skipped = true)
       for (const task of tasksToSkip) {
         const { error: updateError } = await supabase
           .from('hs_tasks')
@@ -669,9 +730,24 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
         if (updateError) {
           console.error(`[Call Creations] Error updating task ${task.id} locally:`, updateError);
-          updateUnsuccessful++;
+          
+          // Log local DB update failure
+          await supabase
+            .from('error_logs')
+            .insert({
+              context: 'call_created',
+              error_type: 'database',
+              endpoint: null,
+              status_code: null,
+              response_error: 'supabase_update_failed',
+              response_message: `Failed to update task ${task.id} locally: ${updateError.message}`
+            });
+          
           continue;
         }
+
+        // Mark as successful in local DB
+        localUpdateStatus.set(task.id, true);
 
         // Create automation run record
         const { error: runError } = await supabase
@@ -691,11 +767,24 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         if (runError) {
           console.error(`[Call Creations] Error creating automation run for task ${task.id}:`, runError);
         }
-        
-        updateSuccessful++;
       }
 
-      // Step 6: Update event with final summary
+      // Step 5: Calculate final success counts (both HubSpot AND local DB must succeed)
+      let updateSuccessful = 0;
+      let updateUnsuccessful = 0;
+
+      tasksToProcess.forEach(task => {
+        const hubspotSuccess = hubspotUpdateStatus.get(task.id) || false;
+        const localSuccess = localUpdateStatus.get(task.id) || false;
+        
+        if (hubspotSuccess && localSuccess) {
+          updateSuccessful++;
+        } else {
+          updateUnsuccessful++;
+        }
+      });
+
+      // Step 6: Update event with final summary including per-task status
       await supabase
         .from('events')
         .update({
@@ -707,13 +796,20 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                 total_update_successful: updateSuccessful,
                 total_update_unsuccessful: updateUnsuccessful
               },
-              eligible_tasks: eligibleTasks.map(t => ({
-                id: t.id,
-                status: t.status,
-                hs_timestamp: t.hs_timestamp,
-                hs_queue_membership_ids: t.hs_queue_membership_ids,
-                automation_enabled: t.automation_enabled
-              }))
+              eligible_tasks: eligibleTasks.map(t => {
+                const wasProcessed = tasksToProcess.some(tp => tp.id === t.id);
+                const hubspotSuccess = hubspotUpdateStatus.get(t.id);
+                const localSuccess = localUpdateStatus.get(t.id);
+                
+                return {
+                  id: t.id,
+                  status: t.status,
+                  hs_timestamp: t.hs_timestamp,
+                  hs_queue_membership_ids: t.hs_queue_membership_ids,
+                  automation_enabled: t.automation_enabled,
+                  hs_update_successful: wasProcessed ? (hubspotSuccess && localSuccess) : null
+                };
+              })
             }
           }
         })
