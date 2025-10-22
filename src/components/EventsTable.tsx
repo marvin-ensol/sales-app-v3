@@ -35,15 +35,15 @@ export const EventsTable = ({ events, isLoading }: EventsTableProps) => {
 
   return (
     <div className="border rounded-lg">
-      <Table className="table-fixed">
+      <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[160px]">Created At</TableHead>
-            <TableHead className="w-[150px]">Event Name</TableHead>
-            <TableHead className="w-[140px]">ID</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Owner</TableHead>
-            <TableHead className="w-8"></TableHead>
+            <TableHead className="w-[180px]">Created At</TableHead>
+            <TableHead className="w-[140px]">Event Name</TableHead>
+            <TableHead className="w-[200px]">ID</TableHead>
+            <TableHead className="w-[200px]">Contact</TableHead>
+            <TableHead className="w-[150px]">Owner</TableHead>
+            <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

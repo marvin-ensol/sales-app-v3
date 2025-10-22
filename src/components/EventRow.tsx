@@ -57,11 +57,11 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
         onClick={() => onToggleExpand(event.id)} 
         className={`cursor-pointer hover:bg-muted/50 transition-colors ${isOpen ? 'bg-muted' : ''}`}
       >
-        <TableCell className="w-[160px] text-xs">{formatDate(event.created_at)}</TableCell>
-        <TableCell className="w-[150px]">
+        <TableCell className="w-[180px]">{formatDate(event.created_at)}</TableCell>
+        <TableCell className="w-[140px]">
           <Badge className={getEventColor(event.event)}>{getEventName(event.event)}</Badge>
         </TableCell>
-        <TableCell className="w-[140px]">
+        <TableCell className="w-[200px]">
           {event.logs.call_details?.call_id && event.hubspot_url ? (
             <a
               href={event.hubspot_url}
@@ -71,15 +71,15 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
               onClick={(e) => e.stopPropagation()}
             >
               <Phone className="h-3.5 w-3.5" />
-              <span className="truncate">{event.logs.call_details.call_id}</span>
+              <span>{event.logs.call_details.call_id}</span>
             </a>
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
           )}
         </TableCell>
-        <TableCell className="truncate">{getContactDisplay()}</TableCell>
-        <TableCell className="truncate">{getOwnerDisplay()}</TableCell>
-        <TableCell className="w-8">
+        <TableCell className="w-[200px] truncate">{getContactDisplay()}</TableCell>
+        <TableCell className="w-[150px] truncate">{getOwnerDisplay()}</TableCell>
+        <TableCell className="w-[50px]">
           <ChevronDown
             className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
