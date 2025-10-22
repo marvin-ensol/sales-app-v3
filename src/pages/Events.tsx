@@ -9,18 +9,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const Events = () => {
   const [eventFilter, setEventFilter] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  const { data: events, isLoading } = useEvents({
+  const { data, isLoading } = useEvents({
     eventFilter,
     sortOrder,
+    page: currentPage,
+    pageSize
   });
 
   const handleClearFilters = () => {
     setEventFilter(undefined);
+    setCurrentPage(1); // Reset to first page when clearing filters
   };
 
   const toggleSortOrder = () => {
     setSortOrder(prev => prev === 'DESC' ? 'ASC' : 'DESC');
+    setCurrentPage(1); // Reset to first page when changing sort
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of table when changing pages
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
   };
 
   return (
@@ -47,7 +64,10 @@ const Events = () => {
                 <label className="text-sm font-medium">Event Type:</label>
                 <Select
                   value={eventFilter || 'all'}
-                  onValueChange={(value) => setEventFilter(value === 'all' ? undefined : value)}
+                  onValueChange={(value) => {
+                    setEventFilter(value === 'all' ? undefined : value);
+                    setCurrentPage(1); // Reset to first page when filtering
+                  }}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Events" />
@@ -89,8 +109,17 @@ const Events = () => {
           </CardContent>
         </Card>
 
-        {/* Events Table */}
-        <EventsTable events={events || []} isLoading={isLoading} />
+        {/* Events Table with Pagination */}
+        <EventsTable 
+          events={data?.events || []} 
+          isLoading={isLoading}
+          currentPage={data?.currentPage || 1}
+          totalPages={data?.totalPages || 1}
+          totalCount={data?.totalCount || 0}
+          pageSize={data?.pageSize || pageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
     </div>
   );

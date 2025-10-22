@@ -92,7 +92,21 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
             <span className="text-xs text-muted-foreground">-</span>
           )}
         </TableCell>
-        <TableCell className="w-[200px] truncate">{getContactDisplay()}</TableCell>
+      <TableCell className="w-[200px]">
+        {event.hs_contact_id ? (
+          <a
+            href={`https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${event.hs_contact_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline text-primary truncate block"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {getContactDisplay()}
+          </a>
+        ) : (
+          <span className="truncate block">{getContactDisplay()}</span>
+        )}
+      </TableCell>
         <TableCell className="w-[150px] truncate">{getOwnerDisplay()}</TableCell>
         <TableCell className="w-[50px]">
           {hasExpandableContent() && (

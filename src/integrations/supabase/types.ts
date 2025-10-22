@@ -891,6 +891,7 @@ export type Database = {
           contact_filter?: string
           event_filter?: string
           limit_count?: number
+          offset_count?: number
           sort_order?: string
         }
         Returns: {
@@ -907,6 +908,7 @@ export type Database = {
           logs: Json
           owner_firstname: string
           owner_lastname: string
+          total_count: number
           type: string
         }[]
       }

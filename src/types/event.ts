@@ -13,6 +13,7 @@ export interface EnrichedEvent {
   hubspot_url: string | null;
   logs: EventLogs;
   error_count: number;
+  total_count?: number;
 }
 
 export interface EventLogs {
@@ -57,4 +58,12 @@ export interface ErrorLog {
   status_code: number | null;
   response_message: string | null;
   response_error: string | null;
+}
+
+export interface PaginatedEventsResponse {
+  events: EnrichedEvent[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
 }
