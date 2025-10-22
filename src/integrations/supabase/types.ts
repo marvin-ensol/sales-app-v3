@@ -54,7 +54,9 @@ export type Database = {
           event: string
           hs_contact_id: string | null
           hs_engagement_id: string | null
-          id: string
+          hs_owner_id: string | null
+          hubspot_url: string | null
+          id: number
           logs: Json | null
           type: string
           updated_at: string
@@ -65,7 +67,9 @@ export type Database = {
           event: string
           hs_contact_id?: string | null
           hs_engagement_id?: string | null
-          id?: string
+          hs_owner_id?: string | null
+          hubspot_url?: string | null
+          id?: number
           logs?: Json | null
           type: string
           updated_at?: string
@@ -76,7 +80,9 @@ export type Database = {
           event?: string
           hs_contact_id?: string | null
           hs_engagement_id?: string | null
-          id?: string
+          hs_owner_id?: string | null
+          hubspot_url?: string | null
+          id?: number
           logs?: Json | null
           type?: string
           updated_at?: string
