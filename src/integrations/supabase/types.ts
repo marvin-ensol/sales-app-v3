@@ -761,9 +761,9 @@ export type Database = {
           last_autovacuum: string | null
           last_vacuum: string | null
           live_rows: number | null
-          schemaname: unknown | null
+          schemaname: unknown
           table_size: string | null
-          tablename: unknown | null
+          tablename: unknown
         }
         Relationships: []
       }
@@ -778,12 +778,9 @@ export type Database = {
         }
         Returns: undefined
       }
-      cleanup_old_sync_data: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_old_sync_data: { Args: never; Returns: undefined }
       get_all_tasks: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           completion_date: string
           contact: string
@@ -830,27 +827,33 @@ export type Database = {
           title: string
         }[]
       }
-      get_task_categories: {
-        Args: Record<PropertyKey, never> | { team_id_param?: string }
-        Returns: {
-          color: string
-          hs_queue_id: string
-          id: number
-          label: string
-          locks_lower_categories: boolean
-          order_by_position_in_sequence: boolean
-          order_column: number
-          task_display_order: string
-        }[]
-      }
-      get_valid_owner_ids: {
-        Args: Record<PropertyKey, never>
-        Returns: string[]
-      }
-      validate_company_email_hook: {
-        Args: { user_data: Json }
-        Returns: Json
-      }
+      get_task_categories:
+        | {
+            Args: { team_id_param?: string }
+            Returns: {
+              color: string
+              hs_queue_id: string
+              id: number
+              label: string
+              locks_lower_categories: boolean
+              order_by_position_in_sequence: boolean
+              order_column: number
+              task_display_order: string
+            }[]
+          }
+        | {
+            Args: never
+            Returns: {
+              color: string
+              hs_queue_id: string
+              id: number
+              label: string
+              locks_lower_categories: boolean
+              order_column: number
+            }[]
+          }
+      get_valid_owner_ids: { Args: never; Returns: string[] }
+      validate_company_email_hook: { Args: { user_data: Json }; Returns: Json }
     }
     Enums: {
       automation_run_type:
