@@ -324,7 +324,75 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         continue;
       }
 
-      // Step 1: Fetch all enabled automation IDs with auto_complete_on_engagement and their queue IDs
+      console.log(`[Call Creations] Criteria met for call ${callId}, fetching all eligible tasks for contact ${contactId}`);
+
+      // Step 1: Fetch ALL incomplete tasks for this contact (not filtered by queue yet)
+      const { data: allTasks, error: allTasksError } = await supabase
+        .from('hs_tasks')
+        .select(`
+          hs_object_id,
+          hs_task_subject,
+          hubspot_owner_id,
+          hs_queue_membership_ids,
+          hs_timestamp,
+          hs_task_status
+        `)
+        .eq('associated_contact_id', contactId)
+        .neq('hs_task_status', 'COMPLETED');
+
+      if (allTasksError) {
+        console.error(`[Call Creations] Error fetching tasks:`, allTasksError);
+        
+        await supabase
+          .from('error_logs')
+          .insert({
+            context: 'call_created',
+            error_type: 'database',
+            endpoint: 'hs_tasks',
+            response_error: 'Failed to fetch tasks',
+            response_message: JSON.stringify(allTasksError)
+          });
+
+        await supabase
+          .from('events')
+          .update({
+            error_details: {
+              error_type: 'database_fetch_failed',
+              message: 'Failed to fetch eligible tasks',
+              details: allTasksError
+            }
+          })
+          .eq('id', eventId);
+
+        errors++;
+        continue;
+      }
+
+      if (!allTasks || allTasks.length === 0) {
+        console.log(`[Call Creations] No eligible tasks found for contact ${contactId}`);
+        
+        // Update event logs with empty eligible_tasks
+        await supabase
+          .from('events')
+          .update({
+            logs: {
+              call_details: callDetailsLog,
+              task_updates: {
+                summary: {
+                  total_eligible: 0,
+                  total_update_successful: 0,
+                  total_update_unsuccessful: 0
+                },
+                eligible_tasks: []
+              }
+            }
+          })
+          .eq('id', eventId);
+        
+        continue;
+      }
+
+      // Step 2: Fetch automations with auto_complete_on_engagement enabled
       const { data: automations, error: automationsError } = await supabase
         .from('task_automations')
         .select(`
@@ -339,81 +407,126 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
       if (automationsError) {
         console.error(`[Call Creations] Error fetching automations:`, automationsError);
-        errors++;
-        continue;
       }
 
-      if (!automations || automations.length === 0) {
-        console.log(`[Call Creations] No enabled automations with auto_complete_on_engagement found`);
-        continue;
-      }
+      // Build mapping: queue_id -> automation details
+      const queueHasAutomation = new Map<string, boolean>();
+      const queueToAutomationId = new Map<string, string>();
 
-      // Create mapping of queue_id -> automation_id for later use
-      const queueToAutomationMap = new Map();
-      const queueIds = automations
-        .map(a => {
+      if (automations && automations.length > 0) {
+        automations.forEach(a => {
           const queueId = a.task_categories?.hs_queue_id;
           if (queueId) {
-            queueToAutomationMap.set(queueId, a.id);
+            queueHasAutomation.set(queueId, true);
+            queueToAutomationId.set(queueId, a.id);
           }
-          return queueId;
-        })
-        .filter(Boolean);
-
-      console.log(`[Call Creations] Found ${queueIds.length} queue(s) with auto_complete_on_engagement enabled: ${queueIds.join(', ')}`);
-
-      // Step 2: Find incomplete tasks for this contact in queues related to enabled automations
-      const { data: tasks, error: tasksError } = await supabase
-        .from('hs_tasks')
-        .select(`
-          hs_object_id,
-          hs_task_subject,
-          hubspot_owner_id,
-          hs_queue_membership_ids,
-          hs_timestamp
-        `)
-        .eq('associated_contact_id', contactId)
-        .neq('hs_task_status', 'COMPLETED')
-        .in('hs_queue_membership_ids', queueIds);
-
-      if (tasksError) {
-        console.error(`[Call Creations] Error fetching tasks for contact ${contactId}:`, tasksError);
-        errors++;
-        continue;
+        });
+        console.log(`[Call Creations] Found ${automations.length} automation(s) with auto_complete_on_engagement enabled`);
+      } else {
+        console.log(`[Call Creations] No automations with auto_complete_on_engagement found`);
       }
 
-      if (!tasks || tasks.length === 0) {
-        console.log(`[Call Creations] No eligible tasks found for contact ${contactId}`);
-        continue;
-      }
-
-      // Enrich tasks with their automation_id based on their queue
-      const enrichedTasks = tasks.map(task => ({
-        ...task,
-        automation_id_for_run: queueToAutomationMap.get(task.hs_queue_membership_ids)
-      }));
-
-      // Separate tasks into due/overdue (complete) vs future (skip) based on timestamp
+      // Step 3: Classify and enrich tasks
       const currentTime = new Date();
       const currentTimeMs = currentTime.getTime();
-      
-      const tasksToComplete = enrichedTasks.filter(task => {
-        if (!task.hs_timestamp) return true; // No due date = treat as due now
-        const dueTimeMs = new Date(task.hs_timestamp).getTime();
-        return dueTimeMs <= currentTimeMs; // Due or overdue
+
+      const eligibleTasks = allTasks.map(task => {
+        const queueId = task.hs_queue_membership_ids;
+        const hasAutomation = queueHasAutomation.get(queueId) || false;
+        
+        // Determine if task is overdue or future
+        let taskStatus: 'overdue' | 'future';
+        if (!task.hs_timestamp) {
+          taskStatus = 'overdue'; // No due date = treat as overdue/current
+        } else {
+          const dueTimeMs = new Date(task.hs_timestamp).getTime();
+          taskStatus = dueTimeMs <= currentTimeMs ? 'overdue' : 'future';
+        }
+        
+        return {
+          id: task.hs_object_id,
+          status: taskStatus,
+          hs_timestamp: task.hs_timestamp,
+          hs_queue_membership_ids: queueId,
+          automation_enabled: hasAutomation,
+          automation_id: hasAutomation ? queueToAutomationId.get(queueId) : null,
+          hs_task_subject: task.hs_task_subject,
+          hubspot_owner_id: task.hubspot_owner_id
+        };
       });
 
-      const tasksToSkip = enrichedTasks.filter(task => {
-        if (!task.hs_timestamp) return false; // No due date = not skipped
-        const dueTimeMs = new Date(task.hs_timestamp).getTime();
-        return dueTimeMs > currentTimeMs; // Future task
-      });
+      const totalEligible = eligibleTasks.length;
+      const tasksWithAutomation = eligibleTasks.filter(t => t.automation_enabled);
+      const overdueCount = eligibleTasks.filter(t => t.status === 'overdue').length;
+      const futureCount = eligibleTasks.filter(t => t.status === 'future').length;
 
-      console.log(`[Call Creations] Found ${tasksToComplete.length} due/overdue task(s) to complete and ${tasksToSkip.length} future task(s) to skip for contact ${contactId}`);
+      console.log(`[Call Creations] Found ${totalEligible} eligible tasks (${overdueCount} overdue, ${futureCount} future), ${tasksWithAutomation.length} with automation enabled`);
 
-      // Complete ALL tasks in HubSpot (both groups)
-      const taskUpdates = enrichedTasks.map(task => ({
-        id: task.hs_object_id,
+      // Step 4: Update event with task identification results (before processing)
+      await supabase
+        .from('events')
+        .update({
+          logs: {
+            call_details: callDetailsLog,
+            task_updates: {
+              summary: {
+                total_eligible: totalEligible,
+                total_update_successful: 0,
+                total_update_unsuccessful: 0
+              },
+              eligible_tasks: eligibleTasks.map(t => ({
+                id: t.id,
+                status: t.status,
+                hs_timestamp: t.hs_timestamp,
+                hs_queue_membership_ids: t.hs_queue_membership_ids,
+                automation_enabled: t.automation_enabled
+              }))
+            }
+          }
+        })
+        .eq('id', eventId);
+
+      // Step 5: Process only tasks with automation enabled
+      const tasksToProcess = eligibleTasks.filter(t => t.automation_enabled);
+
+      if (tasksToProcess.length === 0) {
+        console.log(`[Call Creations] No tasks with automation enabled, skipping batch update`);
+        
+        await supabase
+          .from('events')
+          .update({
+            logs: {
+              call_details: callDetailsLog,
+              task_updates: {
+                summary: {
+                  total_eligible: totalEligible,
+                  total_update_successful: 0,
+                  total_update_unsuccessful: 0
+                },
+                eligible_tasks: eligibleTasks.map(t => ({
+                  id: t.id,
+                  status: t.status,
+                  hs_timestamp: t.hs_timestamp,
+                  hs_queue_membership_ids: t.hs_queue_membership_ids,
+                  automation_enabled: t.automation_enabled
+                }))
+              }
+            }
+          })
+          .eq('id', eventId);
+        
+        continue;
+      }
+
+      // Separate automation-enabled tasks into overdue vs future
+      const tasksToComplete = tasksToProcess.filter(t => t.status === 'overdue');
+      const tasksToSkip = tasksToProcess.filter(t => t.status === 'future');
+
+      console.log(`[Call Creations] Processing ${tasksToProcess.length} automation-enabled tasks: ${tasksToComplete.length} overdue, ${tasksToSkip.length} future`);
+
+      // Prepare batch update for HubSpot (all automation-enabled tasks)
+      const taskUpdates = tasksToProcess.map(task => ({
+        id: task.id,
         properties: {
           hs_task_status: 'COMPLETED'
         }
@@ -431,15 +544,70 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         }
       );
 
+      let updateSuccessful = 0;
+      let updateUnsuccessful = 0;
+
       if (!batchResponse.ok) {
         console.error(`[Call Creations] Failed to complete tasks in HubSpot: ${batchResponse.status}`);
+        updateUnsuccessful = tasksToProcess.length;
+        
+        let errorBody;
+        try {
+          errorBody = await batchResponse.json();
+        } catch {
+          errorBody = await batchResponse.text();
+        }
+        
+        await supabase
+          .from('error_logs')
+          .insert({
+            context: 'call_created',
+            error_type: 'api',
+            endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks/batch/update',
+            status_code: batchResponse.status,
+            response_error: batchResponse.statusText,
+            response_message: typeof errorBody === 'object' ? JSON.stringify(errorBody) : errorBody
+          });
+
+        await supabase
+          .from('events')
+          .update({
+            logs: {
+              call_details: callDetailsLog,
+              task_updates: {
+                summary: {
+                  total_eligible: totalEligible,
+                  total_update_successful: 0,
+                  total_update_unsuccessful: tasksToProcess.length
+                },
+                eligible_tasks: eligibleTasks.map(t => ({
+                  id: t.id,
+                  status: t.status,
+                  hs_timestamp: t.hs_timestamp,
+                  hs_queue_membership_ids: t.hs_queue_membership_ids,
+                  automation_enabled: t.automation_enabled
+                }))
+              }
+            },
+            error_details: {
+              error_type: 'batch_update_failed',
+              status_code: batchResponse.status,
+              message: batchResponse.statusText
+            }
+          })
+          .eq('id', eventId);
+        
         errors++;
         continue;
       }
 
+      // Parse batch response
+      const batchResult = await batchResponse.json();
+      console.log(`[Call Creations] Batch update successful for ${tasksToProcess.length} tasks`);
+
       const completionTime = new Date().toISOString();
 
-      // Update due/overdue tasks locally (is_skipped = null)
+      // Update overdue tasks locally (is_skipped = null)
       for (const task of tasksToComplete) {
         const { error: updateError } = await supabase
           .from('hs_tasks')
@@ -448,15 +616,16 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_count: 1,
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
-            marked_completed_by_automation_id: task.automation_id_for_run,
+            marked_completed_by_automation_id: task.automation_id,
             marked_completed_by_automation_source: 'phone_call',
             is_skipped: null,
             updated_at: completionTime
           })
-          .eq('hs_object_id', task.hs_object_id);
+          .eq('hs_object_id', task.id);
 
         if (updateError) {
-          console.error(`[Call Creations] Error updating task ${task.hs_object_id} locally:`, updateError);
+          console.error(`[Call Creations] Error updating task ${task.id} locally:`, updateError);
+          updateUnsuccessful++;
           continue;
         }
 
@@ -464,20 +633,22 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         const { error: runError } = await supabase
           .from('task_automation_runs')
           .insert({
-            automation_id: task.automation_id_for_run,
+            automation_id: task.automation_id,
             type: 'complete_on_engagement',
             hs_trigger_object: 'engagement',
             hs_trigger_object_id: callId,
             hs_contact_id: contactId,
             hs_action_successful: true,
-            hs_actioned_task_ids: [task.hs_object_id],
+            hs_actioned_task_ids: [task.id],
             task_name: task.hs_task_subject,
             hs_queue_id: task.hs_queue_membership_ids
           });
 
         if (runError) {
-          console.error(`[Call Creations] Error creating automation run for task ${task.hs_object_id}:`, runError);
+          console.error(`[Call Creations] Error creating automation run for task ${task.id}:`, runError);
         }
+        
+        updateSuccessful++;
       }
 
       // Update future tasks locally (is_skipped = true)
@@ -489,15 +660,16 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             hs_task_completion_count: 1,
             hs_task_completion_date: completionTime,
             marked_completed_by_automation: true,
-            marked_completed_by_automation_id: task.automation_id_for_run,
+            marked_completed_by_automation_id: task.automation_id,
             marked_completed_by_automation_source: 'phone_call',
             is_skipped: true,
             updated_at: completionTime
           })
-          .eq('hs_object_id', task.hs_object_id);
+          .eq('hs_object_id', task.id);
 
         if (updateError) {
-          console.error(`[Call Creations] Error updating task ${task.hs_object_id} locally:`, updateError);
+          console.error(`[Call Creations] Error updating task ${task.id} locally:`, updateError);
+          updateUnsuccessful++;
           continue;
         }
 
@@ -505,24 +677,50 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         const { error: runError } = await supabase
           .from('task_automation_runs')
           .insert({
-            automation_id: task.automation_id_for_run,
+            automation_id: task.automation_id,
             type: 'complete_on_engagement',
             hs_trigger_object: 'engagement',
             hs_trigger_object_id: callId,
             hs_contact_id: contactId,
             hs_action_successful: true,
-            hs_actioned_task_ids: [task.hs_object_id],
+            hs_actioned_task_ids: [task.id],
             task_name: task.hs_task_subject,
             hs_queue_id: task.hs_queue_membership_ids
           });
 
         if (runError) {
-          console.error(`[Call Creations] Error creating automation run for task ${task.hs_object_id}:`, runError);
+          console.error(`[Call Creations] Error creating automation run for task ${task.id}:`, runError);
         }
+        
+        updateSuccessful++;
       }
 
-      console.log(`[Call Creations] Completed ${tasksToComplete.length} due/overdue task(s) (is_skipped=null) and ${tasksToSkip.length} future task(s) (is_skipped=true)`);
-      console.log(`[Call Creations] Successfully processed ${enrichedTasks.length} total task(s) for call ${callId}`);
+      // Step 6: Update event with final summary
+      await supabase
+        .from('events')
+        .update({
+          logs: {
+            call_details: callDetailsLog,
+            task_updates: {
+              summary: {
+                total_eligible: totalEligible,
+                total_update_successful: updateSuccessful,
+                total_update_unsuccessful: updateUnsuccessful
+              },
+              eligible_tasks: eligibleTasks.map(t => ({
+                id: t.id,
+                status: t.status,
+                hs_timestamp: t.hs_timestamp,
+                hs_queue_membership_ids: t.hs_queue_membership_ids,
+                automation_enabled: t.automation_enabled
+              }))
+            }
+          }
+        })
+        .eq('id', eventId);
+
+      console.log(`[Call Creations] Updated event ${eventId} with final counts: ${updateSuccessful} successful, ${updateUnsuccessful} unsuccessful out of ${totalEligible} eligible`);
+      console.log(`[Call Creations] Completed ${tasksToComplete.length} overdue tasks (is_skipped=null) and ${tasksToSkip.length} future tasks (is_skipped=true)`);
       successful++;
 
     } catch (error) {
