@@ -39,11 +39,13 @@ export interface TaskUpdates {
 
 export interface EligibleTask {
   id: string;
+  hs_task_subject: string | null;
+  hubspot_owner_id: string | null;
   status: 'overdue' | 'future';
   hs_timestamp: string;
   automation_enabled: boolean;
   hs_update_successful: boolean | null;
-  hs_queue_membership_ids: string;
+  hs_queue_membership_ids: string | null;
 }
 
 export interface ErrorLog {

@@ -477,6 +477,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
               },
               eligible_tasks: eligibleTasks.map(t => ({
                 id: t.id,
+                hs_task_subject: t.hs_task_subject,
+                hubspot_owner_id: t.hubspot_owner_id,
                 status: t.status,
                 hs_timestamp: t.hs_timestamp,
                 hs_queue_membership_ids: t.hs_queue_membership_ids,
@@ -506,6 +508,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                 },
                 eligible_tasks: eligibleTasks.map(t => ({
                   id: t.id,
+                  hs_task_subject: t.hs_task_subject,
+                  hubspot_owner_id: t.hubspot_owner_id,
                   status: t.status,
                   hs_timestamp: t.hs_timestamp,
                   hs_queue_membership_ids: t.hs_queue_membership_ids,
@@ -585,6 +589,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                   const wasProcessed = tasksToProcess.some(tp => tp.id === t.id);
                   return {
                     id: t.id,
+                    hs_task_subject: t.hs_task_subject,
+                    hubspot_owner_id: t.hubspot_owner_id,
                     status: t.status,
                     hs_timestamp: t.hs_timestamp,
                     hs_queue_membership_ids: t.hs_queue_membership_ids,
@@ -770,6 +776,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                 
                 return {
                   id: t.id,
+                  hs_task_subject: t.hs_task_subject,
+                  hubspot_owner_id: t.hubspot_owner_id,
                   status: t.status,
                   hs_timestamp: t.hs_timestamp,
                   hs_queue_membership_ids: t.hs_queue_membership_ids,
