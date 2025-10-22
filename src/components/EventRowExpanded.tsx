@@ -2,7 +2,7 @@ import { EnrichedEvent, ErrorLog } from "@/types/event";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ExternalLink, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
+import { CheckSquare, Clock, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +30,40 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
     enabled: event.error_count > 0,
   });
 
+  // Fetch task categories for mapping queue IDs to names
+  const { data: taskCategories } = useQuery({
+    queryKey: ['task-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('task_categories')
+        .select('id, hs_queue_id, label, color')
+        .order('order_column');
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 300000, // 5 minutes
+  });
+
+  // Helper functions
+  const getCategoryName = (queueId: string) => {
+    const category = taskCategories?.find(cat => cat.hs_queue_id === queueId);
+    return category?.label || queueId;
+  };
+
+  const formatTaskDueDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+  const buildTaskUrl = (contactId: string, taskId: string) => {
+    return `https://app-eu1.hubspot.com/contacts/142467012/contact/${contactId}/?engagement=${taskId}`;
+  };
+
   return (
     <div className="space-y-4 p-4 bg-muted/30">
       {/* Task Updates Section */}
@@ -45,10 +79,9 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Task ID</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Timestamp</TableHead>
-                      <TableHead>Queue</TableHead>
+                      <TableHead>Task Due Date</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Task category</TableHead>
                       <TableHead>Automation</TableHead>
                       <TableHead>Update Result</TableHead>
                     </TableRow>
@@ -56,16 +89,40 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                   <TableBody>
                     {logs.task_updates.eligible_tasks.map((task) => (
                       <TableRow key={task.id}>
-                        <TableCell className="font-mono text-xs">{task.id}</TableCell>
                         <TableCell>
-                          <Badge variant={task.status === 'overdue' ? 'destructive' : 'outline'}>
-                            {task.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            {task.status === 'overdue' ? (
+                              <div className="flex-shrink-0 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center">
+                                <AlertCircle className="h-3 w-3 text-white" />
+                              </div>
+                            ) : (
+                              <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                                <Clock className="h-3 w-3 text-white" />
+                              </div>
+                            )}
+                            <span className="text-xs">{formatTaskDueDate(task.hs_timestamp)}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-xs">
-                          {new Date(task.hs_timestamp).toLocaleString()}
+                        <TableCell>
+                          {event.hs_contact_id ? (
+                            <a
+                              href={buildTaskUrl(event.hs_contact_id, task.id)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-xs hover:underline text-primary"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <CheckSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span>{task.id}</span>
+                            </a>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <CheckSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span>{task.id}</span>
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="text-xs">{task.hs_queue_membership_ids}</TableCell>
+                        <TableCell className="text-xs">{getCategoryName(task.hs_queue_membership_ids)}</TableCell>
                         <TableCell>
                           {task.automation_enabled ? (
                             <Badge variant="secondary" className="text-xs">Enabled</Badge>
@@ -75,7 +132,7 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                         </TableCell>
                         <TableCell>
                           {task.hs_update_successful === null && (
-                            <Badge variant="secondary" className="text-xs">Not applicable</Badge>
+                            <Badge variant="outline" className="text-xs">Not applicable</Badge>
                           )}
                           {task.hs_update_successful === true && (
                             <Badge className="text-xs bg-green-500 text-white hover:bg-green-600">Success</Badge>
