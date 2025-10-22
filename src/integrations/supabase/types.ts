@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           endpoint: string | null
           error_type: string
+          event_id: number | null
           id: string
           response_error: string | null
           response_message: string | null
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           endpoint?: string | null
           error_type: string
+          event_id?: number | null
           id?: string
           response_error?: string | null
           response_message?: string | null
@@ -40,17 +42,25 @@ export type Database = {
           created_at?: string
           endpoint?: string | null
           error_type?: string
+          event_id?: number | null
           id?: string
           response_error?: string | null
           response_message?: string | null
           status_code?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "error_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       events: {
         Row: {
           created_at: string
-          error_details: Json | null
           event: string
           hs_contact_id: string | null
           hs_engagement_id: string | null
@@ -63,7 +73,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          error_details?: Json | null
           event: string
           hs_contact_id?: string | null
           hs_engagement_id?: string | null
@@ -76,7 +85,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          error_details?: Json | null
           event?: string
           hs_contact_id?: string | null
           hs_engagement_id?: string | null

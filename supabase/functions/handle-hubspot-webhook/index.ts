@@ -246,6 +246,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         await supabase
           .from('error_logs')
           .insert({
+            event_id: eventId,
             context: 'call_created',
             error_type: 'api',
             endpoint: `https://api.hubapi.com/crm/v3/objects/calls/${callId}`,
@@ -345,6 +346,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         await supabase
           .from('error_logs')
           .insert({
+            event_id: eventId,
             context: 'call_created',
             error_type: 'database',
             endpoint: 'hs_tasks',
@@ -559,6 +561,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         await supabase
           .from('error_logs')
           .insert({
+            event_id: eventId,
             context: 'call_created',
             error_type: 'api',
             endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks/batch/update',
@@ -629,6 +632,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
           await supabase
             .from('error_logs')
             .insert({
+              event_id: eventId,
               context: 'call_created',
               error_type: 'batch_task_failed',
               endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks/batch/update',
@@ -677,6 +681,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
           await supabase
             .from('error_logs')
             .insert({
+              event_id: eventId,
               context: 'call_created',
               error_type: 'database',
               endpoint: null,
@@ -715,6 +720,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
           await supabase
             .from('error_logs')
             .insert({
+              event_id: eventId,
               context: 'call_created',
               error_type: 'database',
               endpoint: null,
