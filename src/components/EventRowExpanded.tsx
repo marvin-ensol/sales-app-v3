@@ -6,6 +6,7 @@ import { CheckSquare, Clock, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUsers } from "@/hooks/useUsers";
 
 interface EventRowExpandedProps {
   event: EnrichedEvent;
@@ -13,6 +14,7 @@ interface EventRowExpandedProps {
 
 export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
   const { logs } = event;
+  const { owners } = useUsers();
 
   // Fetch error logs if there are errors
   const { data: errorLogs, isLoading: errorLogsLoading } = useQuery({
@@ -45,9 +47,20 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
   });
 
   // Helper functions
-  const getCategoryName = (queueId: string) => {
+  const getCategoryName = (queueId: string | null) => {
+    if (!queueId) return '-';
     const category = taskCategories?.find(cat => cat.hs_queue_id === queueId);
     return category?.label || queueId;
+  };
+
+  const getTaskOwnerDisplay = (ownerId: string | null) => {
+    if (!ownerId) return '-';
+    const owner = owners?.find(o => o.id === ownerId || o.ownerId === ownerId);
+    if (!owner) return '-';
+    if (owner.firstName && owner.lastName) {
+      return `${owner.firstName} ${owner.lastName.charAt(0)}.`;
+    }
+    return ownerId;
   };
 
   const formatTaskDueDate = (timestamp: string) => {
@@ -63,6 +76,13 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
   const buildTaskUrl = (contactId: string, taskId: string) => {
     return `https://app-eu1.hubspot.com/contacts/142467012/contact/${contactId}/?engagement=${taskId}`;
   };
+
+  // Sort tasks by due date ascending
+  const sortedTasks = logs.task_updates?.eligible_tasks 
+    ? [...logs.task_updates.eligible_tasks].sort((a, b) => {
+        return new Date(a.hs_timestamp).getTime() - new Date(b.hs_timestamp).getTime();
+      })
+    : [];
 
   return (
     <div className="space-y-4 p-4 bg-muted/30">
@@ -80,14 +100,15 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Task Due Date</TableHead>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Task category</TableHead>
-                      <TableHead>Automation</TableHead>
+                      <TableHead>Task name</TableHead>
+                      <TableHead>Task ID</TableHead>
+                      <TableHead>Task Category</TableHead>
+                      <TableHead>Owner</TableHead>
                       <TableHead>Update Result</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.task_updates.eligible_tasks.map((task) => (
+                    {sortedTasks.map((task) => (
                       <TableRow key={task.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -102,6 +123,9 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                             )}
                             <span className="text-xs">{formatTaskDueDate(task.hs_timestamp)}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {task.hs_task_subject || '-'}
                         </TableCell>
                         <TableCell>
                           {event.hs_contact_id ? (
@@ -122,13 +146,11 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs">{getCategoryName(task.hs_queue_membership_ids)}</TableCell>
-                        <TableCell>
-                          {task.automation_enabled ? (
-                            <Badge variant="secondary" className="text-xs">Enabled</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs">Disabled</Badge>
-                          )}
+                        <TableCell className="text-xs">
+                          {getCategoryName(task.hs_queue_membership_ids)}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {getTaskOwnerDisplay(task.hubspot_owner_id)}
                         </TableCell>
                         <TableCell>
                           {task.hs_update_successful === null && (
