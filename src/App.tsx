@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Data from "./pages/Data";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
+import Events from "./pages/Events";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -49,6 +50,7 @@ const App = () => {
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/data" element={<ProtectedRoute><Data /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

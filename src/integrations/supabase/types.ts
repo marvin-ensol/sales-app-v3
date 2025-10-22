@@ -886,6 +886,30 @@ export type Database = {
           title: string
         }[]
       }
+      get_enriched_events: {
+        Args: {
+          contact_filter?: string
+          event_filter?: string
+          limit_count?: number
+          sort_order?: string
+        }
+        Returns: {
+          contact_firstname: string
+          contact_lastname: string
+          created_at: string
+          error_count: number
+          event: string
+          hs_contact_id: string
+          hs_engagement_id: string
+          hs_owner_id: string
+          hubspot_url: string
+          id: number
+          logs: Json
+          owner_firstname: string
+          owner_lastname: string
+          type: string
+        }[]
+      }
       get_owner_tasks: {
         Args: { owner_id_param: string }
         Returns: {
