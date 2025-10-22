@@ -48,13 +48,13 @@ export const EventRow = ({ event }: EventRowProps) => {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
         <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
-          <TableCell className="font-mono text-xs">{formatDate(event.created_at)}</TableCell>
-          <TableCell>
+          <TableCell className="w-[160px] font-mono text-xs">{formatDate(event.created_at)}</TableCell>
+          <TableCell className="w-[150px]">
             <Badge variant="outline">{getEventName(event.event)}</Badge>
           </TableCell>
           <TableCell>{getContactDisplay()}</TableCell>
           <TableCell>{getOwnerDisplay()}</TableCell>
-          <TableCell>
+          <TableCell className="w-[120px]">
             <div className="flex items-center gap-2">
               {event.error_count > 0 ? (
                 <>
