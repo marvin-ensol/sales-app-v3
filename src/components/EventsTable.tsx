@@ -29,7 +29,7 @@ export const EventsTable = ({ events, isLoading }: EventsTableProps) => {
 
   return (
     <div className="border rounded-lg">
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[160px]">Created At</TableHead>

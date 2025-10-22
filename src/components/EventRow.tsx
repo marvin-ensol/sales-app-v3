@@ -2,7 +2,6 @@ import { EnrichedEvent } from "@/types/event";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EventRowExpanded } from "./EventRowExpanded";
 import { useState } from "react";
 
@@ -45,44 +44,45 @@ export const EventRow = ({ event }: EventRowProps) => {
   };
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
-          <TableCell className="w-[160px] font-mono text-xs">{formatDate(event.created_at)}</TableCell>
-          <TableCell className="w-[150px]">
-            <Badge variant="outline">{getEventName(event.event)}</Badge>
-          </TableCell>
-          <TableCell>{getContactDisplay()}</TableCell>
-          <TableCell>{getOwnerDisplay()}</TableCell>
-          <TableCell className="w-[120px]">
-            <div className="flex items-center gap-2">
-              {event.error_count > 0 ? (
-                <>
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <Badge variant="destructive" className="text-xs">{event.error_count}</Badge>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="text-xs text-muted-foreground">Success</span>
-                </>
-              )}
-            </div>
-          </TableCell>
-          <TableCell className="w-8">
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
-            />
-          </TableCell>
-        </TableRow>
-      </CollapsibleTrigger>
-      <CollapsibleContent asChild>
+    <>
+      <TableRow 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="cursor-pointer hover:bg-muted/50 transition-colors"
+      >
+        <TableCell className="w-[160px] font-mono text-xs">{formatDate(event.created_at)}</TableCell>
+        <TableCell className="w-[150px]">
+          <Badge variant="outline">{getEventName(event.event)}</Badge>
+        </TableCell>
+        <TableCell className="truncate">{getContactDisplay()}</TableCell>
+        <TableCell className="truncate">{getOwnerDisplay()}</TableCell>
+        <TableCell className="w-[120px]">
+          <div className="flex items-center gap-2">
+            {event.error_count > 0 ? (
+              <>
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <Badge variant="destructive" className="text-xs">{event.error_count}</Badge>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-xs text-muted-foreground">Success</span>
+              </>
+            )}
+          </div>
+        </TableCell>
+        <TableCell className="w-8">
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </TableCell>
+      </TableRow>
+      {isOpen && (
         <TableRow>
           <TableCell colSpan={6} className="p-0">
             <EventRowExpanded event={event} />
           </TableCell>
         </TableRow>
-      </CollapsibleContent>
-    </Collapsible>
+      )}
+    </>
   );
 };
