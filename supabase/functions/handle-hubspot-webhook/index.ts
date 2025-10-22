@@ -690,25 +690,6 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
         // Mark as successful in local DB
         localUpdateStatus.set(task.id, true);
-
-        // Create automation run record
-        const { error: runError } = await supabase
-          .from('task_automation_runs')
-          .insert({
-            automation_id: task.automation_id,
-            type: 'complete_on_engagement',
-            hs_trigger_object: 'engagement',
-            hs_trigger_object_id: callId,
-            hs_contact_id: contactId,
-            hs_action_successful: true,
-            hs_actioned_task_ids: [task.id],
-            task_name: task.hs_task_subject,
-            hs_queue_id: task.hs_queue_membership_ids
-          });
-
-        if (runError) {
-          console.error(`[Call Creations] Error creating automation run for task ${task.id}:`, runError);
-        }
       }
 
       // Step 4: Update future tasks locally (is_skipped = true)
@@ -747,25 +728,6 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
 
         // Mark as successful in local DB
         localUpdateStatus.set(task.id, true);
-
-        // Create automation run record
-        const { error: runError } = await supabase
-          .from('task_automation_runs')
-          .insert({
-            automation_id: task.automation_id,
-            type: 'complete_on_engagement',
-            hs_trigger_object: 'engagement',
-            hs_trigger_object_id: callId,
-            hs_contact_id: contactId,
-            hs_action_successful: true,
-            hs_actioned_task_ids: [task.id],
-            task_name: task.hs_task_subject,
-            hs_queue_id: task.hs_queue_membership_ids
-          });
-
-        if (runError) {
-          console.error(`[Call Creations] Error creating automation run for task ${task.id}:`, runError);
-        }
       }
 
       // Step 5: Calculate final success counts (both HubSpot AND local DB must succeed)
