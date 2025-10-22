@@ -1,16 +1,17 @@
 import { EnrichedEvent } from "@/types/event";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
+import { ChevronDown, Phone } from "lucide-react";
 import { EventRowExpanded } from "./EventRowExpanded";
-import { useState } from "react";
 
 interface EventRowProps {
   event: EnrichedEvent;
+  expandedRowId: number | null;
+  onToggleExpand: (id: number) => void;
 }
 
-export const EventRow = ({ event }: EventRowProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps) => {
+  const isOpen = expandedRowId === event.id;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -27,6 +28,13 @@ export const EventRow = ({ event }: EventRowProps) => {
       'call_created': 'Call Created',
     };
     return eventNames[eventType] || eventType;
+  };
+
+  const getEventColor = (eventType: string) => {
+    const eventColors: Record<string, string> = {
+      'call_created': 'bg-blue-500 text-white hover:bg-blue-600',
+    };
+    return eventColors[eventType] || 'bg-gray-500 text-white hover:bg-gray-600';
   };
 
   const getContactDisplay = () => {
@@ -46,30 +54,31 @@ export const EventRow = ({ event }: EventRowProps) => {
   return (
     <>
       <TableRow 
-        onClick={() => setIsOpen(!isOpen)} 
-        className="cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => onToggleExpand(event.id)} 
+        className={`cursor-pointer hover:bg-muted/50 transition-colors ${isOpen ? 'bg-muted' : ''}`}
       >
-        <TableCell className="w-[160px] font-mono text-xs">{formatDate(event.created_at)}</TableCell>
+        <TableCell className="w-[160px] text-xs">{formatDate(event.created_at)}</TableCell>
         <TableCell className="w-[150px]">
-          <Badge variant="outline">{getEventName(event.event)}</Badge>
+          <Badge className={getEventColor(event.event)}>{getEventName(event.event)}</Badge>
+        </TableCell>
+        <TableCell className="w-[140px]">
+          {event.logs.call_details?.call_id && event.hubspot_url ? (
+            <a
+              href={event.hubspot_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm hover:underline text-primary"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Phone className="h-3.5 w-3.5" />
+              <span className="truncate">{event.logs.call_details.call_id}</span>
+            </a>
+          ) : (
+            <span className="text-xs text-muted-foreground">-</span>
+          )}
         </TableCell>
         <TableCell className="truncate">{getContactDisplay()}</TableCell>
         <TableCell className="truncate">{getOwnerDisplay()}</TableCell>
-        <TableCell className="w-[120px]">
-          <div className="flex items-center gap-2">
-            {event.error_count > 0 ? (
-              <>
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <Badge variant="destructive" className="text-xs">{event.error_count}</Badge>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-xs text-muted-foreground">Success</span>
-              </>
-            )}
-          </div>
-        </TableCell>
         <TableCell className="w-8">
           <ChevronDown
             className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}

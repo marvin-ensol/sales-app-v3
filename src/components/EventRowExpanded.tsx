@@ -59,7 +59,7 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Duration:</span>
-              <span className="text-sm">{logs.call_details.hs_call_duration}ms</span>
+              <span className="text-sm">{(logs.call_details.hs_call_duration / 1000).toFixed(1)}s</span>
             </div>
           </CardContent>
         </Card>
@@ -72,35 +72,6 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
             <CardTitle className="text-sm font-medium">Task Updates</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="text-xs text-muted-foreground">Total Eligible</div>
-                  <div className="text-lg font-semibold">{logs.task_updates.summary.total_eligible}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <div>
-                  <div className="text-xs text-muted-foreground">Successful</div>
-                  <div className="text-lg font-semibold text-green-600">
-                    {logs.task_updates.summary.total_update_successful}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-destructive" />
-                <div>
-                  <div className="text-xs text-muted-foreground">Failed</div>
-                  <div className="text-lg font-semibold text-destructive">
-                    {logs.task_updates.summary.total_update_unsuccessful}
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Eligible Tasks Table */}
             {logs.task_updates.eligible_tasks.length > 0 && (
               <div className="border rounded-md">
@@ -136,14 +107,14 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                           )}
                         </TableCell>
                         <TableCell>
+                          {task.hs_update_successful === null && (
+                            <Badge variant="secondary" className="text-xs">Not applicable</Badge>
+                          )}
                           {task.hs_update_successful === true && (
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <Badge className="text-xs bg-green-500 text-white hover:bg-green-600">Success</Badge>
                           )}
                           {task.hs_update_successful === false && (
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          )}
-                          {task.hs_update_successful === null && (
-                            <span className="text-xs text-muted-foreground">N/A</span>
+                            <Badge variant="destructive" className="text-xs">Failed</Badge>
                           )}
                         </TableCell>
                       </TableRow>

@@ -2,6 +2,7 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components
 import { EventRow } from "./EventRow";
 import { EnrichedEvent } from "@/types/event";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
 
 interface EventsTableProps {
   events: EnrichedEvent[];
@@ -9,6 +10,11 @@ interface EventsTableProps {
 }
 
 export const EventsTable = ({ events, isLoading }: EventsTableProps) => {
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+
+  const handleToggleExpand = (id: number) => {
+    setExpandedRowId(expandedRowId === id ? null : id);
+  };
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -34,15 +40,20 @@ export const EventsTable = ({ events, isLoading }: EventsTableProps) => {
           <TableRow>
             <TableHead className="w-[160px]">Created At</TableHead>
             <TableHead className="w-[150px]">Event Name</TableHead>
+            <TableHead className="w-[140px]">ID</TableHead>
             <TableHead>Contact</TableHead>
             <TableHead>Owner</TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
             <TableHead className="w-8"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {events.map((event) => (
-            <EventRow key={event.id} event={event} />
+            <EventRow 
+              key={event.id} 
+              event={event} 
+              expandedRowId={expandedRowId}
+              onToggleExpand={handleToggleExpand}
+            />
           ))}
         </TableBody>
       </Table>
