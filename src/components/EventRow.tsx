@@ -3,6 +3,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, Phone } from "lucide-react";
 import { EventRowExpanded } from "./EventRowExpanded";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface EventRowProps {
   event: EnrichedEvent;
@@ -51,11 +52,15 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
     return event.hs_owner_id || 'Unknown';
   };
 
+  const hasExpandableContent = () => {
+    return (event.logs.task_updates?.eligible_tasks.length ?? 0) > 0 || event.error_count > 0;
+  };
+
   return (
     <>
       <TableRow 
-        onClick={() => onToggleExpand(event.id)} 
-        className={`cursor-pointer hover:bg-muted/50 transition-colors ${isOpen ? 'bg-muted' : ''}`}
+        onClick={hasExpandableContent() ? () => onToggleExpand(event.id) : undefined}
+        className={`transition-colors ${hasExpandableContent() ? 'cursor-pointer hover:bg-muted/70' : ''} ${isOpen ? 'bg-muted/90' : ''}`}
       >
         <TableCell className="w-[180px]">{formatDate(event.created_at)}</TableCell>
         <TableCell className="w-[140px]">
@@ -63,16 +68,26 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
         </TableCell>
         <TableCell className="w-[200px]">
           {event.logs.call_details?.call_id && event.hubspot_url ? (
-            <a
-              href={event.hubspot_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm hover:underline text-primary"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Phone className="h-3.5 w-3.5" />
-              <span>{event.logs.call_details.call_id}</span>
-            </a>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href={event.hubspot_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-sm hover:underline text-primary"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  <span>{event.logs.call_details.call_id}</span>
+                </a>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs space-y-1">
+                  <div>Direction: {event.logs.call_details.hs_call_direction}</div>
+                  <div>Duration: {(event.logs.call_details.hs_call_duration / 1000).toFixed(1)}s</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
           )}
@@ -80,9 +95,11 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
         <TableCell className="w-[200px] truncate">{getContactDisplay()}</TableCell>
         <TableCell className="w-[150px] truncate">{getOwnerDisplay()}</TableCell>
         <TableCell className="w-[50px]">
-          <ChevronDown
-            className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
+          {hasExpandableContent() && (
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
+          )}
         </TableCell>
       </TableRow>
       {isOpen && (

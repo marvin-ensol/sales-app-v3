@@ -32,41 +32,8 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
 
   return (
     <div className="space-y-4 p-4 bg-muted/30">
-      {/* Call Summary Section */}
-      {logs.call_details && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Call Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Call ID:</span>
-              <a
-                href={event.hubspot_url || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-mono flex items-center gap-1 hover:underline text-primary"
-              >
-                {logs.call_details.call_id}
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Direction:</span>
-              <Badge variant={logs.call_details.hs_call_direction === 'INBOUND' ? 'default' : 'secondary'}>
-                {logs.call_details.hs_call_direction}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Duration:</span>
-              <span className="text-sm">{(logs.call_details.hs_call_duration / 1000).toFixed(1)}s</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Task Updates Section */}
-      {logs.task_updates && (
+      {logs.task_updates && logs.task_updates.eligible_tasks.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Task Updates</CardTitle>
