@@ -53,7 +53,9 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
   };
 
   const hasExpandableContent = () => {
-    return (event.logs.task_updates?.eligible_tasks.length ?? 0) > 0 || event.error_count > 0;
+    // Check both old and new property names for backward compatibility
+    const taskDetails = event.logs.task_updates?.task_details || event.logs.task_updates?.eligible_tasks;
+    return (taskDetails?.length ?? 0) > 0 || event.error_count > 0;
   };
 
   return (

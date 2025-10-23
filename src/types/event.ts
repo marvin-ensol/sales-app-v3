@@ -37,7 +37,8 @@ export interface TaskUpdates {
     total_update_successful: number;
     total_update_unsuccessful: number;
   };
-  eligible_tasks: EligibleTask[];
+  task_details: EligibleTask[];
+  eligible_tasks?: EligibleTask[]; // Deprecated: kept for backward compatibility with old events
 }
 
 export interface EligibleTask {

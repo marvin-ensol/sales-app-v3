@@ -385,7 +385,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                   total_update_successful: 0,
                   total_update_unsuccessful: 0
                 },
-                eligible_tasks: []
+                task_details: []
               }
             }
           })
@@ -478,7 +478,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                 total_update_successful: 0,
                 total_update_unsuccessful: 0
               },
-              eligible_tasks: eligibleTasks.map(t => ({
+              task_details: eligibleTasks.map(t => ({
                 id: t.id,
                 hs_task_subject: t.hs_task_subject,
                 hubspot_owner_id: t.hubspot_owner_id,
@@ -510,7 +510,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                   total_update_successful: 0,
                   total_update_unsuccessful: 0
                 },
-                eligible_tasks: eligibleTasks.map(t => ({
+                task_details: eligibleTasks.map(t => ({
                   id: t.id,
                   hs_task_subject: t.hs_task_subject,
                   hubspot_owner_id: t.hubspot_owner_id,
@@ -590,7 +590,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                   total_update_successful: 0,
                   total_update_unsuccessful: tasksToProcess.length
                 },
-                eligible_tasks: eligibleTasks.map(t => {
+                task_details: eligibleTasks.map(t => {
                   const wasProcessed = tasksToProcess.some(tp => tp.id === t.id);
                   return {
                     id: t.id,
@@ -775,7 +775,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
                 total_update_successful: updateSuccessful,
                 total_update_unsuccessful: updateUnsuccessful
               },
-              eligible_tasks: eligibleTasks.map(t => {
+              task_details: eligibleTasks.map(t => {
                 const wasProcessed = tasksToProcess.some(tp => tp.id === t.id);
                 const hubspotSuccess = hubspotUpdateStatus.get(t.id);
                 const localSuccess = localUpdateStatus.get(t.id);

@@ -494,7 +494,7 @@ Deno.serve(async (req) => {
                     total_update_successful: 0,
                     total_update_unsuccessful: 0
                   },
-                  eligible_tasks: tasksAnalysis.tasks_identified
+                  task_details: tasksAnalysis.tasks_identified
                 },
                 hubspot_membership_timestamp: member.membershipTimestamp
               }
@@ -552,7 +552,7 @@ Deno.serve(async (req) => {
                     total_update_successful: exitResult.tasks_updated.filter(t => t.success).length,
                     total_update_unsuccessful: exitResult.tasks_updated.filter(t => !t.success).length
                   },
-                  eligible_tasks: eligibleTasksWithResults
+                  task_details: eligibleTasksWithResults
                 },
                 exit_actions: {
                   sequences_blocked: exitResult.sequences_blocked,

@@ -78,8 +78,10 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
   };
 
   // Sort tasks by due date ascending
-  const sortedTasks = logs.task_updates?.eligible_tasks 
-    ? [...logs.task_updates.eligible_tasks].sort((a, b) => {
+  // Support both old (eligible_tasks) and new (task_details) property names
+  const taskDetails = logs.task_updates?.task_details || logs.task_updates?.eligible_tasks;
+  const sortedTasks = taskDetails 
+    ? [...taskDetails].sort((a, b) => {
         return new Date(a.hs_timestamp).getTime() - new Date(b.hs_timestamp).getTime();
       })
     : [];
@@ -87,14 +89,14 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
   return (
     <div className="space-y-4 p-4 bg-muted/30">
       {/* Task Updates Section */}
-      {logs.task_updates && logs.task_updates.eligible_tasks.length > 0 && (
+      {logs.task_updates && sortedTasks.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Task Updates</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Eligible Tasks Table */}
-            {logs.task_updates.eligible_tasks.length > 0 && (
+            {sortedTasks.length > 0 && (
               <div className="border rounded-md">
                 <Table>
                   <TableHeader>
