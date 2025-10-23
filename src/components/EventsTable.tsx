@@ -52,6 +52,16 @@ export const EventsTable = ({
 
   return (
     <div className="space-y-4">
+      {/* Pagination Controls */}
+      <EventsPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+      
       <div className="border rounded-lg">
         <TooltipProvider>
           <Table>
@@ -78,16 +88,6 @@ export const EventsTable = ({
           </Table>
         </TooltipProvider>
       </div>
-      
-      {/* Pagination Controls */}
-      <EventsPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        pageSize={pageSize}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-      />
     </div>
   );
 };
