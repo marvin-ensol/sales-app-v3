@@ -60,6 +60,7 @@ export type Database = {
       }
       events: {
         Row: {
+          automation_id: string | null
           created_at: string
           event: string
           hs_contact_id: string | null
@@ -74,6 +75,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          automation_id?: string | null
           created_at?: string
           event: string
           hs_contact_id?: string | null
@@ -88,6 +90,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          automation_id?: string | null
           created_at?: string
           event?: string
           hs_contact_id?: string | null
@@ -101,7 +104,15 @@ export type Database = {
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "task_automations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hs_contacts: {
         Row: {
@@ -846,6 +857,7 @@ export type Database = {
           update_status_filter?: string
         }
         Returns: {
+          automation_id: string
           contact_firstname: string
           contact_lastname: string
           created_at: string

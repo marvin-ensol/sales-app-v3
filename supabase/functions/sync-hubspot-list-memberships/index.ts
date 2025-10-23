@@ -163,7 +163,9 @@ async function analyzeContactTasks(
     hubspot_owner_id: string | null;
     status: 'overdue' | 'future';
     hs_timestamp: string;
+    hs_queue_membership_ids: string;
     automation_enabled: boolean;
+    hs_update_successful: boolean | null;
   }>;
 }> {
   const { data: tasks, error: tasksError } = await supabase
@@ -191,7 +193,9 @@ async function analyzeContactTasks(
       hubspot_owner_id: task.hubspot_owner_id,
       status: isOverdue ? 'overdue' : 'future',
       hs_timestamp: task.hs_timestamp,
-      automation_enabled: hasAutomation
+      hs_queue_membership_ids: queueId,
+      automation_enabled: hasAutomation,
+      hs_update_successful: null
     };
   });
 
@@ -477,14 +481,22 @@ Deno.serve(async (req) => {
             .from('events')
             .insert({
               event: 'list_entry',
-              type: 'list_membership',
+              type: 'api',
               hs_list_id: automation.hs_list_id,
               hs_contact_id: member.recordId,
               hs_queue_id: queueId,
+              automation_id: automation.id,
               logs: {
-                entry_timestamp: member.membershipTimestamp,
-                automation_id: automation.id,
-                task_analysis: tasksAnalysis
+                task_updates: {
+                  summary: {
+                    total_incomplete: tasksAnalysis.total_incomplete,
+                    total_automation_eligible: tasksAnalysis.total_automation_eligible,
+                    total_update_successful: 0,
+                    total_update_unsuccessful: 0
+                  },
+                  eligible_tasks: tasksAnalysis.tasks_identified
+                },
+                hubspot_membership_timestamp: member.membershipTimestamp
               }
             });
 
@@ -513,24 +525,38 @@ Deno.serve(async (req) => {
             executionId
           );
 
+          // Merge task analysis with exit results to populate hs_update_successful
+          const eligibleTasksWithResults = tasksAnalysis.tasks_identified.map(task => {
+            const updateResult = exitResult.tasks_updated.find(t => t.id === task.id);
+            return {
+              ...task,
+              hs_update_successful: updateResult?.success ?? null
+            };
+          });
+
           // Create exit event
           const { data: exitEvent, error: exitEventError } = await supabase
             .from('events')
             .insert({
               event: 'list_exit',
-              type: 'list_membership',
+              type: 'api',
               hs_list_id: automation.hs_list_id,
               hs_contact_id: contactId,
               hs_queue_id: queueId,
+              automation_id: automation.id,
               logs: {
-                exit_timestamp: syncStartTime,
-                automation_id: automation.id,
-                entry_event_id: stored?.entry_event_id,
-                task_analysis: tasksAnalysis,
+                task_updates: {
+                  summary: {
+                    total_incomplete: tasksAnalysis.total_incomplete,
+                    total_automation_eligible: tasksAnalysis.total_automation_eligible,
+                    total_update_successful: exitResult.tasks_updated.filter(t => t.success).length,
+                    total_update_unsuccessful: exitResult.tasks_updated.filter(t => !t.success).length
+                  },
+                  eligible_tasks: eligibleTasksWithResults
+                },
                 exit_actions: {
-                  tasks_autocompleted: exitResult.tasks_autocompleted,
                   sequences_blocked: exitResult.sequences_blocked,
-                  tasks_updated: exitResult.tasks_updated
+                  entry_event_id: stored?.entry_event_id
                 }
               }
             })
