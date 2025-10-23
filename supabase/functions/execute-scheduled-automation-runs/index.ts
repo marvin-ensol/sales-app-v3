@@ -200,7 +200,6 @@ Deno.serve(async (req) => {
     
     console.log(`[${executionId}] Checking for automation runs due within current minute: ${startOfMinute.toISOString()} to ${endOfMinute.toISOString()}`);
 
-    // CRITICAL FIX: Add hs_membership_id to SELECT
     let { data: dueRuns, error: queryError } = await supabase
       .from('task_automation_runs')
       .select(`
@@ -218,12 +217,11 @@ Deno.serve(async (req) => {
         hs_owner_id_previous_task,
         hs_queue_id,
         hs_contact_id,
-        exit_contact_list_block,
-        hs_membership_id
+        exit_contact_list_block
       `)
       .eq('hs_action_successful', false)
       .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
-      .in('type', ['create_on_entry', 'create_from_sequence'])
+      .in('type', ['create_from_sequence'])
       .gte('planned_execution_timestamp', startOfMinute.toISOString())
       .lte('planned_execution_timestamp', endOfMinute.toISOString())
       .order('planned_execution_timestamp', { ascending: true });
@@ -257,12 +255,11 @@ Deno.serve(async (req) => {
           hs_owner_id_previous_task,
           hs_queue_id,
           hs_contact_id,
-          exit_contact_list_block,
-          hs_membership_id
+          exit_contact_list_block
         `)
         .eq('hs_action_successful', false)
         .or('exit_contact_list_block.is.null,exit_contact_list_block.eq.false')
-        .in('type', ['create_on_entry', 'create_from_sequence'])
+        .in('type', ['create_from_sequence'])
         .gte('planned_execution_timestamp', fallbackStart.toISOString())
         .lte('planned_execution_timestamp', endOfMinute.toISOString())
         .order('planned_execution_timestamp', { ascending: true });
@@ -277,13 +274,13 @@ Deno.serve(async (req) => {
 
     if (dueRuns && dueRuns.length > 0) {
       dueRuns = dueRuns.filter(run => 
-        run.type === 'create_on_entry' || run.type === 'create_from_sequence'
+        run.type === 'create_from_sequence'
       );
 
       if (dueRuns.length === 0) {
-        console.log(`[${executionId}] No creation-type runs to process after filtering`);
+        console.log(`[${executionId}] No sequence runs to process after filtering`);
       } else {
-        console.log(`[${executionId}] Processing ${dueRuns.length} runs (types: create_on_entry, create_from_sequence)`);
+        console.log(`[${executionId}] Processing ${dueRuns.length} sequence runs`);
         
         const hubspotToken = Deno.env.get('HUBSPOT_ACCESS_TOKEN');
         if (!hubspotToken) {
@@ -345,34 +342,7 @@ Deno.serve(async (req) => {
           const runMetadata = [];
 
           for (const run of chunk) {
-            let contactId = run.hs_contact_id;
-            
-            if (!contactId && run.hs_membership_id) {
-              console.log(`[${executionId}] ⚠️ Run ${run.id} has NULL contact, resolving via membership ${run.hs_membership_id}...`);
-              
-              const { data: membership, error: membershipError } = await supabase
-                .from('hs_list_memberships')
-                .select('hs_object_id')
-                .eq('id', run.hs_membership_id)
-                .maybeSingle();
-              
-              if (membershipError) {
-                console.error(`[${executionId}] ❌ Error fetching membership:`, membershipError);
-              } else if (membership?.hs_object_id) {
-                contactId = membership.hs_object_id;
-                console.log(`[${executionId}] ✅ Resolved contact ${contactId} from membership`);
-                
-                const result = await syncContactsFromHubSpot({
-                  contactIds: [contactId],
-                  hubspotToken,
-                  supabase,
-                  forceRefresh: true
-                });
-                console.log(`[${executionId}] 🔄 Synced contact:`, result);
-              } else {
-                console.error(`[${executionId}] ❌ Membership ${run.hs_membership_id} not found or has no hs_object_id`);
-              }
-            }
+            const contactId = run.hs_contact_id;
             
             if (!contactId) {
               console.error(`[${executionId}] ❌ Cannot process run ${run.id}: no contact ID available`);

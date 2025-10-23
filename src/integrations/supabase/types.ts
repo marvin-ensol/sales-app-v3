@@ -148,59 +148,6 @@ export type Database = {
         }
         Relationships: []
       }
-      hs_list_memberships: {
-        Row: {
-          automation_id: string | null
-          created_at: string
-          exit_processed_at: string | null
-          hs_list_entry_date: string | null
-          hs_list_id: string | null
-          hs_list_object: string | null
-          hs_object_id: string | null
-          hs_queue_id: string | null
-          id: string
-          last_api_call: string | null
-          list_exit_date: string | null
-          updated_at: string
-        }
-        Insert: {
-          automation_id?: string | null
-          created_at?: string
-          exit_processed_at?: string | null
-          hs_list_entry_date?: string | null
-          hs_list_id?: string | null
-          hs_list_object?: string | null
-          hs_object_id?: string | null
-          hs_queue_id?: string | null
-          id?: string
-          last_api_call?: string | null
-          list_exit_date?: string | null
-          updated_at?: string
-        }
-        Update: {
-          automation_id?: string | null
-          created_at?: string
-          exit_processed_at?: string | null
-          hs_list_entry_date?: string | null
-          hs_list_id?: string | null
-          hs_list_object?: string | null
-          hs_object_id?: string | null
-          hs_queue_id?: string | null
-          id?: string
-          last_api_call?: string | null
-          list_exit_date?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "hs_list_memberships_automation_id_fkey"
-            columns: ["automation_id"]
-            isOneToOne: false
-            referencedRelation: "task_automations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       hs_tasks: {
         Row: {
           archived: boolean | null
@@ -506,7 +453,6 @@ export type Database = {
           hs_action_successful: boolean | null
           hs_actioned_task_ids: Json | null
           hs_contact_id: string | null
-          hs_membership_id: string | null
           hs_owner_id_contact: string | null
           hs_owner_id_previous_task: string | null
           hs_queue_id: string | null
@@ -533,7 +479,6 @@ export type Database = {
           hs_action_successful?: boolean | null
           hs_actioned_task_ids?: Json | null
           hs_contact_id?: string | null
-          hs_membership_id?: string | null
           hs_owner_id_contact?: string | null
           hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null
@@ -560,7 +505,6 @@ export type Database = {
           hs_action_successful?: boolean | null
           hs_actioned_task_ids?: Json | null
           hs_contact_id?: string | null
-          hs_membership_id?: string | null
           hs_owner_id_contact?: string | null
           hs_owner_id_previous_task?: string | null
           hs_queue_id?: string | null

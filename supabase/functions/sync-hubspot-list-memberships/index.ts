@@ -25,13 +25,13 @@ interface TaskAutomation {
   hs_list_id: string;
   hs_list_object: string;
   task_category_id: number;
+  auto_complete_on_exit_enabled: boolean;
+  sequence_exit_enabled: boolean;
 }
 
-interface ExistingMembership {
-  id: string;
+interface StoredListMember {
   hs_object_id: string;
-  hs_list_entry_date: string;
-  list_exit_date: string | null;
+  entry_event_id: number;
 }
 
 /**
@@ -53,16 +53,15 @@ function parseContactTimestamp(value: any): string | null {
 
 /**
  * Batch sync contacts from HubSpot to hs_contacts
- * Used to pre-populate contact data before memberships trigger automations
  */
 async function syncContactsFromHubSpot(
   contactIds: string[],
   hubspotToken: string,
   supabase: any,
   executionId: string
-): Promise<{ synced: number; failed: number; contactsWithOwners: number; contactsWithoutOwners: number }> {
+): Promise<{ synced: number; failed: number }> {
   if (contactIds.length === 0) {
-    return { synced: 0, failed: 0, contactsWithOwners: 0, contactsWithoutOwners: 0 };
+    return { synced: 0, failed: 0 };
   }
 
   console.log(`[${executionId}] 📞 Syncing ${contactIds.length} contact(s) from HubSpot...`);
@@ -70,8 +69,6 @@ async function syncContactsFromHubSpot(
   const batchSize = 100;
   let syncedCount = 0;
   let failedCount = 0;
-  let withOwners = 0;
-  let withoutOwners = 0;
 
   for (let i = 0; i < contactIds.length; i += batchSize) {
     const batch = contactIds.slice(i, i + batchSize);
@@ -108,25 +105,19 @@ async function syncContactsFromHubSpot(
       const data = await response.json();
       const contacts = data.results || [];
       
-      const contactsToUpsert = contacts.map((contact: any) => {
-        const hasOwner = !!contact.properties?.hubspot_owner_id;
-        if (hasOwner) withOwners++;
-        else withoutOwners++;
-        
-        return {
-          hs_object_id: contact.id,
-          firstname: contact.properties?.firstname || null,
-          lastname: contact.properties?.lastname || null,
-          mobilephone: contact.properties?.mobilephone || null,
-          ensol_source_group: contact.properties?.ensol_source_group || null,
-          hs_lead_status: contact.properties?.hs_lead_status || null,
-          lifecyclestage: contact.properties?.lifecyclestage || null,
-          createdate: parseContactTimestamp(contact.properties?.createdate),
-          lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
-          hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
-          updated_at: new Date().toISOString()
-        };
-      });
+      const contactsToUpsert = contacts.map((contact: any) => ({
+        hs_object_id: contact.id,
+        firstname: contact.properties?.firstname || null,
+        lastname: contact.properties?.lastname || null,
+        mobilephone: contact.properties?.mobilephone || null,
+        ensol_source_group: contact.properties?.ensol_source_group || null,
+        hs_lead_status: contact.properties?.hs_lead_status || null,
+        lifecyclestage: contact.properties?.lifecyclestage || null,
+        createdate: parseContactTimestamp(contact.properties?.createdate),
+        lastmodifieddate: parseContactTimestamp(contact.properties?.lastmodifieddate),
+        hubspot_owner_id: contact.properties?.hubspot_owner_id || null,
+        updated_at: new Date().toISOString()
+      }));
       
       const { error: upsertError } = await supabase
         .from('hs_contacts')
@@ -142,7 +133,6 @@ async function syncContactsFromHubSpot(
         syncedCount += contacts.length;
       }
       
-      // Rate limit: 100ms between batches
       if (i + batchSize < contactIds.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -152,14 +142,176 @@ async function syncContactsFromHubSpot(
     }
   }
 
-  console.log(`[${executionId}] ✅ Contact sync complete: ${syncedCount} synced, ${failedCount} failed, ${withOwners} with owners, ${withoutOwners} without owners`);
+  console.log(`[${executionId}] ✅ Contact sync complete: ${syncedCount} synced, ${failedCount} failed`);
+  return { synced: syncedCount, failed: failedCount };
+}
+
+/**
+ * Analyze tasks for a contact in a specific queue
+ */
+async function analyzeContactTasks(
+  contactId: string,
+  queueId: string,
+  supabase: any,
+  executionId: string
+): Promise<{
+  total_incomplete: number;
+  total_automation_eligible: number;
+  tasks_identified: Array<{
+    id: string;
+    hs_task_subject: string | null;
+    hubspot_owner_id: string | null;
+    status: 'overdue' | 'future';
+    hs_timestamp: string;
+    automation_enabled: boolean;
+  }>;
+}> {
+  const { data: tasks, error: tasksError } = await supabase
+    .from('hs_tasks')
+    .select('hs_object_id, hs_task_subject, hubspot_owner_id, hs_timestamp, hs_task_status, created_by_automation_id')
+    .eq('associated_contact_id', contactId)
+    .eq('hs_queue_membership_ids', queueId)
+    .in('hs_task_status', ['NOT_STARTED', 'WAITING'])
+    .eq('archived', false);
+
+  if (tasksError) {
+    console.error(`[${executionId}] ❌ Error fetching tasks for contact ${contactId}:`, tasksError);
+    return { total_incomplete: 0, total_automation_eligible: 0, tasks_identified: [] };
+  }
+
+  const now = new Date();
+  const tasksAnalysis = (tasks || []).map((task: any) => {
+    const taskTime = new Date(task.hs_timestamp);
+    const isOverdue = taskTime < now;
+    const hasAutomation = !!task.created_by_automation_id;
+
+    return {
+      id: task.hs_object_id,
+      hs_task_subject: task.hs_task_subject,
+      hubspot_owner_id: task.hubspot_owner_id,
+      status: isOverdue ? 'overdue' : 'future',
+      hs_timestamp: task.hs_timestamp,
+      automation_enabled: hasAutomation
+    };
+  });
 
   return {
-    synced: syncedCount,
-    failed: failedCount,
-    contactsWithOwners: withOwners,
-    contactsWithoutOwners: withoutOwners
+    total_incomplete: tasksAnalysis.length,
+    total_automation_eligible: tasksAnalysis.filter(t => t.automation_enabled).length,
+    tasks_identified: tasksAnalysis
   };
+}
+
+/**
+ * Process list exit - auto-complete tasks and block sequences
+ */
+async function processListExit(
+  contactId: string,
+  queueId: string,
+  automationId: string,
+  automation: TaskAutomation,
+  hubspotToken: string,
+  supabase: any,
+  executionId: string
+): Promise<{
+  tasks_autocompleted: number;
+  sequences_blocked: number;
+  tasks_updated: Array<{ id: string; success: boolean }>;
+}> {
+  let tasksAutocompleted = 0;
+  let sequencesBlocked = 0;
+  const tasksUpdated: Array<{ id: string; success: boolean }> = [];
+
+  // Block sequences if enabled
+  if (automation.sequence_exit_enabled) {
+    const { data: pendingRuns, error: runsError } = await supabase
+      .from('task_automation_runs')
+      .select('id')
+      .eq('automation_id', automationId)
+      .eq('hs_contact_id', contactId)
+      .eq('hs_action_successful', false)
+      .in('type', ['create_on_entry', 'create_from_sequence']);
+
+    if (!runsError && pendingRuns && pendingRuns.length > 0) {
+      const { error: blockError } = await supabase
+        .from('task_automation_runs')
+        .update({ exit_contact_list_block: true })
+        .in('id', pendingRuns.map((r: any) => r.id));
+
+      if (!blockError) {
+        sequencesBlocked = pendingRuns.length;
+        console.log(`[${executionId}] 🚫 Blocked ${sequencesBlocked} sequence run(s) for contact ${contactId}`);
+      }
+    }
+  }
+
+  // Auto-complete tasks if enabled
+  if (automation.auto_complete_on_exit_enabled) {
+    const { data: incompleteTasks, error: tasksError } = await supabase
+      .from('hs_tasks')
+      .select('hs_object_id')
+      .eq('associated_contact_id', contactId)
+      .eq('hs_queue_membership_ids', queueId)
+      .in('hs_task_status', ['NOT_STARTED', 'WAITING'])
+      .eq('archived', false);
+
+    if (!tasksError && incompleteTasks && incompleteTasks.length > 0) {
+      const taskIds = incompleteTasks.map((t: any) => t.hs_object_id);
+      
+      // Call HubSpot batch update
+      const batchSize = 100;
+      for (let i = 0; i < taskIds.length; i += batchSize) {
+        const batch = taskIds.slice(i, i + batchSize);
+        
+        try {
+          const response = await fetch('https://api.hubapi.com/crm/v3/objects/tasks/batch/update', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${hubspotToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: batch.map(id => ({
+                id,
+                properties: { hs_task_status: 'COMPLETED' }
+              }))
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            tasksAutocompleted += result.results?.length || 0;
+            
+            // Mark in database
+            await supabase
+              .from('hs_tasks')
+              .update({
+                hs_task_status: 'COMPLETED',
+                hs_task_completion_date: new Date().toISOString(),
+                hs_task_completion_count: 1,
+                marked_completed_by_automation: true,
+                marked_completed_by_automation_id: automationId,
+                marked_completed_by_automation_source: 'auto_complete_on_exit'
+              })
+              .in('hs_object_id', batch);
+
+            batch.forEach(id => tasksUpdated.push({ id, success: true }));
+          } else {
+            batch.forEach(id => tasksUpdated.push({ id, success: false }));
+          }
+        } catch (error) {
+          console.error(`[${executionId}] ❌ Error auto-completing batch:`, error);
+          batch.forEach(id => tasksUpdated.push({ id, success: false }));
+        }
+
+        if (i + batchSize < taskIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+    }
+  }
+
+  return { tasks_autocompleted: tasksAutocompleted, sequences_blocked: sequencesBlocked, tasks_updated: tasksUpdated };
 }
 
 Deno.serve(async (req) => {
@@ -183,22 +335,23 @@ Deno.serve(async (req) => {
     const syncStartTime = new Date().toISOString();
     
     console.log(`[${executionId}] ⏰ Sync started at: ${syncStartTime}`);
-
     console.log(`[${executionId}] 🔍 Fetching active task automations...`);
 
-    // Get all active task automations with their category info
+    // Get all active task automations
     const { data: automations, error: automationsError } = await supabase
       .from('task_automations')
       .select(`
         id,
         hs_list_id,
         hs_list_object,
-        task_category_id
+        task_category_id,
+        auto_complete_on_exit_enabled,
+        sequence_exit_enabled
       `)
       .eq('automation_enabled', true)
       .not('hs_list_id', 'is', null);
 
-    // Get category info separately
+    // Get category queue mappings
     const categoryIds = automations?.map(a => a.task_category_id) || [];
     const { data: categories } = await supabase
       .from('task_categories')
@@ -225,7 +378,8 @@ Deno.serve(async (req) => {
 
     console.log(`[${executionId}] 📊 Found ${automations.length} active automation(s)`);
 
-    let totalProcessed = 0;
+    let totalEntriesProcessed = 0;
+    let totalExitsProcessed = 0;
     let totalErrors = 0;
 
     // Process each automation
@@ -233,7 +387,9 @@ Deno.serve(async (req) => {
       try {
         console.log(`[${executionId}] 📄 Processing automation ${automation.id} with list ${automation.hs_list_id}...`);
         
-        // Fetch all members from HubSpot list with pagination
+        const queueId = categoryMap.get(automation.task_category_id);
+        
+        // Fetch all current members from HubSpot
         const allMembers: HubSpotMember[] = [];
         let after: string | undefined;
         let page = 1;
@@ -262,7 +418,6 @@ Deno.serve(async (req) => {
           after = data.paging?.next?.after;
           page++;
 
-          // Small delay to respect rate limits
           if (after) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
@@ -270,170 +425,138 @@ Deno.serve(async (req) => {
 
         console.log(`[${executionId}] 🎯 Total members fetched for automation ${automation.id}: ${allMembers.length}`);
 
-        // === PRE-SYNC ALL CONTACTS FOR THIS LIST ===
-        // This ensures hs_contacts has fresh data before memberships trigger automations
+        // Pre-sync all contacts
         const uniqueContactIds = [...new Set(allMembers.map(m => m.recordId))];
         
         if (uniqueContactIds.length > 0) {
-          console.log(`[${executionId}] 🔄 Pre-syncing ${uniqueContactIds.length} unique contact(s) for automation ${automation.id}...`);
+          console.log(`[${executionId}] 🔄 Pre-syncing ${uniqueContactIds.length} contact(s)...`);
+          await syncContactsFromHubSpot(uniqueContactIds, hubspotToken, supabase, executionId);
+        }
+
+        // Get previously stored members for this list
+        const { data: storedEvents } = await supabase
+          .from('events')
+          .select('id, hs_contact_id')
+          .eq('event', 'list_entry')
+          .eq('hs_list_id', automation.hs_list_id)
+          .is('logs->exit_event_id', null);
+
+        const storedMembersMap = new Map<string, StoredListMember>();
+        (storedEvents || []).forEach((event: any) => {
+          storedMembersMap.set(event.hs_contact_id, {
+            hs_object_id: event.hs_contact_id,
+            entry_event_id: event.id
+          });
+        });
+
+        const currentMemberIds = new Set(allMembers.map(m => m.recordId));
+        const newEntries: HubSpotMember[] = [];
+        const exitedContactIds: string[] = [];
+
+        // Identify new entries
+        for (const member of allMembers) {
+          if (!storedMembersMap.has(member.recordId)) {
+            newEntries.push(member);
+          }
+        }
+
+        // Identify exits
+        for (const [contactId] of storedMembersMap) {
+          if (!currentMemberIds.has(contactId)) {
+            exitedContactIds.push(contactId);
+          }
+        }
+
+        console.log(`[${executionId}] 📊 Summary for automation ${automation.id}: ${newEntries.length} new entries, ${exitedContactIds.length} exits`);
+
+        // Process new entries - create list_entry events
+        for (const member of newEntries) {
+          const tasksAnalysis = await analyzeContactTasks(member.recordId, queueId, supabase, executionId);
+
+          const { error: eventError } = await supabase
+            .from('events')
+            .insert({
+              event: 'list_entry',
+              type: 'list_membership',
+              hs_list_id: automation.hs_list_id,
+              hs_contact_id: member.recordId,
+              hs_queue_id: queueId,
+              logs: {
+                entry_timestamp: member.membershipTimestamp,
+                automation_id: automation.id,
+                task_analysis: tasksAnalysis
+              }
+            });
+
+          if (eventError) {
+            console.error(`[${executionId}] ❌ Failed to create list_entry event for contact ${member.recordId}:`, eventError);
+            totalErrors++;
+          } else {
+            console.log(`[${executionId}] ✅ Created list_entry event for contact ${member.recordId}`);
+            totalEntriesProcessed++;
+          }
+        }
+
+        // Process exits - create list_exit events and take action
+        for (const contactId of exitedContactIds) {
+          const stored = storedMembersMap.get(contactId);
+          const tasksAnalysis = await analyzeContactTasks(contactId, queueId, supabase, executionId);
           
-          const contactSyncResult = await syncContactsFromHubSpot(
-            uniqueContactIds,
+          // Process exit actions
+          const exitResult = await processListExit(
+            contactId,
+            queueId,
+            automation.id,
+            automation,
             hubspotToken,
             supabase,
             executionId
           );
-          
-          console.log(`[${executionId}] ✅ Contact pre-sync result:`, contactSyncResult);
-          
-          if (contactSyncResult.contactsWithoutOwners > 0) {
-            console.warn(`[${executionId}] ⚠️ ${contactSyncResult.contactsWithoutOwners} contact(s) have no owner - automation runs will be unassigned`);
-          }
-        }
 
-        // Get existing memberships for this automation (only active ones)
-        const { data: existingMemberships, error: existingError } = await supabase
-          .from('hs_list_memberships')
-          .select('id, hs_object_id, hs_list_entry_date, list_exit_date')
-          .eq('automation_id', automation.id)
-          .is('list_exit_date', null);
-
-        if (existingError) {
-          throw new Error(`Failed to fetch existing memberships: ${existingError.message}`);
-        }
-
-        const existingMap = new Map<string, ExistingMembership>();
-        (existingMemberships || []).forEach((membership: ExistingMembership) => {
-          existingMap.set(membership.hs_object_id, membership);
-        });
-
-        const currentMemberIds = new Set(allMembers.map(m => m.recordId));
-        const newMemberships = [];
-        const updatedMemberships = [];
-        const exitedMemberIds = [];
-        const reenteredMembers = [];
-        
-        // Check for re-entered members (have exited records but appear in current list)
-        const { data: exitedMemberships, error: exitedError } = await supabase
-          .from('hs_list_memberships')
-          .select('hs_object_id')
-          .eq('automation_id', automation.id)
-          .not('list_exit_date', 'is', null);
-          
-        if (exitedError) {
-          console.error(`[${executionId}] ⚠️ Failed to fetch exited memberships: ${exitedError.message}`);
-        }
-        
-        const exitedMemberIds_Set = new Set((exitedMemberships || []).map(m => m.hs_object_id));
-
-        // Process current members
-        for (const member of allMembers) {
-          const existing = existingMap.get(member.recordId);
-          const hasExitedBefore = exitedMemberIds_Set.has(member.recordId);
-          
-          if (!existing) {
-            // Check if this is a re-entry (member has exited before but no active record)
-            if (hasExitedBefore) {
-              reenteredMembers.push(member.recordId);
-              console.log(`[${executionId}] 🔄 Detected re-entry for member ${member.recordId}`);
-            }
-            
-            // New member or re-entered member - create new record
-            newMemberships.push({
-              automation_id: automation.id,
+          // Create exit event
+          const { data: exitEvent, error: exitEventError } = await supabase
+            .from('events')
+            .insert({
+              event: 'list_exit',
+              type: 'list_membership',
               hs_list_id: automation.hs_list_id,
-              hs_list_object: automation.hs_list_object,
-              hs_queue_id: categoryMap.get(automation.task_category_id),
-              hs_object_id: member.recordId,
-              hs_list_entry_date: member.membershipTimestamp,
-              list_exit_date: null,
-              last_api_call: syncStartTime
-            });
-          } else if (existing.hs_list_entry_date !== member.membershipTimestamp) {
-            // Update entry date if it changed
-            updatedMemberships.push({
-              id: existing.id,
-              hs_list_entry_date: member.membershipTimestamp,
-              last_api_call: syncStartTime,
-              updated_at: new Date().toISOString()
-            });
-          } else {
-            // No changes, but update last_api_call to track when we last confirmed membership
-            updatedMemberships.push({
-              id: existing.id,
-              last_api_call: syncStartTime,
-              updated_at: new Date().toISOString()
-            });
-          }
-        }
-
-        // Find members who have exited
-        for (const [objectId, existing] of existingMap) {
-          if (!currentMemberIds.has(objectId)) {
-            exitedMemberIds.push(existing.id);
-          }
-        }
-
-        // Batch insert new memberships
-        if (newMemberships.length > 0) {
-          const { error: insertError } = await supabase
-            .from('hs_list_memberships')
-            .insert(newMemberships);
-
-          if (insertError) {
-            throw new Error(`Failed to insert new memberships: ${insertError.message}`);
-          }
-          console.log(`[${executionId}] ✅ Inserted ${newMemberships.length} new memberships`);
-        }
-
-        // Batch update existing memberships
-        if (updatedMemberships.length > 0) {
-          for (const update of updatedMemberships) {
-            const updateData: any = {
-              last_api_call: update.last_api_call,
-              updated_at: update.updated_at
-            };
-            
-            // Only update entry date if it's provided (changed)
-            if (update.hs_list_entry_date) {
-              updateData.hs_list_entry_date = update.hs_list_entry_date;
-            }
-            
-            const { error: updateError } = await supabase
-              .from('hs_list_memberships')
-              .update(updateData)
-              .eq('id', update.id);
-
-            if (updateError) {
-              console.error(`[${executionId}] ⚠️ Failed to update membership ${update.id}:`, updateError.message);
-            }
-          }
-          console.log(`[${executionId}] ✅ Updated ${updatedMemberships.length} existing memberships (last_api_call: ${syncStartTime})`);
-        }
-
-        // Mark exited members
-        if (exitedMemberIds.length > 0) {
-          const { error: exitError } = await supabase
-            .from('hs_list_memberships')
-            .update({
-              list_exit_date: syncStartTime,
-              updated_at: new Date().toISOString()
+              hs_contact_id: contactId,
+              hs_queue_id: queueId,
+              logs: {
+                exit_timestamp: syncStartTime,
+                automation_id: automation.id,
+                entry_event_id: stored?.entry_event_id,
+                task_analysis: tasksAnalysis,
+                exit_actions: {
+                  tasks_autocompleted: exitResult.tasks_autocompleted,
+                  sequences_blocked: exitResult.sequences_blocked,
+                  tasks_updated: exitResult.tasks_updated
+                }
+              }
             })
-            .in('id', exitedMemberIds);
+            .select('id')
+            .single();
 
-          if (exitError) {
-            throw new Error(`Failed to mark exited members: ${exitError.message}`);
+          if (exitEventError) {
+            console.error(`[${executionId}] ❌ Failed to create list_exit event for contact ${contactId}:`, exitEventError);
+            totalErrors++;
+          } else {
+            // Update entry event with exit reference
+            if (stored?.entry_event_id && exitEvent) {
+              await supabase
+                .from('events')
+                .update({
+                  logs: supabase.raw(`logs || '{"exit_event_id": ${exitEvent.id}}'::jsonb`)
+                })
+                .eq('id', stored.entry_event_id);
+            }
+            
+            console.log(`[${executionId}] ✅ Created list_exit event for contact ${contactId} (autocompleted: ${exitResult.tasks_autocompleted}, blocked: ${exitResult.sequences_blocked})`);
+            totalExitsProcessed++;
           }
-          console.log(`[${executionId}] ✅ Marked ${exitedMemberIds.length} members as exited`);
         }
 
-        // Log re-entries if any
-        if (reenteredMembers.length > 0) {
-          console.log(`[${executionId}] 🔄 Detected ${reenteredMembers.length} re-entries for automation ${automation.id}`);
-        }
-        
-        console.log(`[${executionId}] ✅ Completed processing automation ${automation.id} (last_api_call: ${syncStartTime})`);
-        totalProcessed++;
+        console.log(`[${executionId}] ✅ Completed processing automation ${automation.id}`);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -443,64 +566,36 @@ Deno.serve(async (req) => {
     }
 
     const duration = Date.now() - new Date(syncStartTime).getTime();
-    console.log(`[${executionId}] 🎉 Sync completed: ${totalProcessed}/${automations.length} automations processed, ${totalErrors} errors, duration: ${duration}ms`);
+    console.log(`[${executionId}] 🎉 Sync completed: ${totalEntriesProcessed} entries, ${totalExitsProcessed} exits, ${totalErrors} errors, duration: ${duration}ms`);
 
-    // Query for newly exited memberships that haven't been processed yet
-    console.log(`[${executionId}] 🔍 Checking for newly exited memberships...`);
-    const { data: newlyExitedMemberships, error: exitedError } = await supabase
-      .from('hs_list_memberships')
-      .select('id, hs_object_id, hs_list_id, hs_queue_id, automation_id')
-      .not('list_exit_date', 'is', null)
-      .is('exit_processed_at', null);
-
-    if (exitedError) {
-      console.warn(`[${executionId}] ⚠️ Error querying newly exited memberships:`, exitedError.message);
-    } else if (newlyExitedMemberships && newlyExitedMemberships.length > 0) {
-      console.log(`[${executionId}] 🚪 Found ${newlyExitedMemberships.length} newly exited memberships to process`);
-      
-      // Trigger auto-complete exited tasks job with specific membership IDs
-      console.log(`[${executionId}] 🚀 Triggering auto-complete exited tasks job...`);
-      try {
-        const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('auto-complete-exited-tasks', {
-          body: {
-            membership_ids: newlyExitedMemberships.map(m => m.id)
-          }
-        });
-        
-        if (cleanupError) {
-          console.warn(`[${executionId}] ⚠️ Auto-complete job returned error:`, cleanupError);
-        } else {
-          console.log(`[${executionId}] ✅ Auto-complete job triggered successfully:`, cleanupResult);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        executionId,
+        summary: {
+          automations_processed: automations.length,
+          entries_created: totalEntriesProcessed,
+          exits_processed: totalExitsProcessed,
+          errors: totalErrors,
+          duration_ms: duration
         }
-      } catch (cleanupErr) {
-        console.warn(`[${executionId}] ⚠️ Failed to trigger auto-complete job:`, cleanupErr);
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
-    } else {
-      console.log(`[${executionId}] ℹ️ No newly exited memberships to process`);
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      executionId,
-      automationsProcessed: totalProcessed,
-      automationsTotal: automations.length,
-      errors: totalErrors,
-      durationMs: duration
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    );
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[${executionId}] ❌ Critical error in list memberships sync:`, errorMessage);
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: errorMessage,
-      executionId
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error(`[${executionId}] ❌ Fatal error:`, error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 });
