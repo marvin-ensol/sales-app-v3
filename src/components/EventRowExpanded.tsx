@@ -79,7 +79,11 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
 
   // Sort tasks by due date ascending
   // Support both old (eligible_tasks) and new (task_details) property names
-  const taskDetails = logs.task_updates?.task_details || logs.task_updates?.eligible_tasks;
+  // For list_entry events, use task_creation; for other events, use task_updates
+  const isListEntry = event.event === 'list_entry';
+  const taskDetails = isListEntry 
+    ? logs.task_creation?.task_details 
+    : (logs.task_updates?.task_details || logs.task_updates?.eligible_tasks);
   const sortedTasks = taskDetails 
     ? [...taskDetails].sort((a, b) => {
         return new Date(a.hs_timestamp).getTime() - new Date(b.hs_timestamp).getTime();
@@ -88,11 +92,13 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
 
   return (
     <div className="space-y-4 p-4 bg-muted/30">
-      {/* Task Updates Section */}
-      {logs.task_updates && sortedTasks.length > 0 && (
+      {/* Task Updates/Creation Section */}
+      {((logs.task_updates || logs.task_creation) && sortedTasks.length > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Task Updates</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {isListEntry ? 'Task Creation' : 'Task Updates'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Eligible Tasks Table */}
@@ -114,14 +120,18 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                       <TableRow key={task.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {task.status === 'overdue' ? (
-                              <div className="flex-shrink-0 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center">
-                                <AlertCircle className="h-3 w-3 text-white" />
-                              </div>
-                            ) : (
-                              <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
-                                <Clock className="h-3 w-3 text-white" />
-                              </div>
+                            {!isListEntry && (
+                              <>
+                                {task.status === 'overdue' ? (
+                                  <div className="flex-shrink-0 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center">
+                                    <AlertCircle className="h-3 w-3 text-white" />
+                                  </div>
+                                ) : (
+                                  <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                                    <Clock className="h-3 w-3 text-white" />
+                                  </div>
+                                )}
+                              </>
                             )}
                             <span className="text-xs">{formatTaskDueDate(task.hs_timestamp)}</span>
                           </div>

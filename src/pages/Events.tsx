@@ -78,6 +78,8 @@ const Events = () => {
                   <SelectContent>
                     <SelectItem value="all">All Events</SelectItem>
                     <SelectItem value="call_created">Call Created</SelectItem>
+                    <SelectItem value="list_entry">List Entry</SelectItem>
+                    <SelectItem value="list_exit">List Exit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -20,6 +20,7 @@ export interface EnrichedEvent {
 export interface EventLogs {
   call_details?: CallDetails;
   task_updates?: TaskUpdates;
+  task_creation?: TaskCreation;
 }
 
 export interface CallDetails {
@@ -50,6 +51,10 @@ export interface EligibleTask {
   automation_enabled: boolean;
   hs_update_successful: boolean | null;
   hs_queue_membership_ids: string | null;
+}
+
+export interface TaskCreation {
+  task_details: EligibleTask[];
 }
 
 export interface ErrorLog {

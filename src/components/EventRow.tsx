@@ -27,6 +27,8 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
   const getEventName = (eventType: string) => {
     const eventNames: Record<string, string> = {
       'call_created': 'Call Created',
+      'list_entry': 'List Entry',
+      'list_exit': 'List Exit',
     };
     return eventNames[eventType] || eventType;
   };
@@ -34,6 +36,8 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
   const getEventColor = (eventType: string) => {
     const eventColors: Record<string, string> = {
       'call_created': 'bg-blue-500 text-white hover:bg-blue-600',
+      'list_entry': 'bg-green-500 text-white hover:bg-green-600',
+      'list_exit': 'bg-orange-500 text-white hover:bg-orange-600',
     };
     return eventColors[eventType] || 'bg-gray-500 text-white hover:bg-gray-600';
   };
@@ -54,8 +58,9 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
 
   const hasExpandableContent = () => {
     // Check both old and new property names for backward compatibility
-    const taskDetails = event.logs.task_updates?.task_details || event.logs.task_updates?.eligible_tasks;
-    return (taskDetails?.length ?? 0) > 0 || event.error_count > 0;
+    const taskUpdates = event.logs.task_updates?.task_details || event.logs.task_updates?.eligible_tasks;
+    const taskCreation = event.logs.task_creation?.task_details;
+    return (taskUpdates?.length ?? 0) > 0 || (taskCreation?.length ?? 0) > 0 || event.error_count > 0;
   };
 
   return (
