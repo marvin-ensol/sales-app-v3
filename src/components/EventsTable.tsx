@@ -52,27 +52,29 @@ export const EventsTable = ({
 
   return (
     <div className="space-y-4">
-      {/* Pagination Controls */}
-      <EventsPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        pageSize={pageSize}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-      />
+      {/* Sticky Pagination Controls */}
+      <div className="sticky top-0 z-20 bg-background pb-4">
+        <EventsPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
+      </div>
       
       <div className="border rounded-lg">
         <TooltipProvider>
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Created At</TableHead>
-                <TableHead className="w-[140px]">Event Name</TableHead>
-                <TableHead className="w-[200px]">ID</TableHead>
-                <TableHead className="w-[200px]">Contact</TableHead>
-                <TableHead className="w-[150px]">Owner</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+            <TableHeader className="sticky top-[72px] z-10 bg-background">
+              <TableRow className="bg-background hover:bg-background">
+                <TableHead className="w-[180px] bg-background">Created At</TableHead>
+                <TableHead className="w-[140px] bg-background">Event Name</TableHead>
+                <TableHead className="w-[200px] bg-background">ID</TableHead>
+                <TableHead className="w-[200px] bg-background">Contact</TableHead>
+                <TableHead className="w-[150px] bg-background">Owner</TableHead>
+                <TableHead className="w-[50px] bg-background"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
