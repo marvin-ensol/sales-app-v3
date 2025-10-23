@@ -7,6 +7,7 @@ interface UseEventsOptions {
   contactFilter?: string;
   eventIds?: number[];
   contactIds?: string[];
+  ownerIds?: string[];
   updateStatusFilter?: string;
   sortOrder: 'ASC' | 'DESC';
   page?: number;
@@ -19,6 +20,7 @@ export const useEvents = (options: UseEventsOptions) => {
     contactFilter,
     eventIds,
     contactIds,
+    ownerIds,
     updateStatusFilter,
     sortOrder = 'DESC', 
     page = 1,
@@ -26,7 +28,7 @@ export const useEvents = (options: UseEventsOptions) => {
   } = options;
 
   return useQuery({
-    queryKey: ['events', eventFilter, contactFilter, eventIds, contactIds, updateStatusFilter, sortOrder, page, pageSize],
+    queryKey: ['events', eventFilter, contactFilter, eventIds, contactIds, ownerIds, updateStatusFilter, sortOrder, page, pageSize],
     queryFn: async (): Promise<PaginatedEventsResponse> => {
       const offset = (page - 1) * pageSize;
       
@@ -35,6 +37,7 @@ export const useEvents = (options: UseEventsOptions) => {
         contact_filter: contactFilter || null,
         event_ids: eventIds && eventIds.length > 0 ? eventIds : null,
         contact_ids: contactIds && contactIds.length > 0 ? contactIds : null,
+        owner_ids: ownerIds && ownerIds.length > 0 ? ownerIds : null,
         update_status_filter: updateStatusFilter || null,
         sort_order: sortOrder,
         limit_count: pageSize,

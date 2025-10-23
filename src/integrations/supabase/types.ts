@@ -855,6 +855,7 @@ export type Database = {
           event_ids?: number[]
           limit_count?: number
           offset_count?: number
+          owner_ids?: string[]
           sort_order?: string
           update_status_filter?: string
         }

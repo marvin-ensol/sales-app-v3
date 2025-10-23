@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 
 interface IdFilterInputProps {
-  label: string;
+  label?: string;
   placeholder: string;
   values: (string | number)[];
   onValuesChange: (values: (string | number)[]) => void;
@@ -48,8 +48,8 @@ export const IdFilterInput = ({
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm font-medium whitespace-nowrap">{label}:</label>
-      <div 
+      {label && <label className="text-sm font-medium whitespace-nowrap">{label}:</label>}
+      <div
         className="flex flex-wrap items-center gap-1.5 min-h-10 w-[300px] rounded-md border border-input bg-background px-2 py-1.5 text-sm ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 cursor-text"
         onClick={() => inputRef.current?.focus()}
       >
