@@ -893,6 +893,7 @@ export type Database = {
           limit_count?: number
           offset_count?: number
           sort_order?: string
+          update_status_filter?: string
         }
         Returns: {
           contact_firstname: string

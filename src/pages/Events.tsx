@@ -8,12 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 const Events = () => {
   const [eventFilter, setEventFilter] = useState<string | undefined>(undefined);
+  const [updateStatusFilter, setUpdateStatusFilter] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
   const { data, isLoading } = useEvents({
     eventFilter,
+    updateStatusFilter,
     sortOrder,
     page: currentPage,
     pageSize
@@ -21,6 +23,7 @@ const Events = () => {
 
   const handleClearFilters = () => {
     setEventFilter(undefined);
+    setUpdateStatusFilter(undefined);
     setCurrentPage(1); // Reset to first page when clearing filters
   };
 
@@ -79,6 +82,27 @@ const Events = () => {
                 </Select>
               </div>
 
+              {/* Update Status Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Update Status:</label>
+                <Select
+                  value={updateStatusFilter || 'all'}
+                  onValueChange={(value) => {
+                    setUpdateStatusFilter(value === 'all' ? undefined : value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="tasks_updated">Task Updated</SelectItem>
+                    <SelectItem value="tasks_update_failed">Error Updating Task</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Sort Order */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Sort:</label>
@@ -94,7 +118,7 @@ const Events = () => {
               </div>
 
               {/* Clear Filters */}
-              {eventFilter && (
+              {(eventFilter || updateStatusFilter) && (
                 <Button
                   variant="ghost"
                   size="sm"
