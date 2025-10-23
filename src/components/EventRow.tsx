@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, Phone, ClipboardList } from "lucide-react";
 import { EventRowExpanded } from "./EventRowExpanded";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { CopyableCell } from "./CopyableCell";
 
 interface EventRowProps {
   event: EnrichedEvent;
@@ -72,81 +73,89 @@ const formatDate = (dateString: string) => {
       >
         <TableCell className="w-[180px]">{formatDate(event.created_at)}</TableCell>
         <TableCell className="w-[140px]">
-          <Badge className={getEventColor(event.event)}>{getEventName(event.event)}</Badge>
+          <CopyableCell value={event.id}>
+            <Badge className={getEventColor(event.event)}>{getEventName(event.event)}</Badge>
+          </CopyableCell>
         </TableCell>
         <TableCell className="w-[200px]">
           {event.event === 'call_created' && event.logs.call_details?.call_id ? (
-            event.hubspot_url ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <a
-                    href={event.hubspot_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-sm hover:underline text-primary"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    <span>{event.logs.call_details.call_id}</span>
-                  </a>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="text-xs space-y-1">
-                    <div>Direction: {event.logs.call_details.hs_call_direction || '—'}</div>
-                    <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5" />
-                    <span>{event.logs.call_details.call_id}</span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="text-xs space-y-1">
-                    <div>Direction: {event.logs.call_details.hs_call_direction || '—'}</div>
-                    <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
-                    <div className="text-yellow-500">No contact associated</div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            )
+            <CopyableCell value={event.logs.call_details.call_id}>
+              {event.hubspot_url ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <a
+                      href={event.hubspot_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm hover:underline text-primary"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      <span>{event.logs.call_details.call_id}</span>
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs space-y-1">
+                      <div>Direction: {event.logs.call_details.hs_call_direction || '—'}</div>
+                      <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" />
+                      <span>{event.logs.call_details.call_id}</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs space-y-1">
+                      <div>Direction: {event.logs.call_details.hs_call_direction || '—'}</div>
+                      <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
+                      <div className="text-yellow-500">No contact associated</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </CopyableCell>
           ) : (event.event === 'list_entry' || event.event === 'list_exit') && event.hs_list_id ? (
-            event.hubspot_url ? (
-              <a
-                href={event.hubspot_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm hover:underline text-primary"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                <span>{event.hs_list_id}</span>
-              </a>
-            ) : (
-              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <ClipboardList className="h-3.5 w-3.5" />
-                <span>{event.hs_list_id}</span>
-              </span>
-            )
+            <CopyableCell value={event.hs_list_id}>
+              {event.hubspot_url ? (
+                <a
+                  href={event.hubspot_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-sm hover:underline text-primary"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span>{event.hs_list_id}</span>
+                </a>
+              ) : (
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span>{event.hs_list_id}</span>
+                </span>
+              )}
+            </CopyableCell>
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
           )}
         </TableCell>
       <TableCell className="w-[200px]">
         {event.hs_contact_id ? (
-          <a
-            href={`https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${event.hs_contact_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline text-primary truncate block"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {getContactDisplay()}
-          </a>
+          <CopyableCell value={event.hs_contact_id}>
+            <a
+              href={`https://app-eu1.hubspot.com/contacts/142467012/record/0-1/${event.hs_contact_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline text-primary truncate block"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {getContactDisplay()}
+            </a>
+          </CopyableCell>
         ) : (
           <span className="truncate block">{getContactDisplay()}</span>
         )}

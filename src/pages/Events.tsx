@@ -125,16 +125,12 @@ const Events = () => {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Event Log</h1>
-          <p className="text-muted-foreground mt-2">
-            Monitor automated actions and system events
-          </p>
         </div>
 
         {/* Filters */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Filters</CardTitle>
-            <CardDescription>Filter and sort events</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -201,10 +197,10 @@ const Events = () => {
                 </div>
               </div>
 
-              {/* ID Filters Row - 4 column grid to align with above */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* ID Filters Row with Action Buttons - 6 column grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                 {/* Event IDs Filter */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-sm font-medium">Event IDs</label>
                   <IdFilterInput
                     placeholder="Add one or more event ID..."
@@ -218,7 +214,7 @@ const Events = () => {
                 </div>
 
                 {/* Contact IDs Filter */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 lg:col-span-2">
                   <label className="text-sm font-medium">Contact IDs</label>
                   <IdFilterInput
                     placeholder="Add one or more contact ID..."
@@ -230,31 +226,31 @@ const Events = () => {
                     type="text"
                   />
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              {hasActiveFilters && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClearFilters}
-                    className="gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    Clear Filters
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleSaveQuery}
-                    className="gap-2"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Save Query
-                  </Button>
-                </div>
-              )}
+                {/* Action Buttons */}
+                {hasActiveFilters && (
+                  <div className="flex items-center gap-2 lg:col-span-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearFilters}
+                      className="gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Clear Filters
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleSaveQuery}
+                      className="gap-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Save Query
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

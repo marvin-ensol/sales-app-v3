@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUsers } from "@/hooks/useUsers";
+import { CopyableCell } from "./CopyableCell";
 
 interface EventRowExpandedProps {
   event: EnrichedEvent;
@@ -140,23 +141,25 @@ export const EventRowExpanded = ({ event }: EventRowExpandedProps) => {
                           {task.hs_task_subject || '-'}
                         </TableCell>
                         <TableCell>
-                          {event.hs_contact_id ? (
-                            <a
-                              href={buildTaskUrl(event.hs_contact_id, task.id)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-xs hover:underline text-primary"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <CheckSquare className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span>{task.id}</span>
-                            </a>
-                          ) : (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <CheckSquare className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span>{task.id}</span>
-                            </div>
-                          )}
+                          <CopyableCell value={task.id}>
+                            {event.hs_contact_id ? (
+                              <a
+                                href={buildTaskUrl(event.hs_contact_id, task.id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 text-xs hover:underline text-primary"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <CheckSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{task.id}</span>
+                              </a>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <CheckSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{task.id}</span>
+                              </div>
+                            )}
+                          </CopyableCell>
                         </TableCell>
                         <TableCell className="text-xs">
                           {getCategoryName(task.hs_queue_membership_ids)}
