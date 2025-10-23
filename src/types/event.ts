@@ -56,6 +56,10 @@ export interface EligibleTask {
 }
 
 export interface TaskCreation {
+  summary?: {
+    total_update_successful: number;
+    total_update_unsuccessful: number;
+  };
   task_details: EligibleTask[];
 }
 

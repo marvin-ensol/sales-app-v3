@@ -721,6 +721,10 @@ Deno.serve(async (req) => {
                 hubspot_url: `https://app-eu1.hubspot.com/contacts/142467012/objectLists/${automation.hs_list_id}`,
                 logs: {
                   task_creation: {
+                    summary: {
+                      total_update_successful: 0,
+                      total_update_unsuccessful: 0
+                    },
                     task_details: [{
                       automation_enabled: automationEnabled,
                       hs_task_subject: taskName,
@@ -788,6 +792,10 @@ Deno.serve(async (req) => {
                     .update({
                       logs: {
                         task_creation: {
+                          summary: {
+                            total_update_successful: 1,
+                            total_update_unsuccessful: 0
+                          },
                           task_details: [{
                             automation_enabled: true,
                             hs_task_subject: taskName,
@@ -876,6 +884,10 @@ Deno.serve(async (req) => {
                     .update({
                       logs: {
                         task_creation: {
+                          summary: {
+                            total_update_successful: 0,
+                            total_update_unsuccessful: 1
+                          },
                           task_details: [{
                             automation_enabled: true,
                             hs_task_subject: taskName,
@@ -916,6 +928,10 @@ Deno.serve(async (req) => {
                   .update({
                     logs: {
                       task_creation: {
+                        summary: {
+                          total_update_successful: 0,
+                          total_update_unsuccessful: 1
+                        },
                         task_details: [{
                           automation_enabled: true,
                           hs_task_subject: taskName,
