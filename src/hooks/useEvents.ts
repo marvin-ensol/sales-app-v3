@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EnrichedEvent, PaginatedEventsResponse } from "@/types/event";
 
 interface UseEventsOptions {
-  eventFilter?: string;
+  eventFilters?: string[];
   contactFilter?: string;
   eventIds?: number[];
   contactIds?: string[];
@@ -16,7 +16,7 @@ interface UseEventsOptions {
 
 export const useEvents = (options: UseEventsOptions) => {
   const { 
-    eventFilter, 
+    eventFilters, 
     contactFilter,
     eventIds,
     contactIds,
@@ -28,12 +28,12 @@ export const useEvents = (options: UseEventsOptions) => {
   } = options;
 
   return useQuery({
-    queryKey: ['events', eventFilter, contactFilter, eventIds, contactIds, ownerIds, updateStatusFilter, sortOrder, page, pageSize],
+    queryKey: ['events', eventFilters, contactFilter, eventIds, contactIds, ownerIds, updateStatusFilter, sortOrder, page, pageSize],
     queryFn: async (): Promise<PaginatedEventsResponse> => {
       const offset = (page - 1) * pageSize;
       
       const { data, error } = await supabase.rpc('get_enriched_events', {
-        event_filter: eventFilter || null,
+        event_filter: eventFilters && eventFilters.length > 0 ? eventFilters : null,
         contact_filter: contactFilter || null,
         event_ids: eventIds && eventIds.length > 0 ? eventIds : null,
         contact_ids: contactIds && contactIds.length > 0 ? contactIds : null,

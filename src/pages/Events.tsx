@@ -1,16 +1,22 @@
-import { useState } from "react";
-import { EventsTable } from "@/components/EventsTable";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useEvents } from "@/hooks/useEvents";
 import { useUsers } from "@/hooks/useUsers";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpDown, X } from "lucide-react";
+import { EventsTable } from "@/components/EventsTable";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { IdFilterInput } from "@/components/IdFilterInput";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown, X, Copy } from "lucide-react";
 import { OwnerFilter } from "@/components/OwnerFilter";
+import { IdFilterInput } from "@/components/IdFilterInput";
+import { EventTypeFilter } from "@/components/EventTypeFilter";
+import { useToast } from "@/hooks/use-toast";
 
 const Events = () => {
-  const [eventFilter, setEventFilter] = useState<string | undefined>(undefined);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+  
+  const [eventFilters, setEventFilters] = useState<string[]>([]);
   const [updateStatusFilter, setUpdateStatusFilter] = useState<string | undefined>(undefined);
   const [eventIds, setEventIds] = useState<number[]>([]);
   const [contactIds, setContactIds] = useState<string[]>([]);
@@ -18,11 +24,46 @@ const Events = () => {
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-
+  
   const { owners, loading: ownersLoading } = useUsers();
 
+  // Initialize state from URL params on mount
+  useEffect(() => {
+    const eventTypesParam = searchParams.get('event_type');
+    const statusParam = searchParams.get('status');
+    const ownerParam = searchParams.get('owner');
+    const eventIdsParam = searchParams.get('event_id');
+    const contactIdsParam = searchParams.get('contact_id');
+    const sortParam = searchParams.get('sort');
+    
+    if (eventTypesParam) setEventFilters(eventTypesParam.split(','));
+    if (statusParam) {
+      setUpdateStatusFilter(statusParam === 'success' ? 'tasks_updated' : 'tasks_update_failed');
+    }
+    if (ownerParam) setOwnerFilter(ownerParam);
+    if (eventIdsParam) setEventIds(eventIdsParam.split(',').map(Number));
+    if (contactIdsParam) setContactIds(contactIdsParam.split(','));
+    if (sortParam === 'oldest') setSortOrder('ASC');
+  }, []);
+
+  // Update URL params when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    
+    if (eventFilters.length > 0) params.set('event_type', eventFilters.join(','));
+    if (updateStatusFilter) {
+      params.set('status', updateStatusFilter === 'tasks_updated' ? 'success' : 'failed');
+    }
+    if (ownerFilter) params.set('owner', ownerFilter);
+    if (eventIds.length > 0) params.set('event_id', eventIds.join(','));
+    if (contactIds.length > 0) params.set('contact_id', contactIds.join(','));
+    if (sortOrder === 'ASC') params.set('sort', 'oldest');
+    
+    setSearchParams(params, { replace: true });
+  }, [eventFilters, updateStatusFilter, ownerFilter, eventIds, contactIds, sortOrder, setSearchParams]);
+
   const { data, isLoading } = useEvents({
-    eventFilter,
+    eventFilters,
     updateStatusFilter,
     eventIds,
     contactIds,
@@ -33,28 +74,46 @@ const Events = () => {
   });
 
   const handleClearFilters = () => {
-    setEventFilter(undefined);
+    setEventFilters([]);
     setUpdateStatusFilter(undefined);
     setEventIds([]);
     setContactIds([]);
     setOwnerFilter(undefined);
+    setSortOrder('DESC');
     setCurrentPage(1);
   };
 
+  const handleSaveQuery = async () => {
+    const currentUrl = window.location.href;
+    await navigator.clipboard.writeText(currentUrl);
+    
+    toast({
+      title: "Query Saved",
+      description: "The URL has been copied to your clipboard",
+    });
+  };
+
+  const hasActiveFilters = 
+    eventFilters.length > 0 || 
+    updateStatusFilter !== undefined || 
+    ownerFilter !== undefined || 
+    eventIds.length > 0 || 
+    contactIds.length > 0 || 
+    sortOrder === 'ASC';
+
   const toggleSortOrder = () => {
     setSortOrder(prev => prev === 'DESC' ? 'ASC' : 'DESC');
-    setCurrentPage(1); // Reset to first page when changing sort
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Scroll to top of table when changing pages
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
-    setCurrentPage(1); // Reset to first page when changing page size
+    setCurrentPage(1);
   };
 
   return (
@@ -81,28 +140,18 @@ const Events = () => {
                 {/* Event Type Filter */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium">Event Type</label>
-                  <Select
-                    value={eventFilter || 'all'}
-                    onValueChange={(value) => {
-                      setEventFilter(value === 'all' ? undefined : value);
+                  <EventTypeFilter
+                    selectedTypes={eventFilters}
+                    onTypesChange={(types) => {
+                      setEventFilters(types);
                       setCurrentPage(1);
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Events" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Events</SelectItem>
-                      <SelectItem value="call_created">Call Created</SelectItem>
-                      <SelectItem value="list_entry">List Entry</SelectItem>
-                      <SelectItem value="list_exit">List Exit</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
 
-                {/* Update Status Filter */}
+                {/* Status Filter */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Update Status</label>
+                  <label className="text-sm font-medium">Status</label>
                   <Select
                     value={updateStatusFilter || 'all'}
                     onValueChange={(value) => {
@@ -149,13 +198,13 @@ const Events = () => {
                 </div>
               </div>
 
-              {/* ID Filters Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Event ID Filter */}
+              {/* ID Filters Row - 4 column grid to align with above */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Event IDs Filter */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Event ID</label>
+                  <label className="text-sm font-medium">Event IDs</label>
                   <IdFilterInput
-                    placeholder="Enter event ID..."
+                    placeholder="Add one or more event ID..."
                     values={eventIds}
                     onValuesChange={(values) => {
                       setEventIds(values as number[]);
@@ -165,11 +214,11 @@ const Events = () => {
                   />
                 </div>
 
-                {/* Contact ID Filter */}
+                {/* Contact IDs Filter */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Contact ID</label>
+                  <label className="text-sm font-medium">Contact IDs</label>
                   <IdFilterInput
-                    placeholder="Enter contact ID..."
+                    placeholder="Add one or more contact ID..."
                     values={contactIds}
                     onValuesChange={(values) => {
                       setContactIds(values as string[]);
@@ -180,9 +229,9 @@ const Events = () => {
                 </div>
               </div>
 
-              {/* Clear Filters */}
-              {(eventFilter || updateStatusFilter || eventIds.length > 0 || contactIds.length > 0 || ownerFilter) && (
-                <div>
+              {/* Action Buttons */}
+              {hasActiveFilters && (
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -191,6 +240,15 @@ const Events = () => {
                   >
                     <X className="h-4 w-4" />
                     Clear Filters
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSaveQuery}
+                    className="gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Save Query
                   </Button>
                 </div>
               )}

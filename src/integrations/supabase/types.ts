@@ -851,7 +851,7 @@ export type Database = {
         Args: {
           contact_filter?: string
           contact_ids?: string[]
-          event_filter?: string
+          event_filter?: string[]
           event_ids?: number[]
           limit_count?: number
           offset_count?: number
