@@ -57,6 +57,39 @@ interface TaskCreationLogs {
 }
 
 /**
+ * Create an error_logs entry for a failed operation
+ */
+async function createErrorLog(
+  supabase: any,
+  eventId: number,
+  context: string,
+  errorType: 'api' | 'database' | 'validation',
+  details: {
+    endpoint?: string;
+    statusCode?: number;
+    responseError?: string;
+    responseMessage?: string;
+  },
+  executionId: string
+) {
+  const { error } = await supabase
+    .from('error_logs')
+    .insert({
+      event_id: eventId,
+      context,
+      error_type: errorType,
+      endpoint: details.endpoint || null,
+      status_code: details.statusCode || null,
+      response_error: details.responseError || null,
+      response_message: details.responseMessage || null
+    });
+  
+  if (error) {
+    console.error(`[${executionId}] ⚠️ Failed to create error_log:`, error);
+  }
+}
+
+/**
  * Calculate task due timestamp based on schedule configuration
  * Returns ISO timestamp string
  */
@@ -284,7 +317,8 @@ async function processListExit(
   automation: TaskAutomation,
   hubspotToken: string,
   supabase: any,
-  executionId: string
+  executionId: string,
+  eventId?: number
 ): Promise<{
   tasks_autocompleted: number;
   sequences_blocked: number;
@@ -304,13 +338,45 @@ async function processListExit(
       .eq('hs_action_successful', false)
       .in('type', ['create_on_entry', 'create_from_sequence']);
 
-    if (!runsError && pendingRuns && pendingRuns.length > 0) {
+    if (runsError) {
+      console.error(`[${executionId}] ❌ Failed to fetch pending runs:`, runsError);
+      if (eventId) {
+        await createErrorLog(
+          supabase,
+          eventId,
+          'list_exit',
+          'database',
+          {
+            endpoint: 'task_automation_runs',
+            responseError: 'Failed to fetch pending automation runs',
+            responseMessage: JSON.stringify(runsError)
+          },
+          executionId
+        );
+      }
+    } else if (pendingRuns && pendingRuns.length > 0) {
       const { error: blockError } = await supabase
         .from('task_automation_runs')
         .update({ exit_contact_list_block: true })
         .in('id', pendingRuns.map((r: any) => r.id));
 
-      if (!blockError) {
+      if (blockError) {
+        console.error(`[${executionId}] ❌ Failed to block sequences:`, blockError);
+        if (eventId) {
+          await createErrorLog(
+            supabase,
+            eventId,
+            'list_exit',
+            'database',
+            {
+              endpoint: 'task_automation_runs',
+              responseError: 'Failed to update automation runs for sequence blocking',
+              responseMessage: JSON.stringify(blockError)
+            },
+            executionId
+          );
+        }
+      } else {
         sequencesBlocked = pendingRuns.length;
         console.log(`[${executionId}] 🚫 Blocked ${sequencesBlocked} sequence run(s) for contact ${contactId}`);
       }
@@ -327,7 +393,23 @@ async function processListExit(
       .in('hs_task_status', ['NOT_STARTED', 'WAITING'])
       .eq('archived', false);
 
-    if (!tasksError && incompleteTasks && incompleteTasks.length > 0) {
+    if (tasksError) {
+      console.error(`[${executionId}] ❌ Failed to fetch tasks for exit:`, tasksError);
+      if (eventId) {
+        await createErrorLog(
+          supabase,
+          eventId,
+          'list_exit',
+          'database',
+          {
+            endpoint: 'hs_tasks',
+            responseError: 'Failed to fetch incomplete tasks',
+            responseMessage: JSON.stringify(tasksError)
+          },
+          executionId
+        );
+      }
+    } else if (incompleteTasks && incompleteTasks.length > 0) {
       const taskIds = incompleteTasks.map((t: any) => t.hs_object_id);
       
       // Call HubSpot batch update
@@ -369,10 +451,54 @@ async function processListExit(
 
             batch.forEach(id => tasksUpdated.push({ id, success: true }));
           } else {
+            const errorText = await response.text();
+            let errorBody;
+            try {
+              errorBody = JSON.parse(errorText);
+            } catch {
+              errorBody = errorText;
+            }
+
+            console.error(`[${executionId}] ❌ Batch update failed (${response.status}):`, errorText);
+            
+            if (eventId) {
+              await createErrorLog(
+                supabase,
+                eventId,
+                'list_exit',
+                'api',
+                {
+                  endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks/batch/update',
+                  statusCode: response.status,
+                  responseError: response.statusText,
+                  responseMessage: typeof errorBody === 'object' 
+                    ? JSON.stringify(errorBody) 
+                    : errorBody
+                },
+                executionId
+              );
+            }
+            
             batch.forEach(id => tasksUpdated.push({ id, success: false }));
           }
         } catch (error) {
           console.error(`[${executionId}] ❌ Error auto-completing batch:`, error);
+          
+          if (eventId) {
+            await createErrorLog(
+              supabase,
+              eventId,
+              'list_exit',
+              'api',
+              {
+                endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks/batch/update',
+                responseError: 'Exception during batch update',
+                responseMessage: error instanceof Error ? error.message : String(error)
+              },
+              executionId
+            );
+          }
+          
           batch.forEach(id => tasksUpdated.push({ id, success: false }));
         }
 
@@ -565,11 +691,16 @@ Deno.serve(async (req) => {
             // Resolve owner ID
             let hubspotOwnerId: string | null = null;
             if (ownerSetting === 'contact_owner') {
-              const { data: contactData } = await supabase
+              const { data: contactData, error: contactFetchError } = await supabase
                 .from('hs_contacts')
                 .select('hubspot_owner_id')
                 .eq('hs_object_id', member.recordId)
                 .maybeSingle();
+              
+              if (contactFetchError) {
+                console.error(`[${executionId}] ❌ Failed to fetch contact ${member.recordId}:`, contactFetchError);
+                // We'll create error log after event is created below
+              }
               
               hubspotOwnerId = contactData?.hubspot_owner_id || null;
             }
@@ -694,11 +825,49 @@ Deno.serve(async (req) => {
                   
                   if (insertError) {
                     console.error(`[${executionId}] ❌ Failed to insert task:`, insertError);
+                    
+                    // Create error_logs entry for database failure
+                    await createErrorLog(
+                      supabase,
+                      eventData.id,
+                      'list_entry',
+                      'database',
+                      {
+                        endpoint: 'hs_tasks',
+                        responseError: 'Failed to insert task into database',
+                        responseMessage: JSON.stringify(insertError)
+                      },
+                      executionId
+                    );
                   }
 
                 } else {
                   const errorText = await hubspotResponse.text();
+                  let errorBody;
+                  try {
+                    errorBody = JSON.parse(errorText);
+                  } catch {
+                    errorBody = errorText;
+                  }
+
                   console.error(`[${executionId}] ❌ Task creation failed:`, errorText);
+
+                  // Create error_logs entry
+                  await createErrorLog(
+                    supabase,
+                    eventData.id,
+                    'list_entry',
+                    'api',
+                    {
+                      endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks',
+                      statusCode: hubspotResponse.status,
+                      responseError: hubspotResponse.statusText,
+                      responseMessage: typeof errorBody === 'object' 
+                        ? JSON.stringify(errorBody) 
+                        : errorBody
+                    },
+                    executionId
+                  );
 
                   // Update event with failure
                   const { error: updateError2 } = await supabase
@@ -725,6 +894,20 @@ Deno.serve(async (req) => {
                 }
               } catch (taskError) {
                 console.error(`[${executionId}] ❌ Task creation error:`, taskError);
+                
+                // Create error_logs entry for exception
+                await createErrorLog(
+                  supabase,
+                  eventData.id,
+                  'list_entry',
+                  'api',
+                  {
+                    endpoint: 'https://api.hubapi.com/crm/v3/objects/tasks',
+                    responseError: 'Exception during task creation',
+                    responseMessage: taskError instanceof Error ? taskError.message : String(taskError)
+                  },
+                  executionId
+                );
                 
                 // Update event with failure
                 const { error: updateError3 } = await supabase
@@ -756,67 +939,93 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Process exits - create list_exit events and take action
+        // Process exits - create exit event first, then take action
         for (const contactId of exitedContactIds) {
-          const stored = storedMembersMap.get(contactId);
-          const tasksAnalysis = await analyzeContactTasks(contactId, queueId, supabase, executionId);
-          
-          // Process exit actions
-          const exitResult = await processListExit(
-            contactId,
-            queueId,
-            automation.id,
-            automation,
-            hubspotToken,
-            supabase,
-            executionId
-          );
-
-          // Merge task analysis with exit results to populate hs_update_successful
-          const eligibleTasksWithResults = tasksAnalysis.tasks_identified.map(task => {
-            const updateResult = exitResult.tasks_updated.find(t => t.id === task.id);
-            return {
-              ...task,
-              hs_update_successful: updateResult?.success ?? null
-            };
-          });
-
-          // Create exit event
-          const { data: exitEvent, error: exitEventError } = await supabase
-            .from('events')
-            .insert({
-              event: 'list_exit',
-              type: 'api',
-              hs_list_id: automation.hs_list_id,
-              hs_contact_id: contactId,
-              hs_queue_id: queueId,
-              automation_id: automation.id,
-              hubspot_url: `https://app-eu1.hubspot.com/contacts/142467012/objectLists/${automation.hs_list_id}`,
-              logs: {
-                task_updates: {
-                  summary: {
-                    total_incomplete: tasksAnalysis.total_incomplete,
-                    total_automation_eligible: tasksAnalysis.total_automation_eligible,
-                    total_update_successful: exitResult.tasks_updated.filter(t => t.success).length,
-                    total_update_unsuccessful: exitResult.tasks_updated.filter(t => !t.success).length
+          try {
+            const stored = storedMembersMap.get(contactId);
+            const tasksAnalysis = await analyzeContactTasks(contactId, queueId, supabase, executionId);
+            
+            // Create exit event first to get event ID for error logging
+            const { data: exitEvent, error: exitEventError } = await supabase
+              .from('events')
+              .insert({
+                event: 'list_exit',
+                type: 'api',
+                hs_list_id: automation.hs_list_id,
+                hs_contact_id: contactId,
+                hs_queue_id: queueId,
+                automation_id: automation.id,
+                hubspot_url: `https://app-eu1.hubspot.com/contacts/142467012/objectLists/${automation.hs_list_id}`,
+                logs: {
+                  task_updates: {
+                    summary: {
+                      total_incomplete: tasksAnalysis.total_incomplete,
+                      total_automation_eligible: tasksAnalysis.total_automation_eligible,
+                      total_update_successful: 0,
+                      total_update_unsuccessful: 0
+                    },
+                    task_details: tasksAnalysis.tasks_identified
                   },
-                  task_details: eligibleTasksWithResults
-                },
-                exit_actions: {
-                  sequences_blocked: exitResult.sequences_blocked,
-                  entry_event_id: stored?.entry_event_id
+                  exit_actions: {
+                    sequences_blocked: 0,
+                    entry_event_id: stored?.entry_event_id
+                  }
                 }
-              }
-            })
-            .select('id')
-            .single();
+              })
+              .select('id')
+              .single();
 
-          if (exitEventError) {
-            console.error(`[${executionId}] ❌ Failed to create list_exit event for contact ${contactId}:`, exitEventError);
-            totalErrors++;
-          } else {
+            if (exitEventError) {
+              console.error(`[${executionId}] ❌ Failed to create list_exit event for contact ${contactId}:`, exitEventError);
+              totalErrors++;
+              continue;
+            }
+
+            // Process exit actions with event ID for error logging
+            const exitResult = await processListExit(
+              contactId,
+              queueId,
+              automation.id,
+              automation,
+              hubspotToken,
+              supabase,
+              executionId,
+              exitEvent.id
+            );
+
+            // Merge task analysis with exit results to populate hs_update_successful
+            const eligibleTasksWithResults = tasksAnalysis.tasks_identified.map(task => {
+              const updateResult = exitResult.tasks_updated.find(t => t.id === task.id);
+              return {
+                ...task,
+                hs_update_successful: updateResult?.success ?? null
+              };
+            });
+
+            // Update event with final results
+            await supabase
+              .from('events')
+              .update({
+                logs: {
+                  task_updates: {
+                    summary: {
+                      total_incomplete: tasksAnalysis.total_incomplete,
+                      total_automation_eligible: tasksAnalysis.total_automation_eligible,
+                      total_update_successful: exitResult.tasks_updated.filter(t => t.success).length,
+                      total_update_unsuccessful: exitResult.tasks_updated.filter(t => !t.success).length
+                    },
+                    task_details: eligibleTasksWithResults
+                  },
+                  exit_actions: {
+                    sequences_blocked: exitResult.sequences_blocked,
+                    entry_event_id: stored?.entry_event_id
+                  }
+                }
+              })
+              .eq('id', exitEvent.id);
+
             // Update entry event with exit reference
-            if (stored?.entry_event_id && exitEvent) {
+            if (stored?.entry_event_id) {
               await supabase
                 .from('events')
                 .update({
@@ -827,6 +1036,9 @@ Deno.serve(async (req) => {
             
             console.log(`[${executionId}] ✅ Created list_exit event for contact ${contactId} (autocompleted: ${exitResult.tasks_autocompleted}, blocked: ${exitResult.sequences_blocked})`);
             totalExitsProcessed++;
+          } catch (exitError) {
+            console.error(`[${executionId}] ❌ Error processing exit for contact ${contactId}:`, exitError);
+            totalErrors++;
           }
         }
 
