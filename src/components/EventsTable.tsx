@@ -1,4 +1,3 @@
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EventRow } from "./EventRow";
 import { EnrichedEvent } from "@/types/event";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,31 +63,33 @@ export const EventsTable = ({
         />
       </div>
       
-      <div className="border rounded-lg">
-        <TooltipProvider>
-          <Table>
-            <TableHeader className="sticky top-[72px] z-10 bg-background">
-              <TableRow className="bg-background hover:bg-background">
-                <TableHead className="w-[180px] bg-background">Created At</TableHead>
-                <TableHead className="w-[140px] bg-background">Event Name</TableHead>
-                <TableHead className="w-[200px] bg-background">ID</TableHead>
-                <TableHead className="w-[200px] bg-background">Contact</TableHead>
-                <TableHead className="w-[150px] bg-background">Owner</TableHead>
-                <TableHead className="w-[50px] bg-background"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {events.map((event) => (
-                <EventRow 
-                  key={event.id} 
-                  event={event} 
-                  expandedRowId={expandedRowId}
-                  onToggleExpand={handleToggleExpand}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </TooltipProvider>
+      <div className="border rounded-lg overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <TooltipProvider>
+            <table className="w-full caption-bottom text-sm">
+              <thead className="sticky top-[72px] z-10 bg-background [&_tr]:border-b">
+                <tr className="border-b transition-colors bg-background hover:bg-background">
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[180px] bg-background">Created At</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[140px] bg-background">Event Name</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[200px] bg-background">ID</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[200px] bg-background">Contact</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[150px] bg-background">Owner</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[50px] bg-background"></th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:last-child]:border-0">
+                {events.map((event) => (
+                  <EventRow 
+                    key={event.id} 
+                    event={event} 
+                    expandedRowId={expandedRowId}
+                    onToggleExpand={handleToggleExpand}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </TooltipProvider>
+        </div>
       </div>
     </div>
   );
