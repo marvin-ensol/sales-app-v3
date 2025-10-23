@@ -27,11 +27,79 @@ interface TaskAutomation {
   task_category_id: number;
   auto_complete_on_exit_enabled: boolean;
   sequence_exit_enabled: boolean;
+  automation_enabled: boolean;
+  first_task_creation: boolean;
+  tasks_configuration: any;
+  schedule_configuration: any;
+  schedule_enabled: boolean;
+  timezone: string;
 }
 
 interface StoredListMember {
   hs_object_id: string;
   entry_event_id: number;
+}
+
+interface TaskCreationDetail {
+  automation_enabled: boolean;
+  hs_task_subject: string;
+  hs_timestamp: string;
+  hs_queue_membership_ids: string;
+  hubspot_owner_id: string | null;
+  id?: string;
+  hs_update_successful?: boolean;
+}
+
+interface TaskCreationLogs {
+  task_creation: {
+    task_details: TaskCreationDetail[];
+  };
+}
+
+/**
+ * Calculate task due timestamp based on schedule configuration
+ * Returns ISO timestamp string
+ */
+function calculateTaskDueTimestamp(
+  scheduleConfig: any,
+  scheduleEnabled: boolean,
+  timezone: string
+): string {
+  if (!scheduleEnabled || !scheduleConfig) {
+    return new Date().toISOString();
+  }
+
+  const workingHours = scheduleConfig.working_hours;
+  const nonWorkingDates = scheduleConfig.non_working_dates || [];
+  
+  const now = new Date();
+  let candidateDate = new Date(now);
+  
+  let attempts = 0;
+  const maxAttempts = 14;
+  
+  while (attempts < maxAttempts) {
+    const dayOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][candidateDate.getDay()];
+    const dayConfig = workingHours[dayOfWeek];
+    
+    if (dayConfig?.enabled) {
+      const dateStr = candidateDate.toISOString().split('T')[0];
+      if (!nonWorkingDates.includes(dateStr)) {
+        const [hours, minutes] = dayConfig.start_time.split(':');
+        candidateDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        if (candidateDate > now) {
+          return candidateDate.toISOString();
+        }
+      }
+    }
+    
+    candidateDate.setDate(candidateDate.getDate() + 1);
+    candidateDate.setHours(0, 0, 0, 0);
+    attempts++;
+  }
+  
+  return new Date().toISOString();
 }
 
 /**
@@ -350,7 +418,13 @@ Deno.serve(async (req) => {
         hs_list_object,
         task_category_id,
         auto_complete_on_exit_enabled,
-        sequence_exit_enabled
+        sequence_exit_enabled,
+        automation_enabled,
+        first_task_creation,
+        tasks_configuration,
+        schedule_configuration,
+        schedule_enabled,
+        timezone
       `)
       .eq('automation_enabled', true)
       .not('hs_list_id', 'is', null);
@@ -473,38 +547,195 @@ Deno.serve(async (req) => {
 
         console.log(`[${executionId}] 📊 Summary for automation ${automation.id}: ${newEntries.length} new entries, ${exitedContactIds.length} exits`);
 
-        // Process new entries - create list_entry events
+        // Process new entries - create list_entry events with immediate task creation
         for (const member of newEntries) {
-          const tasksAnalysis = await analyzeContactTasks(member.recordId, queueId, supabase, executionId);
+          try {
+            // Calculate due timestamp based on automation schedule
+            const dueTimestamp = calculateTaskDueTimestamp(
+              automation.schedule_configuration,
+              automation.schedule_enabled || false,
+              automation.timezone || 'Europe/Paris'
+            );
 
-          const { error: eventError } = await supabase
-            .from('events')
-            .insert({
-              event: 'list_entry',
-              type: 'api',
-              hs_list_id: automation.hs_list_id,
-              hs_contact_id: member.recordId,
-              hs_queue_id: queueId,
-              automation_id: automation.id,
-              logs: {
-                task_updates: {
-                  summary: {
-                    total_incomplete: tasksAnalysis.total_incomplete,
-                    total_automation_eligible: tasksAnalysis.total_automation_eligible,
-                    total_update_successful: 0,
-                    total_update_unsuccessful: 0
-                  },
-                  task_details: tasksAnalysis.tasks_identified
+            // Get task configuration
+            const initialTask = automation.tasks_configuration?.initial_task || {};
+            const taskName = initialTask.name || 'New Lead Task';
+            const ownerSetting = initialTask.owner || 'contact_owner';
+
+            // Resolve owner ID
+            let hubspotOwnerId: string | null = null;
+            if (ownerSetting === 'contact_owner') {
+              const { data: contactData } = await supabase
+                .from('hs_contacts')
+                .select('hubspot_owner_id')
+                .eq('hs_object_id', member.recordId)
+                .maybeSingle();
+              
+              hubspotOwnerId = contactData?.hubspot_owner_id || null;
+            }
+
+            const automationEnabled = automation.automation_enabled && automation.first_task_creation;
+
+            // Create initial event with task_creation structure
+            const { data: eventData, error: eventError } = await supabase
+              .from('events')
+              .insert({
+                event: 'list_entry',
+                type: 'api',
+                hs_list_id: automation.hs_list_id,
+                hs_contact_id: member.recordId,
+                hs_queue_id: queueId,
+                automation_id: automation.id,
+                hubspot_url: `https://app-eu1.hubspot.com/contacts/142467012/objectLists/${automation.hs_list_id}`,
+                logs: {
+                  task_creation: {
+                    task_details: [{
+                      automation_enabled: automationEnabled,
+                      hs_task_subject: taskName,
+                      hs_timestamp: dueTimestamp,
+                      hs_queue_membership_ids: queueId,
+                      hubspot_owner_id: hubspotOwnerId
+                    }]
+                  }
                 }
-              }
-            });
+              })
+              .select()
+              .single();
 
-          if (eventError) {
-            console.error(`[${executionId}] ❌ Failed to create list_entry event for contact ${member.recordId}:`, eventError);
-            totalErrors++;
-          } else {
+            if (eventError) {
+              console.error(`[${executionId}] ❌ Failed to create list_entry event for contact ${member.recordId}:`, eventError);
+              totalErrors++;
+              continue;
+            }
+
             console.log(`[${executionId}] ✅ Created list_entry event for contact ${member.recordId}`);
             totalEntriesProcessed++;
+
+            // Attempt task creation if automation enabled
+            if (automationEnabled && queueId) {
+              console.log(`[${executionId}] 🎯 Creating task for list entry ${member.recordId}...`);
+              
+              try {
+                const taskPayload: any = {
+                  properties: {
+                    hs_task_subject: taskName,
+                    hs_queue_membership_ids: queueId,
+                    hs_task_type: 'TODO',
+                    hs_task_status: 'NOT_STARTED',
+                    hs_timestamp: dueTimestamp,
+                  },
+                  associations: [{
+                    to: { id: member.recordId },
+                    types: [{
+                      associationCategory: 'HUBSPOT_DEFINED',
+                      associationTypeId: 204,
+                    }],
+                  }],
+                };
+
+                if (hubspotOwnerId) {
+                  taskPayload.properties.hubspot_owner_id = hubspotOwnerId;
+                }
+
+                const hubspotResponse = await fetch('https://api.hubapi.com/crm/v3/objects/tasks', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${hubspotToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(taskPayload),
+                });
+
+                if (hubspotResponse.ok) {
+                  const createdTask = await hubspotResponse.json();
+                  console.log(`[${executionId}] ✅ Task created: ${createdTask.id}`);
+
+                  // Update event with success
+                  await supabase
+                    .from('events')
+                    .update({
+                      logs: {
+                        task_creation: {
+                          task_details: [{
+                            automation_enabled: true,
+                            hs_task_subject: taskName,
+                            hs_timestamp: dueTimestamp,
+                            hs_queue_membership_ids: queueId,
+                            hubspot_owner_id: hubspotOwnerId,
+                            id: createdTask.id,
+                            hs_update_successful: true
+                          }]
+                        }
+                      }
+                    })
+                    .eq('id', eventData.id);
+
+                  // Insert into hs_tasks
+                  await supabase
+                    .from('hs_tasks')
+                    .insert({
+                      hs_object_id: createdTask.id,
+                      hs_task_subject: taskName,
+                      hs_task_type: 'TODO',
+                      hs_queue_membership_ids: queueId,
+                      hs_timestamp: dueTimestamp,
+                      hs_task_status: 'NOT_STARTED',
+                      number_in_sequence: 1,
+                      hubspot_owner_id: hubspotOwnerId,
+                      associated_contact_id: member.recordId,
+                      created_by_automation: true,
+                      created_by_automation_id: automation.id,
+                      archived: false,
+                    });
+
+                } else {
+                  const errorText = await hubspotResponse.text();
+                  console.error(`[${executionId}] ❌ Task creation failed:`, errorText);
+
+                  // Update event with failure
+                  await supabase
+                    .from('events')
+                    .update({
+                      logs: {
+                        task_creation: {
+                          task_details: [{
+                            automation_enabled: true,
+                            hs_task_subject: taskName,
+                            hs_timestamp: dueTimestamp,
+                            hs_queue_membership_ids: queueId,
+                            hubspot_owner_id: hubspotOwnerId,
+                            hs_update_successful: false
+                          }]
+                        }
+                      }
+                    })
+                    .eq('id', eventData.id);
+                }
+              } catch (taskError) {
+                console.error(`[${executionId}] ❌ Task creation error:`, taskError);
+                
+                // Update event with failure
+                await supabase
+                  .from('events')
+                  .update({
+                    logs: {
+                      task_creation: {
+                        task_details: [{
+                          automation_enabled: true,
+                          hs_task_subject: taskName,
+                          hs_timestamp: dueTimestamp,
+                          hs_queue_membership_ids: queueId,
+                          hubspot_owner_id: hubspotOwnerId,
+                          hs_update_successful: false
+                        }]
+                      }
+                    })
+                  .eq('id', eventData.id);
+              }
+            }
+          } catch (entryError) {
+            console.error(`[${executionId}] ❌ Error processing entry for contact ${member.recordId}:`, entryError);
+            totalErrors++;
           }
         }
 
@@ -543,6 +774,7 @@ Deno.serve(async (req) => {
               hs_contact_id: contactId,
               hs_queue_id: queueId,
               automation_id: automation.id,
+              hubspot_url: `https://app-eu1.hubspot.com/contacts/142467012/objectLists/${automation.hs_list_id}`,
               logs: {
                 task_updates: {
                   summary: {
