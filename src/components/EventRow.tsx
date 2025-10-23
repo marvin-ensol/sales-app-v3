@@ -67,27 +67,45 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
           <Badge className={getEventColor(event.event)}>{getEventName(event.event)}</Badge>
         </TableCell>
         <TableCell className="w-[200px]">
-          {event.logs.call_details?.call_id && event.hubspot_url ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <a
-                  href={event.hubspot_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-sm hover:underline text-primary"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  <span>{event.logs.call_details.call_id}</span>
-                </a>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="text-xs space-y-1">
-                  <div>Direction: {event.logs.call_details.hs_call_direction}</div>
-                  <div>Duration: {(event.logs.call_details.hs_call_duration / 1000).toFixed(1)}s</div>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+          {event.logs.call_details?.call_id ? (
+            event.hubspot_url ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <a
+                    href={event.hubspot_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm hover:underline text-primary"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    <span>{event.logs.call_details.call_id}</span>
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="text-xs space-y-1">
+                    <div>Direction: {event.logs.call_details.hs_call_direction || 'Unknown'}</div>
+                    <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5" />
+                    <span>{event.logs.call_details.call_id}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="text-xs space-y-1">
+                    <div>Direction: {event.logs.call_details.hs_call_direction || 'Unknown'}</div>
+                    <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
+                    <div className="text-yellow-500">No contact associated</div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
           )}
