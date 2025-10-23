@@ -12,6 +12,8 @@ export interface EnrichedEvent {
   hs_engagement_id: string | null;
   hubspot_url: string | null;
   automation_id: string | null;
+  hs_list_id: string | null;
+  hs_queue_id: string | null;
   logs: EventLogs;
   error_count: number;
   total_count?: number;

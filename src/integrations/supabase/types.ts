@@ -850,7 +850,9 @@ export type Database = {
       get_enriched_events: {
         Args: {
           contact_filter?: string
+          contact_ids?: string[]
           event_filter?: string
+          event_ids?: number[]
           limit_count?: number
           offset_count?: number
           sort_order?: string
@@ -865,7 +867,9 @@ export type Database = {
           event: string
           hs_contact_id: string
           hs_engagement_id: string
+          hs_list_id: string
           hs_owner_id: string
+          hs_queue_id: string
           hubspot_url: string
           id: number
           logs: Json

@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowUpDown, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { IdFilterInput } from "@/components/IdFilterInput";
 
 const Events = () => {
   const [eventFilter, setEventFilter] = useState<string | undefined>(undefined);
   const [updateStatusFilter, setUpdateStatusFilter] = useState<string | undefined>(undefined);
+  const [eventIds, setEventIds] = useState<number[]>([]);
+  const [contactIds, setContactIds] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -16,6 +19,8 @@ const Events = () => {
   const { data, isLoading } = useEvents({
     eventFilter,
     updateStatusFilter,
+    eventIds,
+    contactIds,
     sortOrder,
     page: currentPage,
     pageSize
@@ -24,7 +29,9 @@ const Events = () => {
   const handleClearFilters = () => {
     setEventFilter(undefined);
     setUpdateStatusFilter(undefined);
-    setCurrentPage(1); // Reset to first page when clearing filters
+    setEventIds([]);
+    setContactIds([]);
+    setCurrentPage(1);
   };
 
   const toggleSortOrder = () => {
@@ -105,6 +112,30 @@ const Events = () => {
                 </Select>
               </div>
 
+              {/* Event ID Filter */}
+              <IdFilterInput
+                label="Event ID"
+                placeholder="Enter event ID..."
+                values={eventIds}
+                onValuesChange={(values) => {
+                  setEventIds(values as number[]);
+                  setCurrentPage(1);
+                }}
+                type="number"
+              />
+
+              {/* Contact ID Filter */}
+              <IdFilterInput
+                label="Contact ID"
+                placeholder="Enter contact ID..."
+                values={contactIds}
+                onValuesChange={(values) => {
+                  setContactIds(values as string[]);
+                  setCurrentPage(1);
+                }}
+                type="text"
+              />
+
               {/* Sort Order */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Sort:</label>
@@ -120,7 +151,7 @@ const Events = () => {
               </div>
 
               {/* Clear Filters */}
-              {(eventFilter || updateStatusFilter) && (
+              {(eventFilter || updateStatusFilter || eventIds.length > 0 || contactIds.length > 0) && (
                 <Button
                   variant="ghost"
                   size="sm"

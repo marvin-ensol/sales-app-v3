@@ -1,7 +1,7 @@
 import { EnrichedEvent } from "@/types/event";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, Phone } from "lucide-react";
+import { ChevronDown, Phone, ClipboardList } from "lucide-react";
 import { EventRowExpanded } from "./EventRowExpanded";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -14,15 +14,16 @@ interface EventRowProps {
 export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps) => {
   const isOpen = expandedRowId === event.id;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
-  };
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
 
   const getEventName = (eventType: string) => {
     const eventNames: Record<string, string> = {
@@ -74,7 +75,7 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
           <Badge className={getEventColor(event.event)}>{getEventName(event.event)}</Badge>
         </TableCell>
         <TableCell className="w-[200px]">
-          {event.logs.call_details?.call_id ? (
+          {event.event === 'call_created' && event.logs.call_details?.call_id ? (
             event.hubspot_url ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -113,8 +114,26 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
                 </TooltipContent>
               </Tooltip>
             )
+          ) : (event.event === 'list_entry' || event.event === 'list_exit') && event.hs_list_id ? (
+            event.hubspot_url ? (
+              <a
+                href={event.hubspot_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm hover:underline text-primary"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                <span>{event.hs_list_id}</span>
+              </a>
+            ) : (
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <ClipboardList className="h-3.5 w-3.5" />
+                <span>{event.hs_list_id}</span>
+              </span>
+            )
           ) : (
-            <span className="text-xs text-muted-foreground">-</span>
+            <span className="text-xs text-muted-foreground">—</span>
           )}
         </TableCell>
       <TableCell className="w-[200px]">
