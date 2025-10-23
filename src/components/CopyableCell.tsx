@@ -36,19 +36,19 @@ export const CopyableCell = ({ value, children, className = "" }: CopyableCellPr
       onMouseLeave={() => setIsHovered(false)}
     >
       {children}
-      {isHovered && (
-        <button
-          onClick={handleCopy}
-          className="flex-shrink-0 p-1 hover:bg-muted rounded transition-colors"
-          aria-label="Copy to clipboard"
-        >
-          {isCopied ? (
-            <Check className="h-3.5 w-3.5 text-green-500" />
-          ) : (
-            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-          )}
-        </button>
-      )}
+      <button
+        onClick={handleCopy}
+        className={`flex-shrink-0 min-w-[20px] min-h-[20px] flex items-center justify-center hover:bg-muted rounded transition-opacity ${
+          isHovered ? 'opacity-100' : 'opacity-0'
+        }`}
+        aria-label="Copy to clipboard"
+      >
+        {isCopied ? (
+          <Check className="h-3.5 w-3.5 text-green-500" />
+        ) : (
+          <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+      </button>
     </div>
   );
 };
