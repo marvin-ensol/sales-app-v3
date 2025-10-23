@@ -495,8 +495,7 @@ Deno.serve(async (req) => {
                     total_update_unsuccessful: 0
                   },
                   task_details: tasksAnalysis.tasks_identified
-                },
-                hubspot_membership_timestamp: member.membershipTimestamp
+                }
               }
             });
 
