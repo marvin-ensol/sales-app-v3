@@ -651,7 +651,7 @@ Deno.serve(async (req) => {
                   console.log(`[${executionId}] ✅ Task created: ${createdTask.id}`);
 
                   // Update event with success
-                  await supabase
+                  const { error: updateError } = await supabase
                     .from('events')
                     .update({
                       logs: {
@@ -669,9 +669,13 @@ Deno.serve(async (req) => {
                       }
                     })
                     .eq('id', eventData.id);
+                  
+                  if (updateError) {
+                    console.error(`[${executionId}] ❌ Failed to update event:`, updateError);
+                  }
 
                   // Insert into hs_tasks
-                  await supabase
+                  const { error: insertError } = await supabase
                     .from('hs_tasks')
                     .insert({
                       hs_object_id: createdTask.id,
@@ -685,15 +689,19 @@ Deno.serve(async (req) => {
                       associated_contact_id: member.recordId,
                       created_by_automation: true,
                       created_by_automation_id: automation.id,
-                      archived: false,
+                      archived: false
                     });
+                  
+                  if (insertError) {
+                    console.error(`[${executionId}] ❌ Failed to insert task:`, insertError);
+                  }
 
                 } else {
                   const errorText = await hubspotResponse.text();
                   console.error(`[${executionId}] ❌ Task creation failed:`, errorText);
 
                   // Update event with failure
-                  await supabase
+                  const { error: updateError2 } = await supabase
                     .from('events')
                     .update({
                       logs: {
@@ -710,12 +718,16 @@ Deno.serve(async (req) => {
                       }
                     })
                     .eq('id', eventData.id);
+                  
+                  if (updateError2) {
+                    console.error(`[${executionId}] ❌ Failed to update event:`, updateError2);
+                  }
                 }
               } catch (taskError) {
                 console.error(`[${executionId}] ❌ Task creation error:`, taskError);
                 
                 // Update event with failure
-                await supabase
+                const { error: updateError3 } = await supabase
                   .from('events')
                   .update({
                     logs: {
@@ -729,8 +741,13 @@ Deno.serve(async (req) => {
                           hs_update_successful: false
                         }]
                       }
-                    })
+                    }
+                  })
                   .eq('id', eventData.id);
+                
+                if (updateError3) {
+                  console.error(`[${executionId}] ❌ Failed to update event:`, updateError3);
+                }
               }
             }
           } catch (entryError) {
