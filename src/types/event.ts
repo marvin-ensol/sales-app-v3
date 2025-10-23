@@ -31,7 +31,8 @@ export interface CallDetails {
 
 export interface TaskUpdates {
   summary: {
-    total_eligible: number;
+    total_incomplete: number;
+    total_automation_eligible: number;
     total_update_successful: number;
     total_update_unsuccessful: number;
   };

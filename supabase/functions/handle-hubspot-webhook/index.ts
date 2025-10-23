@@ -380,7 +380,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
               call_details: callDetailsLog,
               task_updates: {
                 summary: {
-                  total_eligible: 0,
+                  total_incomplete: 0,
+                  total_automation_eligible: 0,
                   total_update_successful: 0,
                   total_update_unsuccessful: 0
                 },
@@ -456,12 +457,13 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         };
       });
 
-      const totalEligible = eligibleTasks.length;
+      const totalIncomplete = eligibleTasks.length;
       const tasksWithAutomation = eligibleTasks.filter(t => t.automation_enabled);
+      const totalAutomationEligible = tasksWithAutomation.length;
       const overdueCount = eligibleTasks.filter(t => t.status === 'overdue').length;
       const futureCount = eligibleTasks.filter(t => t.status === 'future').length;
 
-      console.log(`[Call Creations] Found ${totalEligible} eligible tasks (${overdueCount} overdue, ${futureCount} future), ${tasksWithAutomation.length} with automation enabled`);
+      console.log(`[Call Creations] Found ${totalIncomplete} incomplete tasks, ${totalAutomationEligible} automation-eligible (${overdueCount} overdue, ${futureCount} future)`);
 
       // Step 4: Update event with task identification results (before processing)
       await supabase
@@ -471,7 +473,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             call_details: callDetailsLog,
             task_updates: {
               summary: {
-                total_eligible: totalEligible,
+                total_incomplete: totalIncomplete,
+                total_automation_eligible: totalAutomationEligible,
                 total_update_successful: 0,
                 total_update_unsuccessful: 0
               },
@@ -502,7 +505,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
               call_details: callDetailsLog,
               task_updates: {
                 summary: {
-                  total_eligible: totalEligible,
+                  total_incomplete: totalIncomplete,
+                  total_automation_eligible: totalAutomationEligible,
                   total_update_successful: 0,
                   total_update_unsuccessful: 0
                 },
@@ -581,7 +585,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
               call_details: callDetailsLog,
               task_updates: {
                 summary: {
-                  total_eligible: totalEligible,
+                  total_incomplete: totalIncomplete,
+                  total_automation_eligible: totalAutomationEligible,
                   total_update_successful: 0,
                   total_update_unsuccessful: tasksToProcess.length
                 },
@@ -765,7 +770,8 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
             call_details: callDetailsLog,
             task_updates: {
               summary: {
-                total_eligible: totalEligible,
+                total_incomplete: totalIncomplete,
+                total_automation_eligible: totalAutomationEligible,
                 total_update_successful: updateSuccessful,
                 total_update_unsuccessful: updateUnsuccessful
               },
@@ -790,7 +796,7 @@ async function processCallCreations(events: HubSpotWebhookEvent[], supabase: any
         })
         .eq('id', eventId);
 
-      console.log(`[Call Creations] Updated event ${eventId} with final counts: ${updateSuccessful} successful, ${updateUnsuccessful} unsuccessful out of ${totalEligible} eligible`);
+      console.log(`[Call Creations] Updated event ${eventId} with final counts: ${updateSuccessful} successful, ${updateUnsuccessful} unsuccessful out of ${totalIncomplete} incomplete (${totalAutomationEligible} automation-eligible)`);
       console.log(`[Call Creations] Completed ${tasksToComplete.length} overdue tasks (is_skipped=null) and ${tasksToSkip.length} future tasks (is_skipped=true)`);
       successful++;
 
