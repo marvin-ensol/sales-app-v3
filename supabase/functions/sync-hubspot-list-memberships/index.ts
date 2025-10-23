@@ -1043,12 +1043,30 @@ Deno.serve(async (req) => {
 
             // Update entry event with exit reference
             if (stored?.entry_event_id) {
-              await supabase
+              // Fetch current logs
+              const { data: entryEventData } = await supabase
                 .from('events')
-                .update({
-                  logs: supabase.raw(`logs || '{"exit_event_id": ${exitEvent.id}}'::jsonb`)
-                })
-                .eq('id', stored.entry_event_id);
+                .select('logs')
+                .eq('id', stored.entry_event_id)
+                .single();
+              
+              if (entryEventData) {
+                // Merge exit_event_id into logs
+                const updatedLogs = {
+                  ...entryEventData.logs,
+                  exit_event_id: exitEvent.id
+                };
+                
+                // Update with merged logs
+                const { error: updateEntryError } = await supabase
+                  .from('events')
+                  .update({ logs: updatedLogs })
+                  .eq('id', stored.entry_event_id);
+                
+                if (updateEntryError) {
+                  console.error(`[${executionId}] ❌ Failed to update entry event ${stored.entry_event_id}:`, updateEntryError);
+                }
+              }
             }
             
             console.log(`[${executionId}] ✅ Created list_exit event for contact ${contactId} (autocompleted: ${exitResult.tasks_autocompleted}, blocked: ${exitResult.sequences_blocked})`);
