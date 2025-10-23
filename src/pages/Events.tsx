@@ -135,7 +135,7 @@ const Events = () => {
           <CardContent>
             <div className="space-y-4">
               {/* Main Filters Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Event Type Filter */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium">Event Type</label>
@@ -169,6 +169,20 @@ const Events = () => {
                   </Select>
                 </div>
 
+                {/* Contact IDs Filter */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Contact IDs</label>
+                  <IdFilterInput
+                    placeholder="Add one or more contact ID..."
+                    values={contactIds}
+                    onValuesChange={(values) => {
+                      setContactIds(values as string[]);
+                      setCurrentPage(1);
+                    }}
+                    type="text"
+                  />
+                </div>
+
                 {/* Owner Filter */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium">Owner</label>
@@ -197,10 +211,10 @@ const Events = () => {
                 </div>
               </div>
 
-              {/* ID Filters Row with Action Buttons - 6 column grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              {/* ID Filters Row with Action Buttons */}
+              <div className="flex flex-col md:flex-row gap-4 items-end">
                 {/* Event IDs Filter */}
-                <div className="flex flex-col gap-2 lg:col-span-2">
+                <div className="flex flex-col gap-2 flex-1 md:max-w-md">
                   <label className="text-sm font-medium">Event IDs</label>
                   <IdFilterInput
                     placeholder="Add one or more event ID..."
@@ -213,23 +227,9 @@ const Events = () => {
                   />
                 </div>
 
-                {/* Contact IDs Filter */}
-                <div className="flex flex-col gap-2 lg:col-span-2">
-                  <label className="text-sm font-medium">Contact IDs</label>
-                  <IdFilterInput
-                    placeholder="Add one or more contact ID..."
-                    values={contactIds}
-                    onValuesChange={(values) => {
-                      setContactIds(values as string[]);
-                      setCurrentPage(1);
-                    }}
-                    type="text"
-                  />
-                </div>
-
                 {/* Action Buttons */}
                 {hasActiveFilters && (
-                  <div className="flex items-center gap-2 lg:col-span-2">
+                  <div className="flex items-center gap-2 md:ml-auto">
                     <Button
                       variant="ghost"
                       size="sm"
