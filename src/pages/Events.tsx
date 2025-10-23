@@ -41,7 +41,10 @@ const Events = () => {
       setUpdateStatusFilter(statusParam === 'success' ? 'tasks_updated' : 'tasks_update_failed');
     }
     if (ownerParam) setOwnerFilter(ownerParam);
-    if (eventIdsParam) setEventIds(eventIdsParam.split(',').map(Number));
+    if (eventIdsParam) {
+      const parsedIds = eventIdsParam.split(',').map(Number).filter(id => !isNaN(id) && isFinite(id));
+      setEventIds(parsedIds);
+    }
     if (contactIdsParam) setContactIds(contactIdsParam.split(','));
     if (sortParam === 'oldest') setSortOrder('ASC');
   }, []);
