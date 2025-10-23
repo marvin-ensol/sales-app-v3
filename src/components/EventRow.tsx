@@ -42,14 +42,14 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
     if (event.contact_firstname || event.contact_lastname) {
       return `${event.contact_firstname || ''} ${event.contact_lastname || ''}`.trim();
     }
-    return event.hs_contact_id || 'Unknown';
+    return event.hs_contact_id || '—';
   };
 
   const getOwnerDisplay = () => {
     if (event.owner_firstname && event.owner_lastname) {
       return `${event.owner_firstname} ${event.owner_lastname.charAt(0)}.`;
     }
-    return event.hs_owner_id || 'Unknown';
+    return event.hs_owner_id || '—';
   };
 
   const hasExpandableContent = () => {
@@ -84,7 +84,7 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="text-xs space-y-1">
-                    <div>Direction: {event.logs.call_details.hs_call_direction || 'Unknown'}</div>
+                    <div>Direction: {event.logs.call_details.hs_call_direction || '—'}</div>
                     <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
                   </div>
                 </TooltipContent>
@@ -99,7 +99,7 @@ export const EventRow = ({ event, expandedRowId, onToggleExpand }: EventRowProps
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="text-xs space-y-1">
-                    <div>Direction: {event.logs.call_details.hs_call_direction || 'Unknown'}</div>
+                    <div>Direction: {event.logs.call_details.hs_call_direction || '—'}</div>
                     <div>Duration: {event.logs.call_details.hs_call_duration ? (event.logs.call_details.hs_call_duration / 1000).toFixed(1) : '0.0'}s</div>
                     <div className="text-yellow-500">No contact associated</div>
                   </div>
