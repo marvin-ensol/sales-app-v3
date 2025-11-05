@@ -318,6 +318,21 @@ export type Database = {
           },
         ]
       }
+      hs_tasks_webhooks: {
+        Row: {
+          created_at: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
       hs_users: {
         Row: {
           archived: boolean | null
